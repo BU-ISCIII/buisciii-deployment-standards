@@ -1,0 +1,17 @@
+{
+  "APP_NAME": "Example Application",
+  "APP_SLUG": "example-app",
+  "PROJECT_MODULE": "example_app",
+  "DESCRIPTION": "Describe what the application does and who operates it.",
+  "REPOSITORY_URL": "https://github.com/BU-ISCIII/example-app.git",
+  "DEFAULT_BRANCH": "main",
+  "APP_PORT": "8000",
+  "DB_PORT_HOST": "6606",
+  "INSTALL_PATH": "/opt/example-app",
+  "HOST_DATA_PATH": "/srv/containers/bind/example-app",
+  "HOST_LOG_PATH": "/var/log/local/example-app",
+  "APP_UID": "1212",
+  "APP_GID": "1212",
+  "PYTHON_VERSION": "3.11",
+  "TIMEZONE": "Europe/Madrid"
+}

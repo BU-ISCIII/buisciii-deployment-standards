@@ -1,0 +1,144 @@
+# Instalacion de {{APP_NAME}} en produccion
+
+Este documento es el procedimiento operativo. Sustituye todos los marcadores
+`CHANGE_ME` y valida el procedimiento en preproduccion antes del primer uso.
+
+## 1. Registrar la entrega
+
+- Version o commit: `CHANGE_ME`
+- Imagen y digest: `CHANGE_ME`
+- Operador y fecha: `CHANGE_ME`
+- Copia de seguridad previa: `CHANGE_ME`
+- Ventana y plan de vuelta atras: `CHANGE_ME`
+
+## 2. Validar requisitos
+
+```bash
+git --version
+podman --version
+podman compose version
+df -h {{HOST_DATA_PATH}} {{HOST_LOG_PATH}}
+```
+
+Confirmar DNS, certificado HTTPS, conectividad con MySQL y espacio para copia de
+seguridad. La base de datos no debe estar publicada a Internet.
+
+## 3. Preparar rutas persistentes
+
+```bash
+mkdir -p {{HOST_DATA_PATH}}/documents {{HOST_LOG_PATH}}
+chmod 0775 {{HOST_DATA_PATH}}/documents {{HOST_LOG_PATH}}
+```
+
+Asignar propietario `{{APP_UID}}:{{APP_GID}}` conforme al modelo rootless del
+host. En SELinux se usan montajes `:Z` para datos exclusivos del contenedor.
+
+## 4. Preparar configuracion
+
+```bash
+cp conf/docker_production_settings.txt conf/production_settings.txt
+chmod 600 conf/production_settings.txt
+```
+
+Completar todos los `CHANGE_ME` y revisar:
+
+- base de datos y correo;
+- `DJANGO_DEBUG=false`;
+- hosts, CSRF y CORS;
+- rutas persistentes y UID/GID;
+- puerto local y URL publica;
+- ausencia de usuarios o claves de prueba.
+
+## 5. Crear base de datos y usuario
+
+Ejecutar con una cuenta administrativa y adaptar nombres y permisos:
+
+```sql
+CREATE DATABASE CHANGE_ME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'CHANGE_ME'@'CHANGE_ME' IDENTIFIED BY 'CHANGE_ME';
+GRANT ALL PRIVILEGES ON CHANGE_ME.* TO 'CHANGE_ME'@'CHANGE_ME';
+FLUSH PRIVILEGES;
+```
+
+## 6. Copia de seguridad
+
+```bash
+mysqldump --single-transaction --routines --triggers \
+  -h CHANGE_ME -u CHANGE_ME -p CHANGE_ME \
+  > {{APP_SLUG}}_prechange_YYYYmmdd_HHMM.sql
+```
+
+Respaldar también `{{HOST_DATA_PATH}}/documents` y la configuracion mediante el
+sistema institucional. Verificar que los ficheros existen y no estan vacios.
+
+## 7. Instalar
+
+```bash
+bash container_install.sh --action install --engine podman \
+  --git_revision CHANGE_ME \
+  --install_conf conf/production_settings.txt \
+  2>&1 | tee {{APP_SLUG}}_install_YYYYmmdd_HHMM.log
+```
+
+## 8. Validar
+
+```bash
+podman compose -f docker-compose.prod.yml ps
+podman compose -f docker-compose.prod.yml logs --tail 200 app
+bash scripts/smoke_test.sh --url http://127.0.0.1:{{APP_PORT}}
+curl --fail --show-error --head https://CHANGE_ME/
+```
+
+Completar en `scripts/smoke_test.sh` las operaciones funcionales y autenticadas
+propias de la aplicacion.
+
+## 9. Actualizar
+
+Realizar primero los pasos 1, 2, 4 y 6. Después:
+
+```bash
+bash container_install.sh --action upgrade --engine podman \
+  --git_revision CHANGE_ME \
+  --install_conf conf/production_settings.txt \
+  2>&1 | tee {{APP_SLUG}}_upgrade_YYYYmmdd_HHMM.log
+```
+
+Repetir todas las comprobaciones del paso 8.
+
+## 10. Reparar permisos
+
+```bash
+bash container_install.sh --action fix-permissions --engine podman \
+  --install_conf conf/production_settings.txt
+```
+
+Esta accion no debe reconstruir imagenes, migrar la base de datos ni borrar
+datos.
+
+## 11. Restaurar o volver atras
+
+1. Detener el acceso publico.
+2. Conservar logs y estado fallido para el diagnostico.
+3. Volver a la imagen o revision anterior.
+4. Si las migraciones no son compatibles, restaurar la base de datos y los
+   documentos del mismo punto de recuperacion.
+5. Arrancar y ejecutar el paso 8 completo.
+
+Ejemplo de restauracion de base de datos, despues de validar el destino:
+
+```bash
+mysql -h CHANGE_ME -u CHANGE_ME -p CHANGE_ME < CHANGE_ME.sql
+```
+
+## 12. Operaciones y diagnostico
+
+```bash
+podman compose -f docker-compose.prod.yml ps
+podman compose -f docker-compose.prod.yml logs -f app
+podman compose -f docker-compose.prod.yml restart app
+podman compose -f docker-compose.prod.yml exec app bash
+```
+
+Registrar aqui particularidades reales de proxy, monitorizacion, backups,
+contactos y recuperacion antes de aprobar el procedimiento.
+

@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_VERSION="0.1.0"
+ACTION="install"
+MODE="production"
+ENGINE="docker"
+GIT_REVISION="current"
+INSTALL_CONF=""
+COMPOSE_FILE=""
+INSTALL_CONF_MAP=()
+SCRIPT_BEFORE=()
+SCRIPT_AFTER=()
+LOAD_TABLES="false"
+SKIP_TABLES="false"
+REQUESTED_INTERNAL_WORKFLOW=""
+
+usage() {
+    cat <<'EOF'
+Install, upgrade, or repair the {{APP_NAME}} container deployment.
+
+Usage:
+  ./container_install.sh [canonical options]
+
+Canonical options:
+  --action install|upgrade|fix-permissions
+  --test
+  --engine docker|podman
+  --git_revision <branch|tag|commit|current>
+  --install_conf <path>
+  --install_conf_map <service,path>  Repeatable service-specific configuration.
+  --compose_file <path>
+  --stage                         Recognized internal phase; direct use rejected.
+  --bootstrap                     Recognized internal phase; direct use rejected.
+  --help
+  --version
+
+Bootstrap options:
+  --script_before <name[,args]>      Repeatable pre-migration hook.
+  --script_after <name[,args]>       Repeatable post-migration hook.
+  --script <name[,args]>             Alias for --script_after.
+  --tables
+  --skip_tables
+
+Examples:
+  ./container_install.sh --test --action install --git_revision current \
+    --install_conf conf/docker_test_settings.txt
+  ./container_install.sh --action upgrade --engine podman \
+    --git_revision v1.2.0 --install_conf conf/production_settings.txt
+EOF
+}
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+while (($#)); do
+    case "$1" in
+        --action) ACTION="${2:-}"; shift 2 ;;
+        --test) MODE="test"; shift ;;
+        --engine) ENGINE="${2:-}"; shift 2 ;;
+        --git_revision) GIT_REVISION="${2:-}"; shift 2 ;;
+        --install_conf) INSTALL_CONF="${2:-}"; shift 2 ;;
+        --install_conf_map) INSTALL_CONF_MAP+=("${2:-}"); shift 2 ;;
+        --compose_file) COMPOSE_FILE="${2:-}"; shift 2 ;;
+        --stage) REQUESTED_INTERNAL_WORKFLOW="stage"; shift ;;
+        --bootstrap) REQUESTED_INTERNAL_WORKFLOW="bootstrap"; shift ;;
+        --script_before) SCRIPT_BEFORE+=("${2:-}"); shift 2 ;;
+        --script_after|--script) SCRIPT_AFTER+=("${2:-}"); shift 2 ;;
+        --tables) LOAD_TABLES="true"; shift ;;
+        --skip_tables) SKIP_TABLES="true"; LOAD_TABLES="false"; shift ;;
+        --help) usage; exit 0 ;;
+        --version) echo "$APP_VERSION"; exit 0 ;;
+        *) die "Unknown option: $1" ;;
+    esac
+done
+
+[[ "$ACTION" =~ ^(install|upgrade|fix-permissions)$ ]] || die "Invalid --action: $ACTION"
+[[ "$ENGINE" =~ ^(docker|podman)$ ]] || die "Invalid --engine: $ENGINE"
+[[ -z "$REQUESTED_INTERNAL_WORKFLOW" ]] \
+    || die "--${REQUESTED_INTERNAL_WORKFLOW} is internal to container_install.sh and cannot be selected directly"
+
+if [[ "$ENGINE" == "docker" ]]; then
+    command -v docker >/dev/null || die "docker is not installed"
+    COMPOSE=(docker compose)
+    ENGINE_CMD=(docker)
+else
+    command -v podman >/dev/null || die "podman is not installed"
+    ENGINE_CMD=(podman)
+    if command -v podman-compose >/dev/null; then
+        COMPOSE=(podman-compose)
+    else
+        podman compose version >/dev/null 2>&1 || die "Podman Compose is unavailable"
+        COMPOSE=(podman compose)
+    fi
+fi
+
+if [[ "$MODE" == "test" ]]; then
+    COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.test.yml}"
+    INSTALL_CONF="${INSTALL_CONF:-conf/docker_test_settings.txt}"
+    BUILD_INSTALL_CONF="conf/docker_test_settings.txt"
+else
+    COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+    [[ -n "$INSTALL_CONF" ]] || die "Production requires --install_conf"
+    BUILD_INSTALL_CONF="conf/docker_production_settings.txt"
+fi
+[[ -f "$COMPOSE_FILE" ]] || die "Compose file not found: $COMPOSE_FILE"
+[[ -f "$INSTALL_CONF" ]] || die "Configuration not found: $INSTALL_CONF"
+if ((${#INSTALL_CONF_MAP[@]})); then
+    die "--install_conf_map is recognized but multi-service mapping is not implemented by this single-service scaffold"
+fi
+
+# shellcheck disable=SC1090
+source "$INSTALL_CONF"
+: "${APP_UID:?APP_UID is required}"
+: "${APP_GID:?APP_GID is required}"
+: "${HOST_DATA_PATH:?HOST_DATA_PATH is required}"
+: "${HOST_LOG_PATH:?HOST_LOG_PATH is required}"
+
+if [[ "$MODE" == "production" ]] && grep -Eq "^[A-Z0-9_]+=.*CHANGE_ME" "$INSTALL_CONF"; then
+    die "Production configuration still contains CHANGE_ME values"
+fi
+
+compose() {
+    GIT_REVISION="$GIT_REVISION" BUILD_INSTALL_CONF="$BUILD_INSTALL_CONF" \
+        "${COMPOSE[@]}" --env-file "$INSTALL_CONF" -f "$COMPOSE_FILE" "$@"
+}
+
+prepare_permissions() {
+    mkdir -p "$HOST_DATA_PATH/documents" "$HOST_LOG_PATH"
+    chmod 0775 "$HOST_DATA_PATH/documents" "$HOST_LOG_PATH"
+    if [[ "$ENGINE" == "podman" ]]; then
+        podman unshare chown -R "$APP_UID:$APP_GID" \
+            "$HOST_DATA_PATH/documents" "$HOST_LOG_PATH" \
+            || die "Unable to set rootless Podman ownership"
+    fi
+}
+
+prepare_permissions
+if [[ "$ACTION" == "fix-permissions" ]]; then
+    echo "Permissions repaired; no image, migration, or data operation was run."
+    exit 0
+fi
+
+compose config >/dev/null
+compose build --build-arg GIT_REVISION="$GIT_REVISION" \
+    --build-arg INSTALL_CONF="$BUILD_INSTALL_CONF" app
+compose up -d
+
+container_id="$(compose ps -q app)"
+[[ -n "$container_id" ]] || die "Unable to resolve app container"
+
+deadline=$((SECONDS + 120))
+until compose exec -T app test -f {{INSTALL_PATH}}/manage.py; do
+    ((SECONDS < deadline)) || {
+        compose logs --tail 200 app
+        die "Application did not become ready within 120 seconds"
+    }
+    sleep 2
+done
+
+RUNTIME_CONF="/tmp/bu-isciii-install-settings.txt"
+"${ENGINE_CMD[@]}" cp "$INSTALL_CONF" "${container_id}:${RUNTIME_CONF}"
+"${ENGINE_CMD[@]}" exec --user 0 "$container_id" \
+    chown "$APP_UID:$APP_GID" "$RUNTIME_CONF"
+"${ENGINE_CMD[@]}" exec --user 0 "$container_id" chmod 0600 "$RUNTIME_CONF"
+
+bootstrap_args=(--bootstrap "$ACTION" --engine "$ENGINE" --git_revision "$GIT_REVISION" --install_conf "$RUNTIME_CONF")
+for hook in "${SCRIPT_BEFORE[@]}"; do bootstrap_args+=(--script_before "$hook"); done
+for hook in "${SCRIPT_AFTER[@]}"; do bootstrap_args+=(--script_after "$hook"); done
+[[ "$LOAD_TABLES" == "true" ]] && bootstrap_args+=(--tables)
+[[ "$SKIP_TABLES" == "true" ]] && bootstrap_args+=(--skip_tables)
+
+bootstrap_status=0
+compose exec -T app bash "/srv/{{APP_SLUG}}/install.sh" "${bootstrap_args[@]}" \
+    || bootstrap_status=$?
+"${ENGINE_CMD[@]}" exec --user 0 "$container_id" rm -f "$RUNTIME_CONF"
+((bootstrap_status == 0)) || die "Application bootstrap failed with status $bootstrap_status"
+echo "$ACTION completed. Run: bash scripts/smoke_test.sh --url http://127.0.0.1:{{APP_PORT}}"

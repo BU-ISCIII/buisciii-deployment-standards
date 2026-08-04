@@ -1,0 +1,182 @@
+# {{APP_NAME}}
+
+{{DESCRIPTION}}
+
+## Infrastructure overview
+
+The supported baseline contains:
+
+- `app`: Django/Gunicorn application on internal port `{{APP_PORT}}`;
+- `db`: MySQL used only by the isolated test stack;
+- an external MySQL-compatible database for production;
+- a host or institutional reverse proxy responsible for public HTTPS.
+
+Production exposes the application on `127.0.0.1:{{APP_PORT}}` by default. It
+does not publish the database.
+
+## Get the code
+
+```bash
+git clone {{REPOSITORY_URL}} {{APP_SLUG}}
+cd {{APP_SLUG}}
+git switch {{DEFAULT_BRANCH}}
+```
+
+All commands below run from the repository root.
+
+## Choose an installation path
+
+- **Local test**: application and disposable MySQL database in containers.
+- **Production containers**: application container using an external database.
+- **Bare metal**: supported through `install.sh`; mark this unsupported and
+  remove its instructions if the application will only run in containers.
+
+## Minimum requirements
+
+- Git 2.34 or newer
+- Docker with Compose v2, or Podman with a Compose provider
+- Python {{PYTHON_VERSION}} for bare-metal installation
+- Production DNS and TLS termination
+- Production MySQL credentials and network access
+- Write access to `{{HOST_DATA_PATH}}` and `{{HOST_LOG_PATH}}`
+
+## Configuration
+
+Configuration fields and examples are documented in
+[`conf/INSTALL_SETTINGS.md`](conf/INSTALL_SETTINGS.md). Test defaults are in
+`conf/docker_test_settings.txt`. For production:
+
+```bash
+cp conf/docker_production_settings.txt conf/production_settings.txt
+chmod 600 conf/production_settings.txt
+```
+
+Edit every `CHANGE_ME` value. Never commit `conf/production_settings.txt`.
+
+## Local test installation
+
+```bash
+bash container_install.sh --test --action install \
+  --engine docker --git_revision current \
+  --install_conf conf/docker_test_settings.txt
+```
+
+Use `--engine podman` for Podman. Verify the result:
+
+```bash
+bash scripts/smoke_test.sh --url http://127.0.0.1:{{APP_PORT}}
+docker compose -f docker-compose.test.yml ps
+docker compose -f docker-compose.test.yml logs --tail 100 app
+```
+
+Remove containers while preserving the database:
+
+```bash
+docker compose -f docker-compose.test.yml down
+```
+
+Delete the disposable test database only when intended:
+
+```bash
+docker compose -f docker-compose.test.yml down -v
+```
+
+## Production container installation
+
+Prepare the external database, host directories, reverse proxy, and production
+configuration first. Then run:
+
+```bash
+bash container_install.sh --action install --engine podman \
+  --git_revision <release-tag-or-commit> \
+  --install_conf conf/production_settings.txt
+```
+
+After installation, run the smoke test locally and through the public HTTPS
+endpoint. See [LEAME.md](LEAME.md) for the complete operator procedure.
+
+## Upgrade
+
+1. Read the release notes and confirm the supported upgrade path.
+2. Back up the database and persistent documents.
+3. Record the current image and Git revision.
+4. Run:
+
+```bash
+bash container_install.sh --action upgrade --engine podman \
+  --git_revision <new-release-tag-or-commit> \
+  --install_conf conf/production_settings.txt
+```
+
+5. Run the complete smoke test and inspect logs.
+
+### Stage and bootstrap lifecycle
+
+Container images run the application installer in stage mode:
+
+```bash
+bash install.sh --action install --stage --git_revision current \
+  --install_conf conf/docker_production_settings.txt
+```
+
+This installs dependencies and application files without contacting a database
+or requiring runtime secrets. After dependencies and the application container
+are running, `container_install.sh` copies the selected runtime configuration
+into the container and invokes:
+
+```bash
+bash install.sh --action install --bootstrap \
+  --install_conf /tmp/bu-isciii-install-settings.txt
+```
+
+For upgrades, `--script_before` and `--script_after` can be repeated to run
+Django-extensions migration hooks around `manage.py migrate`. `--script` is an
+alias for `--script_after`. Initial fixtures run only when `--tables` is passed;
+use `--skip_tables` to make the choice explicit.
+
+## Persistence and backups
+
+| Data | Location | Backup |
+|---|---|---|
+| Database | External production MySQL | `mysqldump` according to `LEAME.md` |
+| Documents | `{{HOST_DATA_PATH}}/documents` | Filesystem backup |
+| Logs | `{{HOST_LOG_PATH}}` | Host log retention policy |
+| Configuration | Secure operator storage | Encrypted configuration backup |
+
+Container images and static build artifacts are replaceable and are not a
+substitute for source/version records.
+
+## Restore and rollback
+
+Application-only rollback is permitted only when the previous version supports
+the current database schema. Otherwise restore both the database backup and
+persistent files from the same recovery point. Exact commands and the decision
+sequence are in [LEAME.md](LEAME.md).
+
+## Routine operations
+
+```bash
+podman compose -f docker-compose.prod.yml ps
+podman compose -f docker-compose.prod.yml logs -f app
+podman compose -f docker-compose.prod.yml restart app
+podman compose -f docker-compose.prod.yml exec app bash
+```
+
+## Testing
+
+The required installation acceptance test checks container state, application
+health, database connectivity through Django, migrations, static files, and the
+public endpoint. Add application-specific authenticated workflows to
+`scripts/smoke_test.sh`.
+
+## Troubleshooting
+
+- **Database timeout**: verify host, port, firewall, grants, and container-to-host
+  routing.
+- **Permission denied**: run `--action fix-permissions` and verify UID/GID and
+  SELinux labels.
+- **Unapplied migrations**: inspect logs; do not fake migrations without a
+  reviewed recovery plan.
+- **502 from proxy**: test the loopback application URL, then proxy routing.
+- **Unexpected configuration**: identify whether the value is build-time or
+  runtime and recreate the correct artifact.

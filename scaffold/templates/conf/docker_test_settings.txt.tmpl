@@ -1,0 +1,23 @@
+# Safe local/test values. Never use these credentials in production.
+INSTALL_PATH='{{INSTALL_PATH}}'
+PROJECT_MODULE='{{PROJECT_MODULE}}'
+PYTHON_BIN_PATH='python{{PYTHON_VERSION}}'
+
+APP_UID='{{APP_UID}}'
+APP_GID='{{APP_GID}}'
+APP_PORT='{{APP_PORT}}'
+HOST_DATA_PATH='/tmp/{{APP_SLUG}}/data'
+HOST_LOG_PATH='/tmp/{{APP_SLUG}}/logs'
+
+DB_HOST='db'
+DB_PORT='3306'
+DB_NAME='{{PROJECT_MODULE}}'
+DB_USER='django'
+DB_PASSWORD='djangopass'
+DB_ROOT_PASSWORD='root'
+
+DJANGO_DEBUG='true'
+DJANGO_SECRET_KEY='test-only-change-me'
+DJANGO_ALLOWED_HOSTS='localhost,127.0.0.1,0.0.0.0'
+GUNICORN_KEEPALIVE='5'
+APP_START_WAIT_TIMEOUT_SECONDS='100'

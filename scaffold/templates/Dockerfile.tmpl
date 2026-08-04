@@ -1,0 +1,49 @@
+FROM registry.access.redhat.com/ubi9/ubi-minimal
+
+ARG APP_UID={{APP_UID}}
+ARG APP_GID={{APP_GID}}
+ARG APP_INSTALL_PATH={{INSTALL_PATH}}
+ARG GIT_REVISION=current
+ARG INSTALL_CONF=conf/docker_test_settings.txt
+
+ENV APP_INSTALL_PATH=${APP_INSTALL_PATH} \
+    INSTALL_PATH=${APP_INSTALL_PATH} \
+    APP_PORT={{APP_PORT}} \
+    PROJECT_MODULE={{PROJECT_MODULE}} \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TZ={{TIMEZONE}}
+
+RUN microdnf -y update && \
+    microdnf -y install python{{PYTHON_VERSION}} python{{PYTHON_VERSION}}-pip \
+      python{{PYTHON_VERSION}}-devel gcc git rsync wget mariadb-connector-c-devel shadow-utils && \
+    microdnf clean all
+
+ARG SUPERCRONIC_VERSION=v0.2.38
+RUN set -eux; \
+    arch="$(uname -m)"; \
+    case "$arch" in \
+      x86_64) supercronic_arch="amd64" ;; \
+      aarch64) supercronic_arch="arm64" ;; \
+      *) echo "Unsupported architecture for supercronic: $arch" >&2; exit 1 ;; \
+    esac; \
+    wget -q -O /usr/local/bin/supercronic \
+      "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${supercronic_arch}"; \
+    chmod 0755 /usr/local/bin/supercronic
+
+WORKDIR /srv/{{APP_SLUG}}
+COPY . /srv/{{APP_SLUG}}/
+
+# The baseline install stages application files and dependencies at build time.
+RUN bash install.sh --action install --engine docker \
+      --stage install --git_revision "${GIT_REVISION}" --install_conf "${INSTALL_CONF}" && \
+    groupadd -g "${APP_GID}" app && \
+    useradd -u "${APP_UID}" -g "${APP_GID}" -s /sbin/nologin app && \
+    chown -R "${APP_UID}:${APP_GID}" "${APP_INSTALL_PATH}" /srv/{{APP_SLUG}}
+
+WORKDIR ${APP_INSTALL_PATH}
+USER ${APP_UID}:${APP_GID}
+EXPOSE {{APP_PORT}}
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:{{APP_PORT}}/health/', timeout=3)" || exit 1
+CMD ["/srv/{{APP_SLUG}}/scripts/container_start.sh"]

@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_VERSION="0.1.0"
+ACTION="install"
+WORKFLOW="standard"
+MODE="production"
+ENGINE="docker"
+GIT_REVISION="current"
+INSTALL_CONF=""
+COMPOSE_FILE=""
+INSTALL_CONF_MAP=()
+LOAD_TABLES="false"
+SKIP_TABLES="false"
+SCRIPT_BEFORE=()
+SCRIPT_AFTER=()
+
+usage() {
+    cat <<'EOF'
+Install, stage, or bootstrap {{APP_NAME}}.
+
+Usage:
+  ./install.sh [canonical options] [workflow options]
+
+Canonical options:
+  --action install|upgrade|fix-permissions
+  --test
+  --engine docker|podman
+  --git_revision <branch|tag|commit|current>
+  --install_conf <path>
+  --compose_file <path>      Recognized but not applicable to install.sh.
+  --install_conf_map <service,path>
+                             Recognized but not applicable to this scaffold.
+  --help
+  --version
+
+Workflow options:
+  --stage                    Stage dependencies and application files only.
+  --bootstrap                Run database/runtime bootstrap against staged files.
+  --script_before <name[,args]>
+                             Django-extensions script before migrations; repeatable.
+  --script_after <name[,args]>
+                             Django-extensions script after migrations; repeatable.
+  --script <name[,args]>     Compatibility alias for --script_after; repeatable.
+  --tables                   Load conf/first_install_tables.json after migrations.
+  --skip_tables              Never load initial tables.
+
+Compatibility aliases:
+  --install full|dep|app, --upgrade full|dep|app, --conf <path>,
+  --stage install|upgrade, and --bootstrap install|upgrade may be retained by
+  existing projects. New documentation uses --action plus --stage/--bootstrap.
+EOF
+}
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+while (($#)); do
+    case "$1" in
+        --action) ACTION="${2:-}"; shift 2 ;;
+        --test) MODE="test"; shift ;;
+        --engine) ENGINE="${2:-}"; shift 2 ;;
+        --git_revision) GIT_REVISION="${2:-}"; shift 2 ;;
+        --install_conf|--conf) INSTALL_CONF="${2:-}"; shift 2 ;;
+        --compose_file) COMPOSE_FILE="${2:-}"; shift 2 ;;
+        --install_conf_map) INSTALL_CONF_MAP+=("${2:-}"); shift 2 ;;
+        --stage)
+            WORKFLOW="stage"
+            if [[ "${2:-}" =~ ^(install|upgrade)$ ]]; then ACTION="$2"; shift 2; else shift; fi
+            ;;
+        --bootstrap)
+            WORKFLOW="bootstrap"
+            if [[ "${2:-}" =~ ^(install|upgrade)$ ]]; then ACTION="$2"; shift 2; else shift; fi
+            ;;
+        --install)
+            ACTION="install"; WORKFLOW="standard"
+            [[ "${2:-}" =~ ^(full|dep|app)$ ]] && shift 2 || shift
+            ;;
+        --upgrade)
+            ACTION="upgrade"; WORKFLOW="standard"
+            [[ "${2:-}" =~ ^(full|dep|app)$ ]] && shift 2 || shift
+            ;;
+        --script_before) SCRIPT_BEFORE+=("${2:-}"); shift 2 ;;
+        --script_after|--script) SCRIPT_AFTER+=("${2:-}"); shift 2 ;;
+        --tables) LOAD_TABLES="true"; shift ;;
+        --skip_tables) SKIP_TABLES="true"; LOAD_TABLES="false"; shift ;;
+        --help) usage; exit 0 ;;
+        --version) echo "$APP_VERSION"; exit 0 ;;
+        *) die "Unknown option: $1" ;;
+    esac
+done
+
+[[ "$ACTION" =~ ^(install|upgrade|fix-permissions)$ ]] || die "Invalid --action: $ACTION"
+[[ "$ENGINE" =~ ^(docker|podman)$ ]] || die "Invalid --engine: $ENGINE"
+[[ -z "$COMPOSE_FILE" ]] || die "--compose_file is not applicable to install.sh"
+((${#INSTALL_CONF_MAP[@]} == 0)) \
+    || die "--install_conf_map is not applicable to this single-service install.sh"
+[[ "$ACTION" != "fix-permissions" ]] \
+    || die "--action fix-permissions is not implemented for bare-metal installation"
+[[ "$WORKFLOW" != "stage" || ${#SCRIPT_BEFORE[@]} -eq 0 && ${#SCRIPT_AFTER[@]} -eq 0 ]] \
+    || die "Migration scripts cannot run during the stage workflow"
+
+if [[ -z "$INSTALL_CONF" ]]; then
+    [[ "$MODE" == "test" ]] || die "Production requires --install_conf"
+    INSTALL_CONF="conf/docker_test_settings.txt"
+fi
+[[ -f "$INSTALL_CONF" ]] || die "Configuration not found: $INSTALL_CONF"
+if [[ "$MODE" == "production" && "$WORKFLOW" != "stage" ]] \
+    && grep -Eq "^[A-Z0-9_]+=.*CHANGE_ME" "$INSTALL_CONF"; then
+    die "Production configuration still contains CHANGE_ME values"
+fi
+
+# shellcheck disable=SC1090
+source "$INSTALL_CONF"
+: "${INSTALL_PATH:?INSTALL_PATH is required}"
+: "${PROJECT_MODULE:?PROJECT_MODULE is required}"
+: "${PYTHON_BIN_PATH:?PYTHON_BIN_PATH is required}"
+
+validate_revision() {
+    [[ "$GIT_REVISION" == "current" ]] && return 0
+    git rev-parse --verify "${GIT_REVISION}^{commit}" >/dev/null 2>&1 \
+        || die "Git revision is not available locally: $GIT_REVISION"
+}
+
+stage_application() {
+    validate_revision
+    mkdir -p "$INSTALL_PATH"
+    if [[ ! -d "$INSTALL_PATH/virtualenv" ]]; then
+        "$PYTHON_BIN_PATH" -m venv "$INSTALL_PATH/virtualenv"
+    fi
+    # shellcheck disable=SC1091
+    source "$INSTALL_PATH/virtualenv/bin/activate"
+    python -m pip install --upgrade pip
+    python -m pip install -r conf/requirements.txt
+    rsync -rl --delete \
+        --exclude .git --exclude .env --exclude logs --exclude documents \
+        ./ "$INSTALL_PATH/"
+    mkdir -p "$INSTALL_PATH/logs" "$INSTALL_PATH/documents" \
+        "$INSTALL_PATH/static" "$INSTALL_PATH/cron" "$INSTALL_PATH/tmp"
+    printf '%s\n' "$GIT_REVISION" > "$INSTALL_PATH/.deployed_revision"
+}
+
+run_hook() {
+    local specification="$1"
+    local script_name="${specification%%,*}"
+    [[ -n "$script_name" ]] || die "Empty migration script name"
+    if [[ "$specification" == *,* ]]; then
+        local script_args="${specification#*,}"
+        python manage.py runscript "$script_name" --script-args "$script_args"
+    else
+        python manage.py runscript "$script_name"
+    fi
+}
+
+bootstrap_application() {
+    [[ -f "$INSTALL_PATH/manage.py" ]] \
+        || die "manage.py not found at $INSTALL_PATH; run --stage first"
+    [[ -f "$INSTALL_PATH/virtualenv/bin/activate" ]] \
+        || die "virtualenv not found at $INSTALL_PATH; run --stage first"
+    cd "$INSTALL_PATH"
+    # shellcheck disable=SC1091
+    source virtualenv/bin/activate
+    python manage.py check
+    local hook
+    for hook in "${SCRIPT_BEFORE[@]}"; do run_hook "$hook"; done
+    python manage.py migrate --noinput
+    if [[ "$LOAD_TABLES" == "true" && "$SKIP_TABLES" == "false" ]]; then
+        [[ -f conf/first_install_tables.json ]] \
+            || die "Initial table fixture not found: conf/first_install_tables.json"
+        python manage.py loaddata conf/first_install_tables.json
+    fi
+    for hook in "${SCRIPT_AFTER[@]}"; do run_hook "$hook"; done
+    python manage.py collectstatic --noinput
+    python manage.py showmigrations --plan >/dev/null
+}
+
+case "$WORKFLOW" in
+    stage) stage_application ;;
+    bootstrap) bootstrap_application ;;
+    standard) stage_application; bootstrap_application ;;
+    *) die "Invalid workflow: $WORKFLOW" ;;
+esac
+
+printf '%s %s completed for {{APP_NAME}} at %s\n' "$WORKFLOW" "$ACTION" "$INSTALL_PATH"

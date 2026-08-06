@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reduced configuration to one production/test settings pair per application:
+  internal build/bootstrap paths are no longer descriptor inputs, and Apache
+  or Keycloak reuse namespaced sections in a selected application settings
+  file instead of creating add-on-specific files.
 - Consolidated `container_install.sh`, README, LEAME, the Compose document,
   `.dockerignore`, `.gitignore` and smoke dispatch into common templates used by
   standalone and multi-service deployments.

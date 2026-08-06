@@ -23,7 +23,7 @@ All selected services and add-ons are assembled into one
 
 - Docker with Compose v2, or Podman with a Compose provider.
 - Git and access to every declared service build context.
-- Protected production settings for every configured service/add-on.
+- One protected production settings file for every application service.
 - Production DNS, TLS termination, databases, storage and backup destinations
   required by the selected profiles.
 
@@ -32,6 +32,8 @@ All selected services and add-ons are assembled into one
 Each application repository owns its configuration template. Copy it to a
 protected, ignored file, set mode `0600`, and resolve every `CHANGE_ME` value.
 Browser-visible `VITE_*` values MUST NOT contain secrets.
+Apache and Keycloak settings appear as commented `APACHE_*` and `KEYCLOAK_*`
+sections in the selected application's same settings file.
 
 The installer generates one protected `.env.production.file` or
 `.env.test.file`. Service prefixes prevent collisions between settings such as

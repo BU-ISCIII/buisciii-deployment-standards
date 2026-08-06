@@ -3,7 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="$(mktemp -d)"
-trap 'rm -rf "$target"' EXIT
+single_target="$(mktemp -d)"
+trap 'rm -rf "$target" "$single_target"' EXIT
 
 python3 "$repo_root/scripts/scaffold.py" init "$target" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
@@ -46,10 +47,19 @@ grep -Fq 'ProxyPass / http://web:8080/' "$target/deployment/apache/01-reverse-pr
 grep -Fq 'ProxyPass / http://keycloak:8080/' "$target/deployment/apache/01-reverse-proxy.conf"
 grep -Fq 'AllowEncodedSlashes NoDecode' "$target/deployment/apache/01-reverse-proxy.conf"
 grep -Fq 'LimitRequestBody ${APACHE_LIMIT_REQUEST_BODY}' "$target/deployment/apache/01-reverse-proxy.conf"
-test -f "$target/conf/apache_production_settings.txt"
-test -f "$target/conf/apache_test_settings.txt"
-test -f "$target/conf/keycloak_production_settings.txt"
-test -f "$target/conf/keycloak_test_settings.txt"
+test ! -e "$target/conf/apache_production_settings.txt"
+test ! -e "$target/conf/keycloak_production_settings.txt"
+grep -Fq '# Apache add-on' "$target/conf/docker_production_settings.txt"
+grep -Fq "APACHE_PORT='80'" "$target/conf/docker_production_settings.txt"
+grep -Fq '# Keycloak add-on' "$target/conf/docker_production_settings.txt"
+grep -Fq "KEYCLOAK_DB_PASSWORD='CHANGE_ME'" "$target/conf/docker_production_settings.txt"
+grep -Fq "APACHE_PORT='8088'" "$target/conf/docker_test_settings.txt"
+grep -Fq "KEYCLOAK_DB_PASSWORD='keycloak_password'" "$target/conf/docker_test_settings.txt"
+grep -Fq 'configured_services=(api web)' "$target/container_install.sh"
+grep -Fq 'config_value_or_default APACHE_PORT "${install_conf_host_by_service[web]}"' \
+    "$target/container_install.sh"
+grep -Fq 'config_value KEYCLOAK_DB_PASSWORD "${install_conf_host_by_service[web]}"' \
+    "$target/container_install.sh"
 
 # Add-ons and profile fragments are assembled into the final files; they are
 # not emitted as operator-facing Compose overlays.
@@ -63,5 +73,16 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" sync "$target" >/dev/null
 test ! -e "$prod.bu-isciii-update"
+
+# A standalone application selects its only settings file for Apache without
+# requiring CONFIG_SERVICE or separate add-on configuration files.
+python3 "$repo_root/scripts/scaffold.py" init "$single_target" \
+    --config "$repo_root/tests/fixtures/single_django_apache.json" >/dev/null
+grep -Fq 'configured_services=(app)' "$single_target/container_install.sh"
+grep -Fq 'config_value_or_default APACHE_PORT "${install_conf_host_by_service[app]}"' \
+    "$single_target/container_install.sh"
+grep -Fq '# Apache add-on' "$single_target/conf/docker_production_settings.txt"
+test ! -e "$single_target/conf/apache_production_settings.txt"
+test ! -e "$single_target/conf/apache_test_settings.txt"
 
 echo "Mixed-profile orchestrator scaffold tests passed."

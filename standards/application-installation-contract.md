@@ -429,6 +429,14 @@ without collisions. Applications explicitly add only derived deployment values
 such as image tags, build-configuration paths, and the requested Git revision;
 they MUST NOT maintain a duplicate placeholder for every application setting.
 
+There MUST be exactly one production and one test settings source per
+application service. Internal test-build and temporary bootstrap paths are
+fixed by the scaffold and MUST NOT appear in `project.json`. Infrastructure
+add-ons MUST reuse one application's settings source, placing their values in
+clearly marked `APACHE_*` or `KEYCLOAK_*` sections. A standalone project uses
+its only service automatically; a multi-app descriptor uses `CONFIG_SERVICE`
+only when the add-on settings are not owned by the first declared service.
+
 ### `container_start.sh`
 
 MUST own only repeatable runtime startup: bounded wait for staged files,
@@ -530,7 +538,7 @@ Production settings MUST be ignored by Git, protected with mode `0600`, and
 rejected while `CHANGE_ME` values remain. Shared issuer, audience, public URL,
 database, proxy, and frontend values MUST have one documented source of truth.
 
-One operator settings file MAY serve build-time installation decisions,
+One operator settings file MUST serve build-time installation decisions,
 host-side Django rendering, and runtime bootstrap. When used during a production
 build it MUST be mounted as an ephemeral build secret. The Dockerfile MUST fail
 if secret mode is selected but `/run/secrets/install_conf` is unavailable.

@@ -10,10 +10,12 @@ The assembler follows the PathoCore identity stack and generates both
 - a bounded TCP health check with Keycloak's longer startup allowance;
 - a reproducible realm-import directory mounted read-only.
 
-`ADDONS.keycloak.INSTALL_CONF` and `TEST_INSTALL_CONF` are required. Settings
-use unprefixed source keys (`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `PUBLIC_URL`,
-`ADMIN`, `ADMIN_PASSWORD`, `IMPORT_PATH`, etc.); the environment writer prefixes
-them with `KEYCLOAK_` in the assembled Compose contract.
+Keycloak does not introduce another installation-settings file. Its
+`KEYCLOAK_*` section lives in one selected application's production/test
+settings. A standalone project selects its only service automatically; a
+multi-app project uses `ADDONS.keycloak.CONFIG_SERVICE` when the first service
+is not the desired owner. The section documents database/admin secrets, public
+URL, diagnostic ports and realm-import path together.
 
 The realm import bind is required but is not the persistent identity store.
 Keycloak imports a realm only when it does not already exist, normally on a

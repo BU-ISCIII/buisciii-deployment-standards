@@ -10,22 +10,27 @@ The assembler follows the RELECOV/PathoCore UBI httpd pattern and generates:
 - a persistent production log bind and a disposable test log volume;
 - read-only static/document mounts for every selected Django service.
 
-`ADDONS.apache.INSTALL_CONF` and `TEST_INSTALL_CONF` are required. Their source
-keys are unprefixed (`LOG_PATH`, `BIND_HOST`, `PORT`, `FORWARDED_PROTO`,
-`FORWARDED_PORT`, `LIMIT_REQUEST_BODY`); the common environment writer adds the
-`APACHE_` prefix. The generated Compose file explicitly passes the forwarded
-request settings into Apache because Compose interpolation alone does not add
-variables to a container's environment.
+Apache does not own another installation-settings file. Its `APACHE_*` section
+lives in one selected application service's normal production/test settings.
+For a standalone project the only service is selected automatically. A
+multi-app project may set `ADDONS.apache.CONFIG_SERVICE` to the service whose
+settings own `APACHE_LOG_PATH`, `APACHE_BIND_HOST`, `APACHE_PORT`,
+`APACHE_FORWARDED_PROTO`, `APACHE_FORWARDED_PORT`, and
+`APACHE_LIMIT_REQUEST_BODY`. The scaffold appends a commented section with
+useful defaults when it owns that application's profile files.
 
 For a multi-application deployment, separate DNS names are the recommended
 contract because Django, React and Keycloak can each retain their native root
 URL:
 
 ```json
-"VIRTUAL_HOSTS": {
-  "portal.example.org": "web",
-  "api.example.org": "api",
-  "identity.example.org": "keycloak"
+"apache": {
+  "CONFIG_SERVICE": "web",
+  "VIRTUAL_HOSTS": {
+    "portal.example.org": "web",
+    "api.example.org": "api",
+    "identity.example.org": "keycloak"
+  }
 }
 ```
 

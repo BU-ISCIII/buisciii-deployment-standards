@@ -22,6 +22,8 @@ SHARED_LIB = ROOT / "lib"
 STATE_DIR = ".bu-isciii-deployment"
 STATE_FILE = "state.json"
 TOKEN = re.compile(r"{{([A-Z0-9_]+)}}")
+DJANGO_TEST_BUILD_INSTALL_CONF = "conf/docker_test_settings.txt"
+DJANGO_CONTAINER_INSTALL_CONF = "conf/.runtime_install_settings.txt"
 
 
 def digest(data: bytes) -> str:
@@ -174,7 +176,6 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
             "DOCKERFILE": "Dockerfile",
             "INSTALL_CONF": "conf/docker_production_settings.txt",
             "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-            "TEST_BUILD_INSTALL_CONF": "conf/docker_test_settings.txt",
             "APP_PORT": config.get("APP_PORT", "8000"),
             "APP_UID": config.get("APP_UID", "1212"),
             "APP_GID": config.get("APP_GID", "1212"),
@@ -186,7 +187,6 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
                 {
                     "PROJECT_MODULE": config.get("PROJECT_MODULE", "app"),
                     "INSTALL_PATH": config.get("INSTALL_PATH", f"/opt/{slug}"),
-                    "CONTAINER_INSTALL_CONF": "conf/runtime_install_settings.txt",
                 }
             )
         raw = {"app": raw_service}
@@ -200,6 +200,11 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         if not isinstance(raw_service, dict):
             raise ValueError(f"SERVICES.{name} must be a JSON object")
         service = {str(key): str(value) for key, value in raw_service.items()}
+        # These are fixed lifecycle implementation paths, not application
+        # configuration. Ignore legacy descriptor entries retained in saved
+        # state from early scaffold versions.
+        service.pop("TEST_BUILD_INSTALL_CONF", None)
+        service.pop("CONTAINER_INSTALL_CONF", None)
         profile = service.get("PROFILE", "").lower()
         if profile not in {"django", "react-vite"}:
             raise ValueError(
@@ -216,13 +221,15 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         service.setdefault("IMAGE", f"{name.replace('_', '-')}:local")
         service.setdefault("DOCKERFILE", "Dockerfile")
         service.setdefault("TEST_INSTALL_CONF", service["INSTALL_CONF"])
-        service.setdefault("TEST_BUILD_INSTALL_CONF", "conf/docker_test_settings.txt")
-        service.setdefault("CONTAINER_INSTALL_CONF", "conf/runtime_install_settings.txt")
+        service["_TEST_BUILD_INSTALL_CONF"] = DJANGO_TEST_BUILD_INSTALL_CONF
+        service["_CONTAINER_INSTALL_CONF"] = DJANGO_CONTAINER_INSTALL_CONF
         services[name] = service
     return services
 
 
 def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    services = normalized_services(config)
+    default_config_service = next(iter(services))
     raw = config.get("ADDONS", {})
     if isinstance(raw, str):
         raw = {name.strip(): {} for name in raw.split(",") if name.strip()}
@@ -239,10 +246,119 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
             options = {}
         if not isinstance(options, dict):
             raise ValueError(f"ADDONS.{name} must be a JSON object")
-        if name in {"apache", "keycloak"} and not options.get("INSTALL_CONF"):
-            raise ValueError(f"ADDONS.{name}.INSTALL_CONF is required")
-        addons[name] = options
+        normalized_options = dict(options)
+        config_service = str(
+            normalized_options.get("CONFIG_SERVICE", default_config_service)
+        )
+        if config_service not in services:
+            raise ValueError(
+                f"ADDONS.{name}.CONFIG_SERVICE targets unknown application "
+                f"service {config_service!r}"
+            )
+        # Add-ons consume their APACHE_* or KEYCLOAK_* section from one
+        # application settings file. They never introduce another settings
+        # source of their own.
+        normalized_options.pop("INSTALL_CONF", None)
+        normalized_options.pop("TEST_INSTALL_CONF", None)
+        normalized_options["CONFIG_SERVICE"] = config_service
+        addons[name] = normalized_options
     return addons
+
+
+def addon_settings_section(
+    config: dict[str, Any], service_name: str, mode: str
+) -> str:
+    """Return clearly grouped add-on settings owned by one application file."""
+    addons = normalized_addons(config)
+    app_slug = str(config.get("APP_SLUG", "application"))
+    sections: list[str] = []
+    if (
+        "apache" in addons
+        and addons["apache"]["CONFIG_SERVICE"] == service_name
+    ):
+        if mode == "production":
+            apache_values = [
+                f"APACHE_LOG_PATH='/var/log/local/{app_slug}/apache'",
+                "APACHE_BIND_HOST='0.0.0.0'",
+                "APACHE_PORT='80'",
+                "APACHE_FORWARDED_PROTO='https'",
+                "APACHE_FORWARDED_PORT='443'",
+                "# 50 MiB; increase only when an application endpoint requires it.",
+                "APACHE_LIMIT_REQUEST_BODY='52428800'",
+            ]
+        else:
+            apache_values = [
+                f"APACHE_LOG_PATH='/tmp/{app_slug}/apache-logs'",
+                "APACHE_BIND_HOST='127.0.0.1'",
+                "APACHE_PORT='8088'",
+                "APACHE_FORWARDED_PROTO='http'",
+                "APACHE_FORWARDED_PORT='8088'",
+                "APACHE_LIMIT_REQUEST_BODY='52428800'",
+            ]
+        sections.append(
+            "# Apache add-on\n"
+            "# Used only when ADDONS.apache selects this application as CONFIG_SERVICE.\n"
+            + "\n".join(apache_values)
+        )
+    if (
+        "keycloak" in addons
+        and addons["keycloak"]["CONFIG_SERVICE"] == service_name
+    ):
+        if mode == "production":
+            keycloak_values = [
+                "KEYCLOAK_DB_NAME='keycloak'",
+                "KEYCLOAK_DB_USER='keycloak'",
+                "KEYCLOAK_DB_PASSWORD='CHANGE_ME'",
+                "KEYCLOAK_DB_ROOT_PASSWORD='CHANGE_ME'",
+                "KEYCLOAK_PUBLIC_URL='https://CHANGE_ME_KEYCLOAK_DNS'",
+                "KEYCLOAK_PORT='8081'",
+                "KEYCLOAK_ADMIN='admin'",
+                "KEYCLOAK_ADMIN_PASSWORD='CHANGE_ME'",
+                "KEYCLOAK_IMPORT_PATH='./keycloak/tmp-import'",
+            ]
+        else:
+            keycloak_values = [
+                "KEYCLOAK_DB_NAME='keycloak'",
+                "KEYCLOAK_DB_USER='keycloak'",
+                "KEYCLOAK_DB_PASSWORD='keycloak_password'",
+                "KEYCLOAK_DB_ROOT_PASSWORD='root'",
+                "KEYCLOAK_DB_PORT_HOST='6607'",
+                "KEYCLOAK_PUBLIC_URL='http://127.0.0.1:8081'",
+                "KEYCLOAK_PORT='8081'",
+                "KEYCLOAK_ADMIN='admin'",
+                "KEYCLOAK_ADMIN_PASSWORD='admin'",
+                "KEYCLOAK_IMPORT_PATH='./keycloak/tmp-import'",
+            ]
+        sections.append(
+            "# Keycloak add-on\n"
+            "# Database/admin secrets are mandatory in production. Realm JSON is a\n"
+            "# reproducible bootstrap source, not a replacement for database backups.\n"
+            + "\n".join(keycloak_values)
+        )
+    return "\n\n".join(sections) or "# No infrastructure add-on settings are owned by this service."
+
+
+def addon_settings_documentation(config: dict[str, Any], service_name: str) -> str:
+    addons = normalized_addons(config)
+    sections: list[str] = []
+    if "apache" in addons and addons["apache"]["CONFIG_SERVICE"] == service_name:
+        sections.append(
+            "### Apache\n\n"
+            "`APACHE_LOG_PATH`, `APACHE_BIND_HOST`, `APACHE_PORT`, "
+            "`APACHE_FORWARDED_PROTO`, `APACHE_FORWARDED_PORT`, and "
+            "`APACHE_LIMIT_REQUEST_BODY` configure the generated proxy. They "
+            "are operational values, not Django settings."
+        )
+    if "keycloak" in addons and addons["keycloak"]["CONFIG_SERVICE"] == service_name:
+        sections.append(
+            "### Keycloak\n\n"
+            "`KEYCLOAK_DB_PASSWORD`, `KEYCLOAK_DB_ROOT_PASSWORD`, and "
+            "`KEYCLOAK_ADMIN_PASSWORD` are production secrets. "
+            "`KEYCLOAK_PUBLIC_URL` must match the public proxy hostname. "
+            "Preserve the Keycloak database independently of the reproducible "
+            "`KEYCLOAK_IMPORT_PATH` realm source."
+        )
+    return "\n\n".join(sections) or "No infrastructure add-on settings are owned by this service."
 
 
 def env_prefix(service_name: str) -> str:
@@ -275,7 +391,7 @@ def compose_service_block(
     if profile == "django":
         install_path = service["INSTALL_PATH"]
         module = service["PROJECT_MODULE"]
-        conf = service["CONTAINER_INSTALL_CONF"] if mode == "prod" else service["TEST_BUILD_INSTALL_CONF"]
+        conf = service["_CONTAINER_INSTALL_CONF"] if mode == "prod" else service["_TEST_BUILD_INSTALL_CONF"]
         lines += [
             f"        INSTALL_CONF: {json.dumps(conf)}",
             f"        USE_INSTALL_CONF_SECRET: {json.dumps('true' if mode == 'prod' else 'false')}",
@@ -595,7 +711,7 @@ def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tup
 
 def orchestrator_artifacts(config: dict[str, Any]) -> list[tuple[Path, bytes]]:
     normalized_services(config)
-    addons = normalized_addons(config)
+    normalized_addons(config)
     prod, prod_extra = compose_document(config, "prod")
     test, test_extra = compose_document(config, "test")
     artifacts = [
@@ -604,29 +720,6 @@ def orchestrator_artifacts(config: dict[str, Any]) -> list[tuple[Path, bytes]]:
         *prod_extra,
         *test_extra,
     ]
-    for addon, options in addons.items():
-        for mode, option_key in (
-            ("production", "INSTALL_CONF"),
-            ("test", "TEST_INSTALL_CONF"),
-        ):
-            configured_path = options.get(option_key)
-            if not configured_path:
-                continue
-            relative = Path(str(configured_path))
-            # External protected configurations belong to their owning repo or
-            # operator storage and must never be written by this scaffold.
-            if relative.is_absolute() or ".." in relative.parts:
-                continue
-            source = (
-                TEMPLATES
-                / "addons"
-                / addon
-                / "conf"
-                / f"docker_{mode}_settings.txt.tmpl"
-            )
-            artifacts.append(
-                (relative, render(source, {"APP_SLUG": str(config.get("APP_SLUG", "application"))}))
-            )
     unique: dict[Path, bytes] = {}
     for path, content in artifacts:
         if path in unique and unique[path] != content:
@@ -649,9 +742,7 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
         permission_names.append("apache")
     if "keycloak" in addons:
         permission_names += ["keycloak_db", "keycloak"]
-    configured_names = names + [
-        name for name, options in addons.items() if options.get("INSTALL_CONF")
-    ]
+    configured_names = names
 
     default_conf_cases = []
     build_context_cases = []
@@ -676,6 +767,8 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
     persistence_rows = []
     config_map_examples = []
     selected_profiles: list[str] = []
+    owned = owned_profile_service(config) if uses_service_descriptor(config) else None
+    settings_owner = owned[0] if owned else names[0]
 
     for name, service in services.items():
         prefix = env_prefix(name)
@@ -701,7 +794,7 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
         image_cases.append(f"        {name}) echo {shlex.quote(service['IMAGE'])} ;;")
         profile_cases.append(f"        {name}) echo {service['PROFILE']} ;;")
         dockerfile_cases.append(f"        {name}) echo {shlex.quote(service['DOCKERFILE'])} ;;")
-        container_conf_cases.append(f"        {name}) echo {shlex.quote(service['CONTAINER_INSTALL_CONF'])} ;;")
+        container_conf_cases.append(f"        {name}) echo {shlex.quote(service['_CONTAINER_INSTALL_CONF'])} ;;")
         uid_cases.append(f"        {name}) config_value_or_default APP_UID \"${{install_conf_host_by_service[$1]}}\" {shlex.quote(service['APP_UID'])} ;;")
         gid_cases.append(f"        {name}) config_value_or_default APP_GID \"${{install_conf_host_by_service[$1]}}\" {shlex.quote(service['APP_GID'])} ;;")
         settings_sources.append(f'        "{prefix}|${{install_conf_host_by_service[{name}]}}"')
@@ -744,7 +837,7 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
             bootstrap_cases += [
                 f"        {name})",
                 '            repo_path="$(service_repo_path "$service_name")"',
-                f"            runtime_conf={shlex.quote(service['CONTAINER_INSTALL_CONF'])}",
+                f"            runtime_conf={shlex.quote(service['_CONTAINER_INSTALL_CONF'])}",
                 '            [[ "$runtime_conf" == /* ]] || runtime_conf="$repo_path/$runtime_conf"',
                 '            uid="$(service_uid "$service_name")"; gid="$(service_gid "$service_name")"',
                 '            stage_container_runtime_config "$container_id" "${install_conf_host_by_service[$service_name]}" "$runtime_conf" "$uid" "$gid"',
@@ -801,30 +894,52 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
             ]
 
     for addon, options in addons.items():
-        if not options.get("INSTALL_CONF"):
-            continue
-        prefix = env_prefix(addon)
-        default_conf_cases.append(
-            f"        {addon}) [ \"$mode\" = test ] && echo {shlex.quote(str(options.get('TEST_INSTALL_CONF', options['INSTALL_CONF'])))} || echo {shlex.quote(str(options['INSTALL_CONF']))} ;;"
-        )
-        settings_sources.append(
-            f'        "{prefix}|${{install_conf_host_by_service[{addon}]}}"'
-        )
-        deployment_values.append(
-            f'        "{prefix}_INSTALL_CONF_PATH|${{install_conf_host_by_service[{addon}]}}"'
-        )
-        config_map_examples.append(
-            f"--install_conf_map {addon},/protected/{addon}_production_settings.txt"
-        )
+        config_service = str(options["CONFIG_SERVICE"])
+        config_reference = f'"${{install_conf_host_by_service[{config_service}]}}"'
+        if addon == "apache":
+            apache_defaults = {
+                "APACHE_LOG_PATH": f"/var/log/local/{app_slug}/apache",
+                "APACHE_BIND_HOST": "0.0.0.0",
+                "APACHE_PORT": "80",
+                "APACHE_FORWARDED_PROTO": "https",
+                "APACHE_FORWARDED_PORT": "443",
+                "APACHE_LIMIT_REQUEST_BODY": "52428800",
+            }
+            for key, default in apache_defaults.items():
+                deployment_values.append(
+                    f'        "{key}|$(config_value_or_default {key} {config_reference} {shlex.quote(default)})"'
+                )
+        elif addon == "keycloak":
+            keycloak_defaults = {
+                "KEYCLOAK_DB_NAME": "keycloak",
+                "KEYCLOAK_DB_USER": "keycloak",
+                "KEYCLOAK_DB_PORT_HOST": "6607",
+                "KEYCLOAK_PORT": "8081",
+                "KEYCLOAK_ADMIN": "admin",
+                "KEYCLOAK_IMPORT_PATH": "./keycloak/tmp-import",
+            }
+            for key, default in keycloak_defaults.items():
+                deployment_values.append(
+                    f'        "{key}|$(config_value_or_default {key} {config_reference} {shlex.quote(default)})"'
+                )
+            for key in (
+                "KEYCLOAK_DB_PASSWORD",
+                "KEYCLOAK_DB_ROOT_PASSWORD",
+                "KEYCLOAK_PUBLIC_URL",
+                "KEYCLOAK_ADMIN_PASSWORD",
+            ):
+                deployment_values.append(
+                    f'        "{key}|$(config_value {key} {config_reference})"'
+                )
         if addon == "apache":
             host_sources += [
                 "    if [ \"$mode\" = production ]; then",
-                f'        apache_log_path="$(config_value_or_default LOG_PATH "${{install_conf_host_by_service[apache]}}" "/var/log/local/{app_slug}/apache")"',
+                f'        apache_log_path="$(config_value_or_default APACHE_LOG_PATH "${{install_conf_host_by_service[{config_service}]}}" "/var/log/local/{app_slug}/apache")"',
                 '        mkdir -p "$script_dir/deployment/apache" "$apache_log_path"',
                 "    fi",
             ]
             host_permissions += [
-                f'    apache_log_path="$(config_value_or_default LOG_PATH "${{install_conf_host_by_service[apache]}}" "/var/log/local/{app_slug}/apache")"',
+                f'    apache_log_path="$(config_value_or_default APACHE_LOG_PATH "${{install_conf_host_by_service[{config_service}]}}" "/var/log/local/{app_slug}/apache")"',
                 "    local -a apache_host_bind_permission_spec=(",
                 '        "$script_dir/deployment/apache|-|0755"',
                 '        "$script_dir/deployment/apache/00-logs.conf|-|0644"',
@@ -836,12 +951,12 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
             ]
         elif addon == "keycloak":
             host_sources += [
-                '    keycloak_import_path="$(config_value_or_default IMPORT_PATH "${install_conf_host_by_service[keycloak]}" "$script_dir/keycloak/tmp-import")"',
+                f'    keycloak_import_path="$(config_value_or_default KEYCLOAK_IMPORT_PATH "${{install_conf_host_by_service[{config_service}]}}" "$script_dir/keycloak/tmp-import")"',
                 '    mkdir -p "$keycloak_import_path"',
                 '    compgen -G "$keycloak_import_path/*.json" >/dev/null || { echo "Keycloak realm import JSON not found in $keycloak_import_path" >&2; return 1; }',
             ]
             host_permissions += [
-                '    keycloak_import_path="$(config_value_or_default IMPORT_PATH "${install_conf_host_by_service[keycloak]}" "$script_dir/keycloak/tmp-import")"',
+                f'    keycloak_import_path="$(config_value_or_default KEYCLOAK_IMPORT_PATH "${{install_conf_host_by_service[{config_service}]}}" "$script_dir/keycloak/tmp-import")"',
                 "    local -a keycloak_host_bind_permission_spec=(",
                 '        "$keycloak_import_path|-|0755"',
                 "    )",
@@ -898,6 +1013,13 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
         "ADDON_DOCUMENTATION": "\n".join(addon_notes) or "- No optional add-ons selected.",
         "PERSISTENCE_ROWS": "\n".join(persistence_rows) or "| None | Immutable image | Rebuild |",
         "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
+        "PRODUCTION_ADDON_SETTINGS": addon_settings_section(
+            config, settings_owner, "production"
+        ),
+        "TEST_ADDON_SETTINGS": addon_settings_section(config, settings_owner, "test"),
+        "ADDON_SETTINGS_DOCUMENTATION": addon_settings_documentation(
+            config, settings_owner
+        ),
     }
 
 

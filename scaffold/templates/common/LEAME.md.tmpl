@@ -15,7 +15,9 @@ component's independent permission specification.
 
 ## 3. Configuration preparation
 
-Prepare mode-`0600` settings files for every configured application and add-on.
+Prepare one mode-`0600` production settings file per application service.
+Selected infrastructure add-ons contribute clearly marked sections to one
+application's file; they do not introduce additional settings files.
 Confirm that no file contains unresolved `CHANGE_ME` values and no `VITE_*`
 setting contains a secret.
 

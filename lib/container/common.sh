@@ -455,6 +455,21 @@ config_value_or_default() {
     fi
 }
 
+# Return a required setting using the same environment-over-file precedence.
+# This is used while building the generated Compose environment so a missing
+# secret or host path fails before Compose changes deployment state.
+config_value() {
+    local key="$1"
+    local file="$2"
+    local value
+    value="$(config_value_or_default "$key" "$file" "")"
+    if [ -z "$value" ]; then
+        echo "Required setting $key is missing from environment and $file" >&2
+        return 1
+    fi
+    printf '%s\n' "$value"
+}
+
 # Normalize a bind-mount setting to a file path. Operators may configure either
 # the final file or its parent directory; the supplied default is app-owned.
 normalize_bind_file_path() {

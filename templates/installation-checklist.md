@@ -105,12 +105,15 @@ For each item, link to the exact file, command, test result, or tracked issue.
       correct profile independently for each service.
 - [ ] At most one service uses build context `.`, and that service's generated
       profile artifacts belong to the current repository.
-- [ ] Every service declares its build context, Dockerfile, protected host
-      configuration, test build configuration, port and UID/GID.
+- [ ] Every service declares its build context, Dockerfile, protected
+      production/test configuration, port and UID/GID; internal build and
+      bootstrap configuration paths are not exposed in `project.json`.
 - [ ] `install_services` contains application services in build/bootstrap order.
 - [ ] `permission_services` contains applications plus every selected add-on.
-- [ ] `configured_services` includes every application and add-on that consumes
-      an installation settings file.
+- [ ] `configured_services` contains only applications; each add-on reads its
+      namespaced section from the selected application's settings file.
+- [ ] Multi-app add-ons use `CONFIG_SERVICE` only when the first application
+      service does not own their configuration section.
 - [ ] Django services receive stage/bootstrap and protected settings rendering;
       React services explicitly skip Django bootstrap.
 - [ ] Production Django builds use direct engine build secrets; React builds

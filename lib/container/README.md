@@ -53,6 +53,7 @@ explicit container names. Otherwise container resolution uses Compose labels.
 - `sed_search_escape`
 - `read_install_conf_value`
 - `read_install_conf_first`
+- `config_value`
 - `config_value_or_default`
 - `normalize_bind_file_path`
 - `render_config_template`

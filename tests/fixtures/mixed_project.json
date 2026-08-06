@@ -9,8 +9,6 @@
       "DOCKERFILE": "Dockerfile",
       "INSTALL_CONF": "../example-api/conf/docker_production_settings.txt",
       "TEST_INSTALL_CONF": "../example-api/conf/docker_test_settings.txt",
-      "TEST_BUILD_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "CONTAINER_INSTALL_CONF": "conf/runtime_install_settings.txt",
       "PROJECT_MODULE": "example_api",
       "INSTALL_PATH": "/opt/example-api",
       "APP_PORT": "8000",
@@ -23,7 +21,6 @@
       "DOCKERFILE": "Dockerfile",
       "INSTALL_CONF": "conf/docker_production_settings.txt",
       "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "TEST_BUILD_INSTALL_CONF": "conf/docker_test_settings.txt",
       "APP_PORT": "8080",
       "APP_UID": "1213",
       "APP_GID": "1213",
@@ -32,8 +29,7 @@
   },
   "ADDONS": {
     "apache": {
-      "INSTALL_CONF": "conf/apache_production_settings.txt",
-      "TEST_INSTALL_CONF": "conf/apache_test_settings.txt",
+      "CONFIG_SERVICE": "web",
       "VIRTUAL_HOSTS": {
         "web.example.test": "web",
         "api.example.test": "api",
@@ -41,8 +37,7 @@
       }
     },
     "keycloak": {
-      "INSTALL_CONF": "conf/keycloak_production_settings.txt",
-      "TEST_INSTALL_CONF": "conf/keycloak_test_settings.txt"
+      "CONFIG_SERVICE": "web"
     }
   }
 }

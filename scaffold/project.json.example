@@ -15,8 +15,6 @@
       "IMAGE": "example-app:local",
       "INSTALL_CONF": "conf/docker_production_settings.txt",
       "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "TEST_BUILD_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "CONTAINER_INSTALL_CONF": "conf/runtime_install_settings.txt",
       "REPO_PATH": "/srv/example-app",
       "PROJECT_MODULE": "example_app",
       "INSTALL_PATH": "/opt/example-app",

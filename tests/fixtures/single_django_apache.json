@@ -1,0 +1,35 @@
+{
+  "APP_NAME": "Example Django Application",
+  "APP_SLUG": "example-django",
+  "DESCRIPTION": "Standalone Django application behind Apache.",
+  "REPOSITORY_URL": "https://github.com/BU-ISCIII/example-django.git",
+  "DEFAULT_BRANCH": "main",
+  "PYTHON_VERSION": "3.11",
+  "TIMEZONE": "Europe/Madrid",
+  "DB_PORT_HOST": "6606",
+  "SERVICES": {
+    "app": {
+      "PROFILE": "django",
+      "BUILD_CONTEXT": ".",
+      "DOCKERFILE": "Dockerfile",
+      "IMAGE": "example-django:local",
+      "INSTALL_CONF": "conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
+      "REPO_PATH": "/srv/example-django",
+      "PROJECT_MODULE": "example_django",
+      "INSTALL_PATH": "/opt/example-django",
+      "HOST_DATA_PATH": "/srv/containers/bind/example-django",
+      "HOST_LOG_PATH": "/var/log/local/example-django",
+      "APP_PORT": "8000",
+      "APP_UID": "1212",
+      "APP_GID": "1212"
+    }
+  },
+  "ADDONS": {
+    "apache": {
+      "VIRTUAL_HOSTS": {
+        "django.example.test": "app"
+      }
+    }
+  }
+}

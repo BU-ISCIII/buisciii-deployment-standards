@@ -23,6 +23,17 @@ assert_equal 'a\|b\&c\\d' "$(sed_replacement_escape 'a|b&c\d')" \
 assert_equal 'a\.b\[c\]' "$(sed_search_escape 'a.b[c]')" \
     "escape sed search"
 
+(
+    settings_fixture="$(mktemp)"
+    printf "REQUIRED_VALUE='from-file'\n" > "$settings_fixture"
+    assert_equal "from-file" "$(config_value REQUIRED_VALUE "$settings_fixture")" \
+        "read required configuration value"
+    if config_value MISSING_VALUE "$settings_fixture" 2>/dev/null; then
+        fail "missing required configuration value must fail"
+    fi
+    rm -f "$settings_fixture"
+)
+
 array_contains app db app worker || fail "find array member"
 if array_contains missing db app worker; then fail "reject missing array member"; fi
 array_contains 'service with spaces' app 'service with spaces' \

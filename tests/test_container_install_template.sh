@@ -39,6 +39,8 @@ require_text 'install_services=(api web)' "$generated" \
     "mixed installer must preserve application order"
 require_text 'permission_services=(api web apache keycloak_db keycloak)' "$generated" \
     "mixed installer must include add-ons in permission repair"
+require_text 'configured_services=(api web)' "$generated" \
+    "add-ons must reuse an application configuration instead of adding files"
 require_text 'api) echo django' "$generated" \
     "mixed installer must dispatch the Django profile"
 require_text 'web) echo react-vite' "$generated" \

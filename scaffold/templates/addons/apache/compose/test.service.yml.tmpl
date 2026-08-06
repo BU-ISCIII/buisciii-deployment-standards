@@ -1,0 +1,31 @@
+  # BEGIN BU-ISCIII ADDON: apache
+  apache:
+    image: registry.access.redhat.com/ubi9/httpd-24:latest
+    restart: unless-stopped
+    depends_on:
+{{APACHE_DEPENDS_ON}}
+    environment:
+      # Keep proxy behavior equivalent to production while using local HTTP.
+      APACHE_FORWARDED_PROTO: ${APACHE_FORWARDED_PROTO:-http}
+      APACHE_FORWARDED_PORT: ${APACHE_FORWARDED_PORT:-8088}
+      APACHE_LIMIT_REQUEST_BODY: ${APACHE_LIMIT_REQUEST_BODY:-52428800}
+    ports:
+      - "127.0.0.1:${APACHE_PORT:-8088}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    volumes:
+      # Test uses the same generated configuration contract as production.
+      - ./deployment/apache/00-logs.conf:/etc/httpd/conf.d/00-logs.conf:ro,z
+      - ./deployment/apache/01-reverse-proxy.conf:/etc/httpd/conf.d/01-reverse-proxy.conf:ro,z
+      - ./deployment/apache/02-server-status.conf:/etc/httpd/conf.d/02-server-status.conf:ro,z
+      # Disposable log volume avoids writing test logs into production paths.
+      - apache_test_logs:/var/log/httpd:z
+      # GENERATED MULTI-APP MOUNTS: disposable test static/document volumes.
+{{APACHE_APPLICATION_MOUNTS}}
+      # OPTIONAL APP MOUNTS belong in ADDONS.apache.MOUNTS.
+    networks: [deployment_net]
+  # END BU-ISCIII ADDON: apache

@@ -1,54 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+install_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$install_script_dir/deployment/lib/container/common.sh"
+# shellcheck disable=SC1091
+source "$install_script_dir/deployment/lib/container/django.sh"
+
 APP_VERSION="0.1.0"
 ACTION="install"
+OPERATION_SCOPE="full"
 WORKFLOW="standard"
-MODE="production"
-ENGINE="docker"
 GIT_REVISION="current"
-INSTALL_CONF=""
-COMPOSE_FILE=""
-INSTALL_CONF_MAP=()
+INSTALL_CONF="./install_settings.txt"
 LOAD_TABLES="false"
 SKIP_TABLES="false"
 SCRIPT_BEFORE=()
 SCRIPT_AFTER=()
+RENDER_SETTINGS="auto"
+SETTINGS_OUTPUT=""
 
 usage() {
     cat <<'EOF'
 Install, stage, or bootstrap {{APP_NAME}}.
 
-Usage:
-  ./install.sh [canonical options] [workflow options]
+Usage: ./install.sh [options]
 
-Canonical options:
-  --action install|upgrade|fix-permissions
-  --test
-  --engine docker|podman
+Options:
+  --install full|dep|app
+  --upgrade full|dep|app
+  --stage install|upgrade
+  --bootstrap install|upgrade
   --git_revision <branch|tag|commit|current>
-  --install_conf <path>
-  --compose_file <path>      Recognized but not applicable to install.sh.
-  --install_conf_map <service,path>
-                             Recognized but not applicable to this scaffold.
+  --conf <path>
+  --render-settings
+  --settings-output <path>
+  --tables
+  --skip_tables
+  --script_before <name[,args]>
+  --script_after <name[,args]>
+  --script <name[,args]>     Alias for --script_after.
+  --ren_app                  Reserved compatibility migration; application-specific.
+  --docker                   Deprecated alias for --skip_apache_restart.
+  --skip_apache_restart
   --help
   --version
-
-Workflow options:
-  --stage                    Stage dependencies and application files only.
-  --bootstrap                Run database/runtime bootstrap against staged files.
-  --script_before <name[,args]>
-                             Django-extensions script before migrations; repeatable.
-  --script_after <name[,args]>
-                             Django-extensions script after migrations; repeatable.
-  --script <name[,args]>     Compatibility alias for --script_after; repeatable.
-  --tables                   Load conf/first_install_tables.json after migrations.
-  --skip_tables              Never load initial tables.
-
-Compatibility aliases:
-  --install full|dep|app, --upgrade full|dep|app, --conf <path>,
-  --stage install|upgrade, and --bootstrap install|upgrade may be retained by
-  existing projects. New documentation uses --action plus --stage/--bootstrap.
 EOF
 }
 
@@ -56,55 +52,50 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 while (($#)); do
     case "$1" in
-        --action) ACTION="${2:-}"; shift 2 ;;
-        --test) MODE="test"; shift ;;
-        --engine) ENGINE="${2:-}"; shift 2 ;;
         --git_revision) GIT_REVISION="${2:-}"; shift 2 ;;
-        --install_conf|--conf) INSTALL_CONF="${2:-}"; shift 2 ;;
-        --compose_file) COMPOSE_FILE="${2:-}"; shift 2 ;;
-        --install_conf_map) INSTALL_CONF_MAP+=("${2:-}"); shift 2 ;;
+        --conf) INSTALL_CONF="${2:-}"; shift 2 ;;
+        --render-settings) RENDER_SETTINGS="true"; shift ;;
+        --settings-output) SETTINGS_OUTPUT="${2:-}"; shift 2 ;;
         --stage)
             WORKFLOW="stage"
-            if [[ "${2:-}" =~ ^(install|upgrade)$ ]]; then ACTION="$2"; shift 2; else shift; fi
+            [[ "${2:-}" =~ ^(install|upgrade)$ ]] || die "--stage requires install or upgrade"
+            ACTION="$2"; OPERATION_SCOPE="app"; shift 2
             ;;
         --bootstrap)
             WORKFLOW="bootstrap"
-            if [[ "${2:-}" =~ ^(install|upgrade)$ ]]; then ACTION="$2"; shift 2; else shift; fi
+            [[ "${2:-}" =~ ^(install|upgrade)$ ]] || die "--bootstrap requires install or upgrade"
+            ACTION="$2"; OPERATION_SCOPE="app"; shift 2
             ;;
         --install)
             ACTION="install"; WORKFLOW="standard"
-            [[ "${2:-}" =~ ^(full|dep|app)$ ]] && shift 2 || shift
+            [[ "${2:-}" =~ ^(full|dep|app)$ ]] || die "--install requires full, dep, or app"
+            OPERATION_SCOPE="$2"; shift 2
             ;;
         --upgrade)
             ACTION="upgrade"; WORKFLOW="standard"
-            [[ "${2:-}" =~ ^(full|dep|app)$ ]] && shift 2 || shift
+            [[ "${2:-}" =~ ^(full|dep|app)$ ]] || die "--upgrade requires full, dep, or app"
+            OPERATION_SCOPE="$2"; shift 2
             ;;
         --script_before) SCRIPT_BEFORE+=("${2:-}"); shift 2 ;;
         --script_after|--script) SCRIPT_AFTER+=("${2:-}"); shift 2 ;;
         --tables) LOAD_TABLES="true"; shift ;;
         --skip_tables) SKIP_TABLES="true"; LOAD_TABLES="false"; shift ;;
+        --ren_app) die "--ren_app is not implemented for this application" ;;
+        --docker|--skip_apache_restart) shift ;;
         --help) usage; exit 0 ;;
         --version) echo "$APP_VERSION"; exit 0 ;;
         *) die "Unknown option: $1" ;;
     esac
 done
 
-[[ "$ACTION" =~ ^(install|upgrade|fix-permissions)$ ]] || die "Invalid --action: $ACTION"
-[[ "$ENGINE" =~ ^(docker|podman)$ ]] || die "Invalid --engine: $ENGINE"
-[[ -z "$COMPOSE_FILE" ]] || die "--compose_file is not applicable to install.sh"
-((${#INSTALL_CONF_MAP[@]} == 0)) \
-    || die "--install_conf_map is not applicable to this single-service install.sh"
-[[ "$ACTION" != "fix-permissions" ]] \
-    || die "--action fix-permissions is not implemented for bare-metal installation"
 [[ "$WORKFLOW" != "stage" || ${#SCRIPT_BEFORE[@]} -eq 0 && ${#SCRIPT_AFTER[@]} -eq 0 ]] \
     || die "Migration scripts cannot run during the stage workflow"
 
-if [[ -z "$INSTALL_CONF" ]]; then
-    [[ "$MODE" == "test" ]] || die "Production requires --install_conf"
-    INSTALL_CONF="conf/docker_test_settings.txt"
-fi
 [[ -f "$INSTALL_CONF" ]] || die "Configuration not found: $INSTALL_CONF"
-if [[ "$MODE" == "production" && "$WORKFLOW" != "stage" ]] \
+if [[ "$INSTALL_CONF" != /* ]]; then
+    INSTALL_CONF="$(cd "$(dirname "$INSTALL_CONF")" && pwd)/$(basename "$INSTALL_CONF")"
+fi
+if [[ "$WORKFLOW" != "stage" ]] \
     && grep -Eq "^[A-Z0-9_]+=.*CHANGE_ME" "$INSTALL_CONF"; then
     die "Production configuration still contains CHANGE_ME values"
 fi
@@ -115,13 +106,17 @@ source "$INSTALL_CONF"
 : "${PROJECT_MODULE:?PROJECT_MODULE is required}"
 : "${PYTHON_BIN_PATH:?PYTHON_BIN_PATH is required}"
 
+if [[ "$RENDER_SETTINGS" == "auto" ]]; then
+    [[ "$WORKFLOW" == "standard" ]] && RENDER_SETTINGS="true" || RENDER_SETTINGS="false"
+fi
+
 validate_revision() {
     [[ "$GIT_REVISION" == "current" ]] && return 0
     git rev-parse --verify "${GIT_REVISION}^{commit}" >/dev/null 2>&1 \
         || die "Git revision is not available locally: $GIT_REVISION"
 }
 
-stage_application() {
+stage_dependencies() {
     validate_revision
     mkdir -p "$INSTALL_PATH"
     if [[ ! -d "$INSTALL_PATH/virtualenv" ]]; then
@@ -131,12 +126,24 @@ stage_application() {
     source "$INSTALL_PATH/virtualenv/bin/activate"
     python -m pip install --upgrade pip
     python -m pip install -r conf/requirements.txt
+}
+
+stage_application_files() {
+    validate_revision
+    [[ -d "$INSTALL_PATH/virtualenv" ]] \
+        || die "virtualenv not found at $INSTALL_PATH; install dependencies first"
     rsync -rl --delete \
         --exclude .git --exclude .env --exclude logs --exclude documents \
         ./ "$INSTALL_PATH/"
     mkdir -p "$INSTALL_PATH/logs" "$INSTALL_PATH/documents" \
         "$INSTALL_PATH/static" "$INSTALL_PATH/cron" "$INSTALL_PATH/tmp"
     printf '%s\n' "$GIT_REVISION" > "$INSTALL_PATH/.deployed_revision"
+    if [[ "$RENDER_SETTINGS" == "true" ]]; then
+        local template="$install_script_dir/conf/template_settings.py"
+        local output="${SETTINGS_OUTPUT:-$INSTALL_PATH/$PROJECT_MODULE/settings.py}"
+        [[ -f "$template" ]] || die "Django settings template not found: $template"
+        render_django_settings_file "$template" "$output" "$INSTALL_CONF"
+    fi
 }
 
 run_hook() {
@@ -174,9 +181,17 @@ bootstrap_application() {
 }
 
 case "$WORKFLOW" in
-    stage) stage_application ;;
+    stage) stage_dependencies; stage_application_files ;;
     bootstrap) bootstrap_application ;;
-    standard) stage_application; bootstrap_application ;;
+    standard)
+        if [[ "$OPERATION_SCOPE" == "full" || "$OPERATION_SCOPE" == "dep" ]]; then
+            stage_dependencies
+        fi
+        if [[ "$OPERATION_SCOPE" == "full" || "$OPERATION_SCOPE" == "app" ]]; then
+            stage_application_files
+            bootstrap_application
+        fi
+        ;;
     *) die "Invalid workflow: $WORKFLOW" ;;
 esac
 

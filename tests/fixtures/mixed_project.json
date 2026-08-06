@@ -1,0 +1,48 @@
+{
+  "APP_NAME": "Example Mixed Orchestrator",
+  "APP_SLUG": "example-orchestrator",
+  "DESCRIPTION": "Django APIs and a React/Vite frontend deployed together.",
+  "SERVICES": {
+    "api": {
+      "PROFILE": "django",
+      "BUILD_CONTEXT": "../example-api",
+      "DOCKERFILE": "Dockerfile",
+      "INSTALL_CONF": "../example-api/conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "../example-api/conf/docker_test_settings.txt",
+      "TEST_BUILD_INSTALL_CONF": "conf/docker_test_settings.txt",
+      "CONTAINER_INSTALL_CONF": "conf/runtime_install_settings.txt",
+      "PROJECT_MODULE": "example_api",
+      "INSTALL_PATH": "/opt/example-api",
+      "APP_PORT": "8000",
+      "APP_UID": "1212",
+      "APP_GID": "1212"
+    },
+    "web": {
+      "PROFILE": "react-vite",
+      "BUILD_CONTEXT": ".",
+      "DOCKERFILE": "Dockerfile",
+      "INSTALL_CONF": "conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
+      "TEST_BUILD_INSTALL_CONF": "conf/docker_test_settings.txt",
+      "APP_PORT": "8080",
+      "APP_UID": "1213",
+      "APP_GID": "1213",
+      "TEST_VITE_API_BASE_URL": "http://127.0.0.1:8000"
+    }
+  },
+  "ADDONS": {
+    "apache": {
+      "INSTALL_CONF": "conf/apache_production_settings.txt",
+      "TEST_INSTALL_CONF": "conf/apache_test_settings.txt",
+      "VIRTUAL_HOSTS": {
+        "web.example.test": "web",
+        "api.example.test": "api",
+        "id.example.test": "keycloak"
+      }
+    },
+    "keycloak": {
+      "INSTALL_CONF": "conf/keycloak_production_settings.txt",
+      "TEST_INSTALL_CONF": "conf/keycloak_test_settings.txt"
+    }
+  }
+}

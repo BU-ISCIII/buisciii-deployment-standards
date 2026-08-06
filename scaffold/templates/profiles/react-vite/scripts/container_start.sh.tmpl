@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+# The Vite bundle is immutable and was produced in the build stage. Runtime
+# startup only verifies the artifact and starts the foreground web server.
+test -f /usr/share/nginx/html/index.html || {
+    echo "Vite build artifact is missing: /usr/share/nginx/html/index.html" >&2
+    exit 1
+}
+
+exec nginx -g 'daemon off;'

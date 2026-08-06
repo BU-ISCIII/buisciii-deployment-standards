@@ -9,6 +9,8 @@ APP_GID='{{APP_GID}}'
 APP_PORT='{{APP_PORT}}'
 HOST_DATA_PATH='{{HOST_DATA_PATH}}'
 HOST_LOG_PATH='{{HOST_LOG_PATH}}'
+# Host bind source rendered by container_install.sh before Compose startup.
+DJANGO_SETTINGS_PATH='{{HOST_DATA_PATH}}/settings/{{PROJECT_MODULE}}/settings.py'
 
 DB_HOST='CHANGE_ME'
 DB_PORT='3306'

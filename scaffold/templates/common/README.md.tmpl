@@ -1,0 +1,109 @@
+# {{APP_NAME}}
+
+{{DESCRIPTION}}
+
+## Architecture and services
+
+| Service | Profile | Build context | Internal port |
+|---|---|---|---:|
+{{SERVICE_INVENTORY_ROWS}}
+
+Profile behavior:
+
+{{PROFILE_DOCUMENTATION}}
+
+Selected add-ons:
+
+{{ADDON_DOCUMENTATION}}
+
+All selected services and add-ons are assembled into one
+`docker-compose.prod.yml` and one `docker-compose.test.yml`.
+
+## Requirements
+
+- Docker with Compose v2, or Podman with a Compose provider.
+- Git and access to every declared service build context.
+- Protected production settings for every configured service/add-on.
+- Production DNS, TLS termination, databases, storage and backup destinations
+  required by the selected profiles.
+
+## Configuration
+
+Each application repository owns its configuration template. Copy it to a
+protected, ignored file, set mode `0600`, and resolve every `CHANGE_ME` value.
+Browser-visible `VITE_*` values MUST NOT contain secrets.
+
+The installer generates one protected `.env.production.file` or
+`.env.test.file`. Service prefixes prevent collisions between settings such as
+`APP_PORT`, `DB_HOST`, `APP_UID` and `APP_GID`.
+
+## Test installation
+
+```bash
+bash container_install.sh --test --action install --engine docker \
+  --git_revision current
+```
+
+## Production installation
+
+```bash
+bash container_install.sh --action install --engine podman \
+  --git_revision <reviewed-tag-or-commit> \
+  {{CONFIG_MAP_EXAMPLES}}
+```
+
+## Upgrade
+
+Back up persistent state, review release/configuration changes, and run:
+
+```bash
+bash container_install.sh --action upgrade --engine podman \
+  --git_revision <new-tag-or-commit> \
+  {{CONFIG_MAP_EXAMPLES}}
+```
+
+Django services run controlled bootstrap/migrations. React services rebuild an
+immutable browser bundle and do not run Django bootstrap.
+
+## Persistence and permissions
+
+| Asset | Production location | Backup/rebuild policy |
+|---|---|---|
+{{PERSISTENCE_ROWS}}
+
+Run permission repair without building or migrating:
+
+```bash
+bash container_install.sh --action fix-permissions --engine podman \
+  {{CONFIG_MAP_EXAMPLES}}
+```
+
+Each application and add-on has independent host-bind and running-container
+permission specifications in `container_install.sh`.
+
+## Testing
+
+```bash
+bash scripts/smoke_test.sh --engine podman \
+  --compose_file docker-compose.prod.yml \
+  --env_file .env.production.file
+```
+
+The generated smoke dispatcher combines framework checks with direct HTTP
+health checks. Add authenticated application workflows without removing the
+generated baseline checks.
+
+## Rollback and restore
+
+Record the deployed image/revision before every upgrade. An image-only rollback
+is safe only when the previous application version supports the current schema.
+Otherwise restore databases and persistent files from the same recovery point.
+See [LEAME.md](LEAME.md) for the ordered production procedure.
+
+## Troubleshooting
+
+- Inspect `compose ps` and service logs before restarting anything.
+- Use `fix-permissions` for reviewed ownership/mode drift.
+- Test direct service health before debugging Apache or external TLS.
+- Verify Keycloak issuer, public hostname, clients and redirect URIs together.
+- Never fake Django migrations or delete persistent volumes as a first response.

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 FROM registry.access.redhat.com/ubi9/ubi-minimal
 
 ARG APP_UID={{APP_UID}}
@@ -5,6 +6,8 @@ ARG APP_GID={{APP_GID}}
 ARG APP_INSTALL_PATH={{INSTALL_PATH}}
 ARG GIT_REVISION=current
 ARG INSTALL_CONF=conf/docker_test_settings.txt
+ARG USE_INSTALL_CONF_SECRET=false
+ARG RENDER_DJANGO_SETTINGS=false
 
 ENV APP_INSTALL_PATH=${APP_INSTALL_PATH} \
     INSTALL_PATH=${APP_INSTALL_PATH} \
@@ -34,9 +37,19 @@ RUN set -eux; \
 WORKDIR /srv/{{APP_SLUG}}
 COPY . /srv/{{APP_SLUG}}/
 
-# The baseline install stages application files and dependencies at build time.
-RUN bash install.sh --action install --engine docker \
-      --stage install --git_revision "${GIT_REVISION}" --install_conf "${INSTALL_CONF}" && \
+# Production uses an ephemeral build-secret mount: the operator configuration
+# is readable by install.sh but never copied into an image layer. Test builds
+# use the committed safe profile and explicitly render test settings.
+RUN --mount=type=secret,id=install_conf \
+    conf_path="${INSTALL_CONF}"; \
+    if [ "${USE_INSTALL_CONF_SECRET}" = "true" ]; then \
+      conf_path=/run/secrets/install_conf; \
+      test -f "$conf_path" || { echo "Required install_conf build secret is missing" >&2; exit 1; }; \
+    fi; \
+    render_args=""; \
+    if [ "${RENDER_DJANGO_SETTINGS}" = "true" ]; then render_args="--render-settings"; fi; \
+    bash install.sh --stage install \
+      --git_revision "${GIT_REVISION}" --conf "$conf_path" $render_args && \
     groupadd -g "${APP_GID}" app && \
     useradd -u "${APP_UID}" -g "${APP_GID}" -s /sbin/nologin app && \
     chown -R "${APP_UID}:${APP_GID}" "${APP_INSTALL_PATH}" /srv/{{APP_SLUG}}

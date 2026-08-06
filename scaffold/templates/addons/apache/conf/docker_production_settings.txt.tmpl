@@ -1,0 +1,9 @@
+# Apache add-on settings. The Compose environment writer prefixes these keys
+# with APACHE_, so LOG_PATH becomes APACHE_LOG_PATH in the final Compose model.
+LOG_PATH='/var/log/local/{{APP_SLUG}}/apache'
+BIND_HOST='0.0.0.0'
+PORT='80'
+FORWARDED_PROTO='https'
+FORWARDED_PORT='443'
+# 50 MiB; customize from the largest accepted application upload.
+LIMIT_REQUEST_BODY='52428800'

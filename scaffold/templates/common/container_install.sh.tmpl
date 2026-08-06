@@ -1,0 +1,307 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$script_dir/deployment/lib/container/common.sh"
+# shellcheck disable=SC1091
+source "$script_dir/deployment/lib/container/django.sh"
+
+APP_VERSION="0.1.0"
+APPLICATION_NAME="{{APP_NAME}}"
+
+# ============================================================================
+# GENERATED SERVICE/ADD-ON CUSTOMIZATION
+# Regenerate these callbacks from the descriptor; keep application-neutral
+# lifecycle mechanics below unchanged.
+# ============================================================================
+install_services={{INSTALL_SERVICES_LITERAL}}
+permission_services={{PERMISSION_SERVICES_LITERAL}}
+configured_services={{CONFIGURED_SERVICES_LITERAL}}
+
+default_service_install_conf() {
+    case "$1" in
+{{DEFAULT_CONF_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_build_context_dir() {
+    case "$1" in
+{{BUILD_CONTEXT_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_repo_path() {
+    case "$1" in
+{{REPO_PATH_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_install_path() {
+    case "$1" in
+{{INSTALL_PATH_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_readiness_path() {
+    case "$1" in
+{{READINESS_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_image_name() {
+    case "$1" in
+{{IMAGE_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_profile() {
+    case "$1" in
+{{PROFILE_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_dockerfile() {
+    case "$1" in
+{{DOCKERFILE_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_container_install_conf() {
+    case "$1" in
+{{CONTAINER_CONF_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_uid() {
+    case "$1" in
+{{UID_CASES}}
+        *) return 1 ;;
+    esac
+}
+service_gid() {
+    case "$1" in
+{{GID_CASES}}
+        *) return 1 ;;
+    esac
+}
+
+prepare_compose_environment() {
+    local -a settings_sources=(
+{{SETTINGS_SOURCES}}
+    )
+    local -a deployment_values=(
+{{DEPLOYMENT_VALUES}}
+    )
+    compose_env_file="$script_dir/.env.${mode}.file"
+    write_compose_environment_file "$compose_env_file" settings_sources deployment_values
+}
+
+# Every project uses the generated interpolation file in both modes because it
+# combines service-specific settings sources with collision-safe prefixes.
+deployment_compose() {
+    compose_exec --env-file "$compose_env_file" "$@"
+}
+current_service_container() {
+    deployment_compose -f "$compose_file" ps -q "$1" | tail -n 1
+}
+
+# Each Django service renders its own protected host settings bind. React
+# services and add-ons have no Django settings source.
+prepare_application_host_sources() {
+    local settings_output
+{{PREPARE_HOST_SOURCES}}
+}
+
+# Keep one independently reviewable host permission specification per
+# application and per selected add-on. Empty add-on specs are intentional until
+# that add-on declares writable bind sources.
+prepare_host_bind_source_permissions() {
+    [ "$mode" = production ] || return 0
+    local data_path log_path settings_path uid gid
+{{HOST_PERMISSION_SPECS}}
+}
+
+# Keep a separate running-mount specification in every service/add-on case.
+prepare_running_container_mount_permissions() {
+    local service_name="$1" container_id="$2"
+    local install_path uid gid
+    case "$service_name" in
+{{RUNNING_PERMISSION_CASES}}
+        *) return 0 ;;
+    esac
+}
+
+bootstrap_service() {
+    local service_name="$1" container_id="$2" deployment_action="$3"
+    local repo_path runtime_conf uid gid status
+    local -a args
+    case "$service_name" in
+{{BOOTSTRAP_CASES}}
+        *) return 0 ;;
+    esac
+}
+
+action="install"; mode="production"; engine="docker"; git_revision="current"
+install_conf=""; compose_file=""; compose_env_file=""
+install_conf_map_entries=(); migration_script_before=(); migration_script_after=()
+demo_data=""; skip_demo_data=""; skip_test_data=""
+
+usage() {
+    cat <<'EOF'
+Install, upgrade, or repair the application deployment.
+
+Options:
+  --action install|upgrade|fix-permissions
+  --test
+  --engine docker|podman
+  --git_revision <branch|tag|commit|current>
+  --install_conf <path>              First application service only.
+  --install_conf_map <service,path>  Repeat for every service override.
+  --compose_file <path>
+  --script_before <name[,args]>
+  --script_after <name[,args]>
+  --script <name[,args]>
+  --demo_data <path>
+  --skip_demo_data
+  --skip_test_data
+  --help
+  --version
+EOF
+}
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+# 1. Parse the canonical outer-installer interface.
+while (($#)); do
+    case "$1" in
+        --action) action="${2:-}"; shift 2 ;;
+        --test) mode="test"; shift ;;
+        --engine) engine="${2:-}"; shift 2 ;;
+        --git_revision) git_revision="${2:-}"; shift 2 ;;
+        --install_conf) install_conf="${2:-}"; shift 2 ;;
+        --install_conf_map) install_conf_map_entries+=("${2:-}"); shift 2 ;;
+        --compose_file) compose_file="${2:-}"; shift 2 ;;
+        --script_before) migration_script_before+=("${2:-}"); shift 2 ;;
+        --script_after|--script) migration_script_after+=("${2:-}"); shift 2 ;;
+        --demo_data) demo_data="${2:-}"; shift 2 ;;
+        --skip_demo_data) skip_demo_data=true; shift ;;
+        --skip_test_data) skip_test_data=true; shift ;;
+        --help) usage; exit 0 ;;
+        --version) echo "$APP_VERSION"; exit 0 ;;
+        *) die "Unknown option: $1" ;;
+    esac
+done
+
+# 2. Validate arguments before modifying deployment state.
+[[ "$action" =~ ^(install|upgrade|fix-permissions)$ ]] || die "Invalid action: $action"
+[[ "$engine" =~ ^(docker|podman)$ ]] || die "Invalid engine: $engine"
+[ -z "$demo_data" ] || die "--demo_data requires an application-owned deployment hook"
+
+# 3. Resolve one protected configuration source per configured component.
+cd "$script_dir"
+declare -A install_conf_host_by_service=()
+for service_name in "${configured_services[@]}"; do
+    install_conf_host_by_service["$service_name"]="$(default_service_install_conf "$service_name")"
+done
+if [ -n "$install_conf" ]; then install_conf_host_by_service["${install_services[0]}"]="$install_conf"; fi
+for mapping in "${install_conf_map_entries[@]}"; do
+    [[ "$mapping" == *,* ]] || die "Invalid --install_conf_map: $mapping"
+    service_name="${mapping%%,*}"; path="${mapping#*,}"
+    array_contains "$service_name" "${configured_services[@]}" || die "Unknown mapped service: $service_name"
+    install_conf_host_by_service["$service_name"]="$path"
+done
+for service_name in "${configured_services[@]}"; do
+    path="${install_conf_host_by_service[$service_name]}"
+    [[ "$path" = /* ]] || path="$script_dir/$path"
+    [ -f "$path" ] || die "Configuration for $service_name not found: $path"
+    if [ "$mode" = production ] \
+        && grep -Eq '^[A-Z0-9_]+=.*CHANGE_ME' "$path"; then
+        die "Production configuration for $service_name contains CHANGE_ME: $path"
+    fi
+    install_conf_host_by_service["$service_name"]="$(cd "$(dirname "$path")" && pwd)/$(basename "$path")"
+done
+
+# 4. Select the engine, prepare host sources and validate the final Compose model.
+set_engine "$engine"
+compose_file="${compose_file:-docker-compose.$([ "$mode" = test ] && echo test || echo prod).yml}"
+require_compose_file "$compose_file"
+prepare_compose_environment
+prepare_application_host_sources
+prepare_host_bind_source_permissions
+deployment_compose -f "$compose_file" config --quiet \
+    || die "Compose configuration validation failed: $compose_file"
+
+# 5. Dispatch permission-only repair without building or bootstrapping.
+if [ "$action" = fix-permissions ]; then
+    for service_name in "${permission_services[@]}"; do
+        container_id="$(current_service_container "$service_name" 2>/dev/null || true)"
+        [ -z "$container_id" ] || prepare_running_container_mount_permissions "$service_name" "$container_id"
+    done
+    echo "Permissions repaired without build or bootstrap."
+    exit 0
+fi
+
+# 6. Build application services in declared order. Production builds use the
+# engine directly: Django receives its settings as
+# an ephemeral build secret, while React receives only its public VITE value.
+# This avoids requiring Compose implementations to support build.secrets.
+for service_name in "${install_services[@]}"; do
+    if [ "$mode" = test ]; then
+        deployment_compose -f "$compose_file" build --no-cache "$service_name"
+        continue
+    fi
+    context="$(service_build_context_dir "$service_name")"
+    dockerfile="$(service_dockerfile "$service_name")"
+    profile="$(service_profile "$service_name")"
+    if [ "$profile" = django ]; then
+        engine_build --no-cache --file "$context/$dockerfile" \
+            --secret "id=install_conf,src=${install_conf_host_by_service[$service_name]}" \
+            --build-arg GIT_REVISION="$git_revision" \
+            --build-arg INSTALL_CONF="$(service_container_install_conf "$service_name")" \
+            --build-arg USE_INSTALL_CONF_SECRET=true \
+            --build-arg RENDER_DJANGO_SETTINGS=false \
+            --build-arg APP_INSTALL_PATH="$(service_install_path "$service_name")" \
+            --build-arg APP_UID="$(service_uid "$service_name")" \
+            --build-arg APP_GID="$(service_gid "$service_name")" \
+            --tag "$(service_image_name "$service_name")" "$context"
+    else
+        vite_api_url="$(config_value VITE_API_BASE_URL "${install_conf_host_by_service[$service_name]}")"
+        engine_build --no-cache --file "$context/$dockerfile" \
+            --build-arg GIT_REVISION="$git_revision" \
+            --build-arg VITE_API_BASE_URL="$vite_api_url" \
+            --tag "$(service_image_name "$service_name")" "$context"
+    fi
+done
+# 7. Start the complete topology from one Compose file.
+deployment_compose -f "$compose_file" up -d
+
+# 8. Wait for every application service readiness contract.
+for service_name in "${install_services[@]}"; do
+    container_id="$(current_service_container "$service_name")"
+    [ -n "$container_id" ] || die "Unable to resolve $service_name container"
+    ensure_service_running "$service_name" "$container_id" >/dev/null
+    readiness_path="$(service_readiness_path "$service_name")"
+    deadline=$((SECONDS + 120))
+    until engine_exec exec "$container_id" test -f "$readiness_path"; do
+        ((SECONDS < deadline)) || { engine_exec logs --tail 200 "$container_id"; die "$service_name readiness timeout"; }
+        sleep 2
+    done
+done
+
+# 9. Repair running mounts for applications and selected add-ons.
+for service_name in "${permission_services[@]}"; do
+    container_id="$(current_service_container "$service_name")"
+    prepare_running_container_mount_permissions "$service_name" "$container_id"
+done
+
+# 10. Bootstrap only application profiles that require runtime bootstrap.
+for service_name in "${install_services[@]}"; do
+    container_id="$(current_service_container "$service_name")"
+    bootstrap_service "$service_name" "$container_id" "$action" || die "$service_name bootstrap failed"
+done
+
+# 11. Execute the common smoke dispatcher with generated profile checks.
+smoke_args=(--engine "$engine" --compose_file "$compose_file" --env_file "$compose_env_file")
+[ "$mode" = test ] && smoke_args+=(--test)
+bash "$script_dir/scripts/smoke_test.sh" "${smoke_args[@]}"
+echo "$action completed successfully for $APPLICATION_NAME."

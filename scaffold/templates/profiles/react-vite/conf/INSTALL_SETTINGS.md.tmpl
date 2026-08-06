@@ -1,0 +1,10 @@
+# React/Vite installation settings
+
+| Setting | Required | Purpose |
+|---|---:|---|
+| `APP_UID` / `APP_GID` | yes | Numeric identity used by the unprivileged Nginx runtime |
+| `APP_PORT` | yes | Loopback and container HTTP port |
+| `VITE_API_BASE_URL` | yes | Public API URL embedded by Vite during image build |
+
+`VITE_*` values are public build-time configuration and are visible in the
+browser bundle. Never put passwords, client secrets, or private keys in them.

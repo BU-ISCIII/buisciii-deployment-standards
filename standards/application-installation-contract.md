@@ -6,9 +6,9 @@ This document defines what a complete BU-ISCIII installation procedure must
 contain, which file owns each responsibility, and how the pieces work together.
 Normative words are `MUST`, `SHOULD`, and `MAY`.
 
-The supplied scaffold is a concrete Django/Gunicorn/MySQL implementation based
-on the RELECOV Platform deployment pattern. Other technologies may implement
-the same lifecycle differently, but must satisfy the same outcomes.
+The supplied scaffold has concrete Django/Gunicorn/MySQL and React/Vite/Nginx
+profiles. They implement the same deployment outcomes with different build,
+bootstrap, runtime, and acceptance-test behavior.
 
 ## 1. Start from the scaffold
 
@@ -19,8 +19,17 @@ Create a project descriptor from
 cp scaffold/project.json.example /tmp/my-application.json
 ```
 
-Fill the application name, slug, Django module, repository, ports, runtime
-paths, UID/GID, Python version, and timezone. Generate the baseline:
+The descriptor always contains `SERVICES` and `ADDONS`. A standalone project
+has one service; an orchestrator has several. Each service independently
+selects `PROFILE` as `django` or `react-vite`. Django uses its module, runtime
+paths and Python version; React uses its browser-facing API setting from the
+generated installation configuration. Generate the baseline:
+
+At most one service may use `BUILD_CONTEXT: "."`; that service owns the current
+repository's profile-specific Dockerfile, inner installer/entrypoint and
+configuration templates. Services with other build contexts own those files in
+their respective repositories. A standalone application is therefore only the
+one-local-service case of the same project schema.
 
 ```bash
 python3 scripts/scaffold.py init /path/to/my-application \
@@ -41,7 +50,7 @@ flowchart TB
 
     docs --> readme[README.md<br/>developer and common operations]
     docs --> leame[LEAME.md<br/>production operator runbook]
-    installers --> install[install.sh<br/>stage and bootstrap]
+    installers --> install[install.sh<br/>Django stage and bootstrap only]
     installers --> containerInstall[container_install.sh<br/>orchestration]
     containers --> dockerfile[Dockerfile]
     containers --> composeTest[docker-compose.test.yml]
@@ -53,22 +62,38 @@ flowchart TB
     verification --> smoke[scripts/smoke_test.sh]
 ```
 
+The same descriptor can combine any number of Django and React/Vite
+applications; `PROFILE` belongs to each `SERVICES` entry, never the repository:
+
+```mermaid
+flowchart LR
+    descriptor[SERVICES and ADDONS] --> assembler[Common Compose assembler]
+    django1[Django service profile] --> assembler
+    django2[Django service profile] --> assembler
+    react[React/Vite service profile] --> assembler
+    apache[Apache add-on] --> assembler
+    keycloak[Keycloak add-on] --> assembler
+    assembler --> prod[One docker-compose.prod.yml]
+    assembler --> test[One docker-compose.test.yml]
+```
+
+Each application repository continues to own its profile-generated Dockerfile
+and inner installer. The orchestrator owns build contexts, service ordering,
+protected configuration mappings, cross-service networking, add-ons, Django-
+only bootstrap dispatch and the final assembled Compose documents.
+
 Template references:
 
 | Generated file | Source template | Required responsibility |
 |---|---|---|
-| `README.md` | [`README.md.tmpl`](../scaffold/templates/README.md.tmpl) | Test install, production overview, persistence, upgrade, rollback, operations, testing |
-| `LEAME.md` | [`LEAME.md.tmpl`](../scaffold/templates/LEAME.md.tmpl) | Ordered production procedure with real host commands |
-| `install.sh` | [`install.sh.tmpl`](../scaffold/templates/install.sh.tmpl) | Stage files/dependencies and bootstrap Django state |
-| `container_install.sh` | [`container_install.sh.tmpl`](../scaffold/templates/container_install.sh.tmpl) | Validate, build, start, bootstrap, repair permissions |
-| `Dockerfile` | [`Dockerfile.tmpl`](../scaffold/templates/Dockerfile.tmpl) | Immutable staged image and non-root runtime |
-| Test Compose | [`docker-compose.test.yml.tmpl`](../scaffold/templates/docker-compose.test.yml.tmpl) | Isolated app and disposable database |
-| Production Compose | [`docker-compose.prod.yml.tmpl`](../scaffold/templates/docker-compose.prod.yml.tmpl) | App, external database connection, persistent mounts |
-| Entrypoint | [`container_start.sh.tmpl`](../scaffold/templates/scripts/container_start.sh.tmpl) | Runtime readiness, cron, development server or Gunicorn |
-| Test settings | [`docker_test_settings.txt.tmpl`](../scaffold/templates/conf/docker_test_settings.txt.tmpl) | Safe disposable defaults |
-| Production settings | [`docker_production_settings.txt.tmpl`](../scaffold/templates/conf/docker_production_settings.txt.tmpl) | Secret-free production template |
-| Settings reference | [`INSTALL_SETTINGS.md.tmpl`](../scaffold/templates/conf/INSTALL_SETTINGS.md.tmpl) | Meaning and security classification of every setting |
-| Smoke test | [`smoke_test.sh.tmpl`](../scaffold/templates/scripts/smoke_test.sh.tmpl) | Repeatable installation acceptance test |
+| `README.md` / `LEAME.md` | [Common documentation templates](../scaffold/templates/common/) with generated profile/add-on sections | Identical installation/runbook structure for every deployment |
+| `install.sh` | [`django/install.sh.tmpl`](../scaffold/templates/profiles/django/install.sh.tmpl) | Stage files/dependencies and bootstrap Django state; not generated for React |
+| `container_install.sh` | [Common outer installer](../scaffold/templates/common/container_install.sh.tmpl) | One normalized lifecycle for standalone and orchestrated deployments |
+| `Dockerfile` | Profile `Dockerfile.tmpl` | Framework-specific immutable build and non-root runtime |
+| Compose files | [Common document template](../scaffold/templates/common/docker-compose.yml.tmpl), service profiles and [add-on fragments](../scaffold/templates/addons/) | Ordered blocks in one file per mode for standalone and orchestrated deployments |
+| Entrypoint | Profile `scripts/container_start.sh.tmpl` | Gunicorn/Django lifecycle or immutable Nginx startup |
+| Installation settings | Profile `conf/` templates | Framework-specific configuration and security classification |
+| Smoke test | [Common dispatcher](../scaffold/templates/common/scripts/smoke_test.sh.tmpl) with generated profile checks | Consistent Compose, framework and HTTP acceptance sequence |
 
 Use the detailed
 [`installation-checklist.md`](../templates/installation-checklist.md) to audit
@@ -103,7 +128,7 @@ the installer defaults to production is a contract failure.
 
 ### `README.md`: application-facing guide
 
-The generated [`README.md.tmpl`](../scaffold/templates/README.md.tmpl) provides
+The generated common `README.md.tmpl` provides
 the required order. The application `README.md` MUST contain:
 
 1. infrastructure overview and service topology;
@@ -124,7 +149,7 @@ safe test values from production placeholders.
 
 ### `LEAME.md`: production operator runbook
 
-The generated [`LEAME.md.tmpl`](../scaffold/templates/LEAME.md.tmpl) is the
+The generated common `LEAME.md.tmpl` is the
 execution checklist for operators. Before production approval it MUST contain
 real values or references for:
 
@@ -140,30 +165,65 @@ real values or references for:
 
 No unresolved `CHANGE_ME` marker may remain in an approved production runbook.
 
-## 4. Canonical command-line interface
+## 4. Canonical command-line interfaces
 
-Every installation script MUST recognize the following names. When an option is
-not applicable, it MUST fail before modifying state and explain why; it must not
-silently ignore the option.
+`install.sh` and `container_install.sh` have different responsibilities and
+therefore different interfaces. Every `install.sh` MUST use the same
+`install.sh` interface, and every `container_install.sh` MUST use the same
+`container_install.sh` interface. A script does not need to recognize options
+owned by the other script type.
+
+### `install.sh` interface
 
 ```text
---action install|upgrade|fix-permissions
---test
---engine docker|podman
+--install full|dep|app
+--upgrade full|dep|app
+--stage install|upgrade
+--bootstrap install|upgrade
 --git_revision <branch|tag|commit|current>
---install_conf <path>
---install_conf_map <service,path>
---compose_file <path>
---stage [install|upgrade]
---bootstrap [install|upgrade]
+--conf <path>
+--tables
+--skip_tables
 --script_before <script[,args]>
 --script_after <script[,args]>
 --script <script[,args]>
---tables
---skip_tables
+--ren_app
+--docker
+--skip_apache_restart
 --help
 --version
 ```
+
+`--ren_app` is retained for compatibility with the historical RELECOV/iSkyLIMS
+application rename migration. Applications where it is not applicable MUST
+recognize it and fail clearly before modifying state. `--docker` is a deprecated
+compatibility option; new internal calls SHOULD use `--skip_apache_restart`.
+
+### `container_install.sh` interface
+
+```text
+--demo_data <path>
+--git_revision <branch|tag|commit|current>
+--compose_file <path>
+--install_conf <path>
+--install_conf_map <service,path>
+--action install|upgrade|fix-permissions
+--script_before <script[,args]>
+--script_after <script[,args]>
+--script <script[,args]>
+--skip_demo_data
+--skip_test_data
+--engine docker|podman
+--test
+--help
+--version
+```
+
+Single-service and non-demo applications MUST still recognize
+`--install_conf_map`, `--demo_data`, `--skip_demo_data`, and `--skip_test_data`.
+If the capability is not implemented, the script MUST fail before modifying
+state and explain that it is not applicable. Options MUST never be silently
+ignored.
 
 Canonical examples:
 
@@ -180,13 +240,13 @@ bash container_install.sh --action upgrade --engine podman \
   --script_before prepare_v2_data \
   --script_after verify_v2_data
 
-# Internal image-build phase: no database or production secrets
+# Internal test-image stage: render committed non-sensitive test settings
 bash install.sh --stage install --git_revision current \
-  --install_conf conf/docker_production_settings.txt
+  --conf conf/docker_test_settings.txt --render-settings
 
 # Internal runtime phase against the staged tree
 bash install.sh --bootstrap upgrade \
-  --install_conf /tmp/runtime_install_settings.txt \
+  --conf /tmp/runtime_install_settings.txt \
   --skip_tables
 ```
 
@@ -194,27 +254,27 @@ Option semantics:
 
 | Option | Required behavior |
 |---|---|
-| `--action` | Select install, upgrade, or permission repair; default is install |
-| `--test` | Select isolated test mode; absence means production |
-| `--engine` | Select Docker or Podman; default must be documented |
+| `install.sh --install/--upgrade` | Run the direct full, dependency-only, or application-only workflow |
+| `install.sh --stage` | Dependencies and files only; never database work or runtime secrets |
+| `install.sh --bootstrap` | Runtime checks, hooks, migrations, fixtures, and static collection |
+| `install.sh --conf` | Select the application installation settings file |
+| `install.sh --render-settings` | Explicitly render settings while staging; required for test images and disabled for production image staging |
+| `install.sh --settings-output` | Override the settings destination when the application layout requires it |
+| `container_install.sh --action` | Select install, upgrade, or permission repair; default is install |
+| `container_install.sh --test` | Select isolated test mode; absence means production |
+| `container_install.sh --engine` | Select Docker or Podman; default must be documented |
 | `--git_revision` | Select branch, tag, commit, or `current` local committed sources |
-| `--install_conf` | Select one non-committed runtime configuration |
-| `--install_conf_map` | Repeatable configuration mapping for multi-service orchestrators |
-| `--compose_file` | Override the mode-default Compose file |
-| `--stage` | Dependencies and files only; never database work or runtime secrets |
-| `--bootstrap` | Runtime checks, hooks, migrations, fixtures, and static collection |
+| `container_install.sh --install_conf` | Select one non-committed runtime configuration |
+| `container_install.sh --install_conf_map` | Repeatable configuration mapping for orchestrated services |
+| `container_install.sh --compose_file` | Override the mode-default Compose file |
 | `--script_before` | Repeatable Django migration hook before `migrate` |
 | `--script_after` | Repeatable hook after `migrate`; `--script` is its alias |
-| `--tables` | Explicitly load the documented initial fixture |
-| `--skip_tables` | Explicitly prevent fixture loading; default for production upgrades |
+| `install.sh --tables` | Explicitly load the documented initial fixture |
+| `install.sh --skip_tables` | Explicitly prevent fixture loading; default for production upgrades |
 | `--help`, `--version` | Print and exit successfully without changing state |
 
-Compatibility aliases such as `--install full|dep|app`, `--upgrade
-full|dep|app`, and `--conf` MAY remain, but current documentation MUST use the
-canonical interface.
-
-Application-specific demo flags SHOULD use `--demo_data`, `--skip_demo_data`,
-and `--skip_test_data`.
+Application-specific options MAY be added, but the shared interface for that
+script type MUST remain available and documented.
 
 ## 5. Stage, bootstrap, and runtime lifecycle
 
@@ -234,9 +294,10 @@ sequenceDiagram
     participant Smoke as smoke_test.sh
 
     CI->>Install: --stage install/upgrade
+    Orchestrator-->>Install: production config as ephemeral build secret
     Install->>Install: validate source and install dependencies
     Install->>Image: copy staged application tree
-    Note over Install,DB: Stage MUST NOT access DB or production secrets
+    Note over Install,DB: Stage MUST NOT access DB or retain production secrets/settings
 
     Operator->>Orchestrator: --action install/upgrade
     Orchestrator->>Orchestrator: validate config, paths, engine and Compose
@@ -267,9 +328,8 @@ flowchart LR
 ```
 
 The scaffold implementations are
-[`install.sh.tmpl`](../scaffold/templates/install.sh.tmpl),
-[`container_install.sh.tmpl`](../scaffold/templates/container_install.sh.tmpl),
-and [`container_start.sh.tmpl`](../scaffold/templates/scripts/container_start.sh.tmpl).
+the selected profile's `install.sh.tmpl` (when applicable),
+`container_install.sh.tmpl`, and `scripts/container_start.sh.tmpl`.
 
 ## 6. Script responsibilities
 
@@ -315,6 +375,60 @@ passing runtime configuration, invoking bootstrap, diagnostics, and final URLs.
 
 `fix-permissions` MUST NOT build images, migrate databases, or delete data.
 
+Application-neutral container functions SHOULD come from the centrally managed
+[`lib/container/common.sh`](../lib/container/common.sh). Django applications
+also use [`lib/container/django.sh`](../lib/container/django.sh) as the single
+settings renderer from both installer scripts. Applications vendor these under
+`deployment/lib/container/` and MUST NOT edit those copies. The wrapper retains
+service topology, mounts, demo data, bootstrap, and URL behavior. Use
+`scaffold.py check-lib` to detect drift and `sync-lib` to replace only centrally
+owned library files.
+
+The scaffold wrapper MUST keep the lifecycle visible in a consistent numbered
+order and contain a marked application-customization section. Single-service
+applications use a one-element ordered service array; orchestrators extend the
+same array and mapping callbacks. Argument parsing, action dispatch, readiness,
+service iteration, bootstrap construction, and build/start order remain in the
+wrapper for operational readability. Compose validation, diagnostics, secure
+runtime-configuration transfer/removal, settings rendering, permission
+mechanics, and smoke-test invocation use the synchronized libraries.
+
+The lifecycle calls the application-owned `bootstrap_service` callback after
+readiness and mount preparation. Django implementations normally stage a
+protected runtime configuration and invoke `install.sh --bootstrap`; React or
+other immutable frontend images may return successfully without a bootstrap
+command. Orchestrators select behavior per service. Framework-specific
+bootstrap flags and commands MUST remain in this callback rather than being
+embedded in the generic lifecycle.
+
+The wrapper MUST keep application build/bootstrap services separate from the
+services managed for permissions. Each selected add-on appends its service to
+the permission-service array, but MUST NOT enter the application install array
+unless the wrapper genuinely owns that service's image build and bootstrap.
+
+Permission customization MUST distinguish host bind sources from mount paths
+visible inside a running container. `prepare_host_bind_source_permissions`
+declares host paths that need ownership or mode before Compose starts.
+`prepare_running_container_mount_permissions` declares application-writable
+directory destinations backed by named volumes or bind mounts. Its entries use
+`path|owner|mode`; shared code creates them and applies ownership/mode
+recursively. Each application service and each selected add-on MUST have its
+own named host-bind specification and its own named running-container mount
+specification; an add-on with no entries declares an empty specification.
+Policies for different components MUST NOT be combined into one array. See the
+Apache and Keycloak examples in
+[`container_install.sh.tmpl`](../scaffold/templates/common/container_install.sh.tmpl).
+Mounted files such as Django settings MUST use a file-specific helper instead
+of the recursive directory specification.
+
+Compose MUST consume a dedicated generated interpolation file rather than an
+application installation-settings file directly. The shared writer copies
+uppercase settings into a mode-`0600` dotenv file, removes shell quoting, and
+supports service prefixes so orchestrators can combine multiple settings files
+without collisions. Applications explicitly add only derived deployment values
+such as image tags, build-configuration paths, and the requested Git revision;
+they MUST NOT maintain a duplicate placeholder for every application setting.
+
 ### `container_start.sh`
 
 MUST own only repeatable runtime startup: bounded wait for staged files,
@@ -325,22 +439,66 @@ It MUST NOT migrate the database or load fixtures on every restart.
 
 ### `Dockerfile`
 
-MUST install explicit system dependencies, call `install.sh --stage`, create a
-numeric non-root runtime user, include the entrypoint, and define a health check.
-It MUST NOT copy production secrets into an image.
+Every profile MUST install explicit dependencies, use a non-root runtime,
+include its entrypoint, and define a health check. It MUST NOT copy production
+secrets into an image.
+
+The Django Dockerfile MUST call `install.sh --stage` and support both modes
+explicitly:
+
+- test builds use the committed non-sensitive test configuration and set
+  `RENDER_DJANGO_SETTINGS=true`;
+- production builds set `RENDER_DJANGO_SETTINGS=false`; `container_install.sh`
+  invokes the selected engine with `--secret`, and the Dockerfile consumes the
+  file through `RUN --mount=type=secret`, never through `COPY` or a build
+  argument containing secret values. Direct engine invocation is required for
+compatibility with Compose implementations lacking `build.secrets`.
+
+The React/Vite Dockerfile MUST use separate Node build and unprivileged static
+server stages. Its `VITE_*` build arguments are public browser configuration,
+never secrets; it MUST NOT inherit Django settings rendering, Python staging,
+database bootstrap, or migration behavior.
+
+The build context MUST include a `.dockerignore` that excludes operator settings
+and temporary configuration copies. Only named test settings and secret-free
+templates may be re-included. Removing a secret in a later Dockerfile layer is
+not sufficient because it remains recoverable from the earlier `COPY` layer.
+Operator configuration filenames MUST contain `settings` so the standard ignore
+rule covers custom files without excluding dependency files such as
+`conf/requirements.txt`.
 
 ### Compose files
 
-Test Compose MUST provide an isolated database, health checks, loopback-bound
-ports, and disposable named volumes. Production Compose MUST use the documented
-database model, expose only required application/proxy ports, run as the
-configured UID/GID, and mount every persistent path.
+Test Compose MUST provide health checks and loopback-bound ports. It MUST add an
+isolated database and disposable named volumes when the selected application
+profile requires them. Production Compose MUST use the documented persistence
+model, expose only required application/proxy ports, run as a non-root identity,
+and mount every declared persistent path.
+
+The Apache add-on MUST follow the same multi-application mount contract as the
+applications it fronts: generated proxy/log/status configuration binds are
+read-only, production logs use a persistent host bind, and every Django
+static/document source is mounted read-only into Apache. Compose comments MUST
+distinguish required generated binds, generated per-application mounts and
+optional application additions. Optional mounts are declared through the
+project descriptor rather than by editing synchronized fragments. A multi-app
+deployment SHOULD declare one `VIRTUAL_HOSTS` entry per public DNS name so
+Django, React and Keycloak retain their native root URLs. `ROUTES` is suitable
+only when every target explicitly supports its assigned external path prefix.
+Forwarded protocol/port and request-size policy MUST be supplied to the
+generated Apache configuration as runtime environment values.
+
+The Keycloak add-on MUST treat its database as the primary persistent identity
+state. It includes a health-checked database dependency, protected database and
+bootstrap-admin settings, strict production hostname/proxy behavior, and a
+read-only reproducible realm-import bind. Documentation MUST state that realm
+import normally applies only when the realm is absent and does not replace
+database backup/restore. Keycloak, its database, and their host sources retain
+separate permission specifications.
 
 ## 7. Configuration and secret flow
 
-Use the generated
-[`INSTALL_SETTINGS.md.tmpl`](../scaffold/templates/conf/INSTALL_SETTINGS.md.tmpl)
-and the reusable
+Use the selected profile's generated `conf/INSTALL_SETTINGS.md` and the reusable
 [`configuration-matrix.md`](../templates/configuration-matrix.md).
 
 Every important setting MUST document its owner, requirement, secret status,
@@ -359,9 +517,9 @@ flowchart LR
 
     testTemplate --> compose
     prodTemplate -->|operator copies and fills| prodRuntime
-    prodTemplate -->|secret-free build config| image
+    prodRuntime -->|ephemeral build-secret mount| image
     prodRuntime --> compose
-    compose -->|selected non-secret build args| image
+    testTemplate -->|test-only render-settings| image
     compose -->|temporary protected copy| container
     container -->|bootstrap and runtime env| django
     container -->|delete temporary config after bootstrap| cleanup[Cleanup]
@@ -371,6 +529,11 @@ Production secrets MUST NOT be committed, printed, or baked into images.
 Production settings MUST be ignored by Git, protected with mode `0600`, and
 rejected while `CHANGE_ME` values remain. Shared issuer, audience, public URL,
 database, proxy, and frontend values MUST have one documented source of truth.
+
+One operator settings file MAY serve build-time installation decisions,
+host-side Django rendering, and runtime bootstrap. When used during a production
+build it MUST be mounted as an ephemeral build secret. The Dockerfile MUST fail
+if secret mode is selected but `/run/secrets/install_conf` is unavailable.
 
 ## 8. Persistence, permissions, and destructive boundaries
 
@@ -443,7 +606,7 @@ where applicable.
 ## 11. Acceptance and smoke testing
 
 Installation succeeds only when a repeatable acceptance test passes. Extend
-[`smoke_test.sh.tmpl`](../scaffold/templates/scripts/smoke_test.sh.tmpl) so it
+the selected profile's `scripts/smoke_test.sh.tmpl` so it
 verifies, as applicable:
 
 1. expected services are running and healthy;

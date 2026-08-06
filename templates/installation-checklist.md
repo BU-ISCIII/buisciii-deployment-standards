@@ -50,7 +50,8 @@ For each item, link to the exact file, command, test result, or tracked issue.
 
 ## C. `install.sh` implemented
 
-- [ ] Recognizes every canonical option from the installation contract.
+- [ ] Recognizes every canonical `install.sh` option from the installation
+      contract; it is not required to recognize container-installer options.
 - [ ] `--help` and `--version` make no changes and return success.
 - [ ] Unsupported actions fail explicitly before making changes.
 - [ ] Validates the selected settings file and required values.
@@ -75,7 +76,9 @@ For each item, link to the exact file, command, test result, or tracked issue.
 
 ## D. `container_install.sh` implemented
 
-- [ ] Recognizes every canonical option from the installation contract.
+- [ ] Recognizes every canonical `container_install.sh` option from the
+      installation contract; it is not required to recognize `install.sh`
+      workflow options.
 - [ ] Selects test and production Compose files deterministically.
 - [ ] Requires explicit production configuration.
 - [ ] Supports Docker and rootless Podman, or rejects an unsupported engine.
@@ -96,8 +99,31 @@ For each item, link to the exact file, command, test result, or tracked issue.
 - [ ] Upgrade preserves all volumes and bind-mounted data.
 - [ ] Passes `bash -n` and ShellCheck, with reviewed suppressions only.
 
+### Orchestrator-specific checks
+
+- [ ] Descriptor has one `SERVICES` entry per application and selects the
+      correct profile independently for each service.
+- [ ] At most one service uses build context `.`, and that service's generated
+      profile artifacts belong to the current repository.
+- [ ] Every service declares its build context, Dockerfile, protected host
+      configuration, test build configuration, port and UID/GID.
+- [ ] `install_services` contains application services in build/bootstrap order.
+- [ ] `permission_services` contains applications plus every selected add-on.
+- [ ] `configured_services` includes every application and add-on that consumes
+      an installation settings file.
+- [ ] Django services receive stage/bootstrap and protected settings rendering;
+      React services explicitly skip Django bootstrap.
+- [ ] Production Django builds use direct engine build secrets; React builds
+      receive only reviewed public `VITE_*` arguments.
+- [ ] Each application and add-on has separate host-bind and running-container
+      permission specifications, including explicit empty specifications.
+
 ## E. Docker image implemented
 
+- [ ] `.dockerignore` excludes operator settings and temporary configuration copies, re-including only safe test settings/templates.
+- [ ] Production build passes the single operator configuration with `--secret`; Dockerfile consumes it with `RUN --mount=type=secret`.
+- [ ] Production staging disables settings rendering and test staging explicitly enables it.
+- [ ] Verified the production settings file is absent from the build context and final image.
 - [ ] `Dockerfile` uses an approved and deliberately versioned base image.
 - [ ] Required system packages are explicit and caches are cleaned.
 - [ ] Application dependencies and code are staged during image build.
@@ -110,6 +136,27 @@ For each item, link to the exact file, command, test result, or tracked issue.
 - [ ] Image builds for every supported architecture or states its limitation.
 
 ## F. Compose implemented
+
+- [ ] Exactly one generated test Compose file and one generated production
+      Compose file contain all selected service profiles and add-ons.
+- [ ] No operator command requires multiple `-f` Compose overlays.
+- [ ] Managed service/add-on blocks have stable `BEGIN/END BU-ISCIII` markers.
+- [ ] Apache routes target declared services and its generated configuration is
+      mounted read-only with a separate host permission specification.
+- [ ] Multi-app Apache uses one `VIRTUAL_HOSTS` entry per DNS name; path-based
+      `ROUTES` are used only for applications tested under those URL prefixes.
+- [ ] Apache receives forwarded protocol/port and request-size values in its
+      container environment, and its proxy timeout matches application needs.
+- [ ] Apache mounts each Django static/document source read-only, uses a
+      persistent production log bind, and labels every extra mount as required,
+      generated multi-app, or optional application policy.
+- [ ] Keycloak and `keycloak_db` have health/dependency ordering, protected
+      production database/admin settings, a read-only realm import bind and
+      persistent `keycloak_db_data` included in backup/restore procedures.
+- [ ] Realm import JSON is generated reproducibly and operators understand that
+      `--import-realm` does not overwrite an existing realm.
+- [ ] Keycloak, Keycloak DB and Apache each retain separate host/running-mount
+      permission specifications, including explicit empty specs.
 
 - [ ] Test Compose includes an isolated database with a health check.
 - [ ] Test ports bind to loopback unless external access is intentional.

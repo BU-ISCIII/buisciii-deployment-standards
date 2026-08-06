@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+- Consolidated `container_install.sh`, README, LEAME, the Compose document,
+  `.dockerignore`, `.gitignore` and smoke dispatch into common templates used by
+  standalone and multi-service deployments.
+- Restricted Django and React/Vite profiles to framework-owned Dockerfiles,
+  inner installers, entrypoints and configuration while selecting profiles
+  independently per normalized service.
+- Added add-on catalog documentation for Apache and Keycloak without exposing
+  separate operator-facing Compose overlays.
+- Added service-oriented project descriptors: each service independently
+  selects Django or React/Vite, while Apache and Keycloak are assembled as real
+  add-on services into one production and one test Compose document.
+- Replaced separate standalone/orchestrator examples with one canonical
+  `project.json` schema using one or many `SERVICES` entries; retained the old
+  top-level `PROFILE` shape only for synchronization of initialized projects.
+- Expanded Apache to the RELECOV/PathoCore operational pattern: UBI httpd,
+  dependency health ordering, separate proxy/log/status binds, persistent logs,
+  generated read-only Django static/document mounts with classified mount
+  comments, and per-service DNS virtual hosts for mixed applications.
+- Expanded Keycloak to the PathoCore pattern with a health-checked MySQL
+  service, persistent database volume, strict proxy/hostname settings,
+  reproducible realm-import bind, and separate Keycloak/database permissions.
+- Added a single shared Django settings renderer for `install.sh` and
+  `container_install.sh`.
+- Standardized explicit test-only image settings rendering.
+- Added ephemeral production installation-config build secrets and mandatory
+  `.dockerignore` protection so operator credentials are not retained in image
+  layers.
+
 ## 0.1.0 - 2026-08-04
 
 - Add the initial technology-neutral application installation contract.
@@ -21,5 +51,11 @@
 - Rewrite the application installation contract as a template-linked practical
   guide with commands and Mermaid diagrams for structure, lifecycle, script
   ownership, configuration, rollback, and synchronization.
+- Split the canonical CLI into separate consistent interfaces for `install.sh`
+  and `container_install.sh`; scripts no longer need to recognize options owned
+  only by the other script type.
+- Add the versioned shared container installer library, library tests, and
+  `check-lib`/`sync-lib` commands; refactor RELECOV Platform and iSkyLIMS to
+  source identical vendored copies while retaining application-specific logic.
 - Keep this release intentionally manual while it is reviewed against
   PathoCore and RELECOV.

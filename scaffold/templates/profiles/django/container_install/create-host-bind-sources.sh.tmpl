@@ -1,0 +1,6 @@
+    if [ "$mode" = production ]; then
+        settings_output="$(service_environment_value {{SERVICE_NAME_SHELL}} DJANGO_SETTINGS_PATH)"
+        [ -n "$settings_output" ] || { echo "DJANGO_SETTINGS_PATH is required for {{SERVICE_NAME}}" >&2; return 1; }
+        mkdir -p "$(dirname "$settings_output")"
+        prepare_django_settings_bind_mount {{BUILD_CONTEXT_SHELL}}/conf/template_settings.py "$settings_output" "${install_conf_host_by_service[{{SERVICE_NAME}}]}"
+    fi

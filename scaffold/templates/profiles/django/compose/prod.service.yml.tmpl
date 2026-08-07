@@ -1,0 +1,46 @@
+  # BEGIN BU-ISCIII SERVICE: {{SERVICE_NAME}} (django)
+  {{SERVICE_NAME}}:
+    image: "${{{ENV_PREFIX}}_IMAGE:-{{IMAGE_NAME}}}"
+    build:
+      context: {{BUILD_CONTEXT_JSON}}
+      dockerfile: {{DOCKERFILE_JSON}}
+      args:
+        GIT_REVISION: ${GIT_REVISION:-current}
+        # Fixed internal path used only while install.sh reads the build secret.
+        INSTALL_CONF: "conf/.runtime_install_settings.txt"
+        USE_INSTALL_CONF_SECRET: "true"
+        RENDER_DJANGO_SETTINGS: "false"
+        APP_UID: ${{{ENV_PREFIX}}_APP_UID:?{{ENV_PREFIX}}_APP_UID is required}
+        APP_GID: ${{{ENV_PREFIX}}_APP_GID:?{{ENV_PREFIX}}_APP_GID is required}
+        APP_PORT: ${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}
+        APP_REPO_PATH: ${{{ENV_PREFIX}}_REPO_PATH:?{{ENV_PREFIX}}_REPO_PATH is required}
+        APP_INSTALL_PATH: ${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}
+    restart: unless-stopped
+    user: "${{{ENV_PREFIX}}_APP_UID:?{{ENV_PREFIX}}_APP_UID is required}:${{{ENV_PREFIX}}_APP_GID:?{{ENV_PREFIX}}_APP_GID is required}"
+    environment:
+      APP_MODE: prod
+      INSTALL_PATH: ${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}
+      APP_INSTALL_PATH: ${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}
+      APP_PORT: ${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}
+      PROJECT_MODULE: "{{PROJECT_MODULE}}"
+      DB_HOST: ${{{ENV_PREFIX}}_DB_HOST:?{{ENV_PREFIX}}_DB_HOST is required}
+      DB_PORT: ${{{ENV_PREFIX}}_DB_PORT:?{{ENV_PREFIX}}_DB_PORT is required}
+      DB_NAME: ${{{ENV_PREFIX}}_DB_NAME:?{{ENV_PREFIX}}_DB_NAME is required}
+      DB_USER: ${{{ENV_PREFIX}}_DB_USER:?{{ENV_PREFIX}}_DB_USER is required}
+      DB_PASSWORD: ${{{ENV_PREFIX}}_DB_PASSWORD:?{{ENV_PREFIX}}_DB_PASSWORD is required}
+      DJANGO_SECRET_KEY: ${{{ENV_PREFIX}}_DJANGO_SECRET_KEY:?{{ENV_PREFIX}}_DJANGO_SECRET_KEY is required}
+      DJANGO_ALLOWED_HOSTS: ${{{ENV_PREFIX}}_DJANGO_ALLOWED_HOSTS:?{{ENV_PREFIX}}_DJANGO_ALLOWED_HOSTS is required}
+    volumes:
+      - ${{{ENV_PREFIX}}_HOST_DATA_PATH:?{{ENV_PREFIX}}_HOST_DATA_PATH is required}/documents:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/documents:Z
+      - ${{{ENV_PREFIX}}_HOST_LOG_PATH:?{{ENV_PREFIX}}_HOST_LOG_PATH is required}:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/logs:Z
+      - ${{{ENV_PREFIX}}_DJANGO_SETTINGS_PATH:?{{ENV_PREFIX}}_DJANGO_SETTINGS_PATH is required}:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/{{PROJECT_MODULE}}/settings.py:Z
+      - {{SERVICE_NAME}}_static:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/static:z
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['APP_PORT'] + '/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}:${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}"
+    networks: [deployment_net]
+  # END BU-ISCIII SERVICE: {{SERVICE_NAME}}

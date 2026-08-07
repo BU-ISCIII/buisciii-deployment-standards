@@ -1,10 +1,12 @@
 ### Unprivileged Nginx test runtime
-APP_UID={{APP_UID}}
-APP_GID={{APP_GID}}
-APP_PORT={{APP_PORT}}
+REPO_PATH='/app'
+INSTALL_PATH='/usr/share/nginx/html'
+APP_UID='101'
+APP_GID='101'
+APP_PORT='8080'
 
 ### Public browser build configuration
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_BASE_URL='http://127.0.0.1:8000'
 
 ### Selected infrastructure add-ons
 {{TEST_ADDON_SETTINGS}}

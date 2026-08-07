@@ -1,11 +1,22 @@
 # Safe local/test values. Never use these credentials in production.
-### Application layout and runtime identity
-INSTALL_PATH='{{INSTALL_PATH}}'
+
+### Application layout and Django project
+REPO_PATH='/srv/{{APP_SLUG}}'
+INSTALL_PATH='/opt/{{APP_SLUG}}'
 PROJECT_MODULE='{{PROJECT_MODULE}}'
 PYTHON_BIN_PATH='python{{PYTHON_VERSION}}'
-APP_UID='{{APP_UID}}'
-APP_GID='{{APP_GID}}'
-APP_PORT='{{APP_PORT}}'
+
+### Application-specific installation modules
+# Optional lists used only when install.sh implements these operations.
+REQUIRED_MODULES=''
+MIGRATION_MODULES=''
+FAKEINITIAL_MODULES=''
+
+### Container runtime identity
+APP_UID='1212'
+APP_GID='1212'
+APP_SHELL='/bin/bash'
+APP_PORT='8001'
 
 ### Disposable persistence paths
 HOST_DATA_PATH='/tmp/{{APP_SLUG}}/data'
@@ -20,18 +31,38 @@ DB_NAME='{{PROJECT_MODULE}}'
 DB_USER='django'
 DB_PASSWORD='djangopass'
 DB_ROOT_PASSWORD='root'
+# Compatibility aliases used by the current RELECOV/iSkyLIMS install.sh.
+DB_SERVER_IP='db'
+DB_PASS='djangopass'
 
 ### Django and local email defaults
-DJANGO_DEBUG='true'
+DJANGO_DEBUG='false'
 DJANGO_SECRET_KEY='test-only-change-me'
 DJANGO_ALLOWED_HOSTS='localhost,127.0.0.1,0.0.0.0'
-EMAIL_HOST='localhost'
-EMAIL_PORT='1025'
-EMAIL_HOST_USER=''
+DJANGO_CSRF_TRUSTED_ORIGINS='http://localhost:8001,http://127.0.0.1:8001'
+DB_CONN_MAX_AGE='60'
+LOCAL_SERVER_IP='*'
+DNS_URL='*'
+
+### Local email defaults
+EMAIL_HOST='host.docker.internal'
+EMAIL_PORT='25'
+EMAIL_HOST_USER='bioinformatica@isciii.es'
 EMAIL_HOST_PASSWORD=''
-EMAIL_USE_TLS='false'
+EMAIL_USE_TLS='False'
+EMAIL_HOST_SERVER='host.docker.internal'
+
+### Gunicorn and startup tuning
+WEB_CONCURRENCY='2'
+GUNICORN_THREADS='2'
+GUNICORN_TIMEOUT='300'
 GUNICORN_KEEPALIVE='5'
 APP_START_WAIT_TIMEOUT_SECONDS='100'
+
+### Application log policy compatibility
+# Set LOG_PATH when LOG_TYPE='symbolic_link'.
+LOG_TYPE='regular_folder'
+LOG_PATH=''
 
 ### Selected infrastructure add-ons
 {{TEST_ADDON_SETTINGS}}

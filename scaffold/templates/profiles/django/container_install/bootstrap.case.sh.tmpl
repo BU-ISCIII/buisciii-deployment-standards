@@ -1,0 +1,14 @@
+        {{SERVICE_NAME}})
+            repo_path="$(service_repo_path "$service_name")"
+            # Fixed temporary in-container path; this is not operator configuration.
+            runtime_conf=conf/.runtime_install_settings.txt
+            [[ "$runtime_conf" == /* ]] || runtime_conf="$repo_path/$runtime_conf"
+            uid="$(service_uid "$service_name")"; gid="$(service_gid "$service_name")"
+            stage_container_runtime_config "$container_id" "${install_conf_host_by_service[$service_name]}" "$runtime_conf" "$uid" "$gid"
+            args=(--bootstrap "$deployment_action" --git_revision "$git_revision" --conf "$runtime_conf" --skip_apache_restart)
+            for hook in "${migration_script_before[@]}"; do args+=(--script_before "$hook"); done
+            for hook in "${migration_script_after[@]}"; do args+=(--script_after "$hook"); done
+            status=0; engine_exec exec "$container_id" bash "$repo_path/install.sh" "${args[@]}" || status=$?
+            [ "$mode" = test ] || remove_container_runtime_config "$container_id" "$runtime_conf" || true
+            return "$status"
+            ;;

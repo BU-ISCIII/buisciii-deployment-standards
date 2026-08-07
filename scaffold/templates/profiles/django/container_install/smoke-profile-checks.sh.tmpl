@@ -1,0 +1,4 @@
+    container_id="$(compose_run ps -q {{SERVICE_NAME_SHELL}})"
+    [ -n "$container_id" ] || fail "Service {{SERVICE_NAME}} has no container"
+    compose_run exec -T {{SERVICE_NAME_SHELL}} bash -lc 'cd "$INSTALL_PATH" && source virtualenv/bin/activate && python manage.py check && ! python manage.py showmigrations --plan | grep -F '"'"'[ ]'"'"''
+    echo "PASS: {{SERVICE_NAME}} Django checks and migrations"

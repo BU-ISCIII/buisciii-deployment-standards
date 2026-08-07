@@ -1,12 +1,14 @@
 # Production configuration for this application service.
 # Copy to a protected ignored file and replace every CHANGE_ME.
 ### Unprivileged Nginx runtime
-APP_UID={{APP_UID}}
-APP_GID={{APP_GID}}
-APP_PORT={{APP_PORT}}
+REPO_PATH='/app'
+INSTALL_PATH='/usr/share/nginx/html'
+APP_UID='101'
+APP_GID='101'
+APP_PORT='8080'
 
 ### Public browser build configuration (never put secrets in VITE_* values)
-VITE_API_BASE_URL=CHANGE_ME
+VITE_API_BASE_URL='CHANGE_ME'
 
 ### Selected infrastructure add-ons
 {{PRODUCTION_ADDON_SETTINGS}}

@@ -1,0 +1,11 @@
+        {{SERVICE_NAME}})
+            install_path="$(service_install_path "$service_name")"
+            uid="$(service_uid "$service_name")"; gid="$(service_gid "$service_name")"
+            local -a {{SPEC_NAME}}_running_mount_permission_spec=(
+                "$install_path/logs|$uid:$gid|u+rwX,g+rwX"
+                "$install_path/documents|$uid:$gid|u+rwX,g+rwX"
+                "$install_path/static|$uid:$gid|u+rwX,g+rwX,o+rX"
+            )
+            apply_container_directory_permission_spec "$container_id" "${{{SPEC_NAME}}_running_mount_permission_spec[@]}"
+            prepare_django_container_settings_permissions "$container_id" "$install_path/{{PROJECT_MODULE}}/settings.py" "$uid" "$gid"
+            ;;

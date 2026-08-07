@@ -1,0 +1,27 @@
+  # BEGIN BU-ISCIII SERVICE: {{SERVICE_NAME}} (react-vite)
+  {{SERVICE_NAME}}:
+    image: "${{{ENV_PREFIX}}_IMAGE:-{{IMAGE_NAME}}}"
+    build:
+      context: {{BUILD_CONTEXT_JSON}}
+      dockerfile: {{DOCKERFILE_JSON}}
+      args:
+        GIT_REVISION: ${GIT_REVISION:-current}
+        VITE_API_BASE_URL: ${{{ENV_PREFIX}}_VITE_API_BASE_URL:?{{ENV_PREFIX}}_VITE_API_BASE_URL is required}
+    restart: unless-stopped
+    user: "${{{ENV_PREFIX}}_APP_UID:?{{ENV_PREFIX}}_APP_UID is required}:${{{ENV_PREFIX}}_APP_GID:?{{ENV_PREFIX}}_APP_GID is required}"
+    environment:
+      APP_PORT: ${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,uid=${{{ENV_PREFIX}}_APP_UID:?{{ENV_PREFIX}}_APP_UID is required},gid=${{{ENV_PREFIX}}_APP_GID:?{{ENV_PREFIX}}_APP_GID is required},mode=0750
+      - /var/run:size=4m,uid=${{{ENV_PREFIX}}_APP_UID:?{{ENV_PREFIX}}_APP_UID is required},gid=${{{ENV_PREFIX}}_APP_GID:?{{ENV_PREFIX}}_APP_GID is required},mode=0750
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${APP_PORT}/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}:${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}"
+    networks: [deployment_net]
+  # END BU-ISCIII SERVICE: {{SERVICE_NAME}}

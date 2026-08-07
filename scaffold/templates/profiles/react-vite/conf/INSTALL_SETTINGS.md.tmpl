@@ -2,12 +2,15 @@
 
 | Setting | Required | Purpose |
 |---|---:|---|
+| `REPO_PATH` / `INSTALL_PATH` | yes | Build source and immutable Nginx content paths |
 | `APP_UID` / `APP_GID` | yes | Numeric identity used by the unprivileged Nginx runtime |
 | `APP_PORT` | yes | Loopback and container HTTP port |
 | `VITE_API_BASE_URL` | yes | Public API URL embedded by Vite during image build |
 
 `VITE_*` values are public build-time configuration and are visible in the
 browser bundle. Never put passwords, client secrets, or private keys in them.
+The outer installer renders all values into the Compose environment before
+build/start; none of these deployment values belong in `project.json`.
 
 ## Selected infrastructure add-ons
 

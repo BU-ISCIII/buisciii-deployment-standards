@@ -235,7 +235,7 @@ prepare_compose_environment
 load_compose_environment_file "$compose_env_file"
 prepare_application_host_sources
 prepare_host_bind_source_permissions
-deployment_compose -f "$compose_file" config --quiet \
+deployment_compose -f "$compose_file" config \
     || die "Compose configuration validation failed: $compose_file"
 
 # 5. Dispatch permission-only repair without building or bootstrapping.

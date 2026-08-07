@@ -118,9 +118,13 @@ validate_revision() {
 
 stage_dependencies() {
     validate_revision
+    print "INFO" "Staging dependencies to $INSTALL_PATH"
+    [[ -f "$INSTALL_CONF" ]] || die "Configuration not found: $INSTALL_CONF"
     mkdir -p "$INSTALL_PATH"
     if [[ ! -d "$INSTALL_PATH/virtualenv" ]]; then
         "$PYTHON_BIN_PATH" -m venv "$INSTALL_PATH/virtualenv"
+    else
+        print "INFO" "virtualenv already exists at $INSTALL_PATH; skipping creation"
     fi
     # shellcheck disable=SC1091
     source "$INSTALL_PATH/virtualenv/bin/activate"
@@ -130,6 +134,7 @@ stage_dependencies() {
 
 stage_application_files() {
     validate_revision
+    print "INFO" "Staging application files to $INSTALL_PATH"
     [[ -d "$INSTALL_PATH/virtualenv" ]] \
         || die "virtualenv not found at $INSTALL_PATH; install dependencies first"
     rsync -rl --delete \

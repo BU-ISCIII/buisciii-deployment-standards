@@ -18,6 +18,13 @@ Copy and fill the project descriptor:
 cp scaffold/project.json.example /tmp/my-application.json
 ```
 
+For a baseline that demonstrates Apache and Keycloak configuration, use the
+complete add-on example instead:
+
+```bash
+cp scaffold/project.addons.json.example /tmp/my-application.json
+```
+
 Every project uses the same schema. Keep one `SERVICES` entry for a standalone
 application, or add entries for an orchestrator. Each service independently
 selects `PROFILE` as `django` or `react-vite`; `ADDONS` may be empty.

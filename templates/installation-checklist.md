@@ -105,9 +105,11 @@ For each item, link to the exact file, command, test result, or tracked issue.
       correct profile independently for each service.
 - [ ] At most one service uses build context `.`, and that service's generated
       profile artifacts belong to the current repository.
-- [ ] Every service declares its build context, Dockerfile, protected
-      production/test configuration, port and UID/GID; internal build and
-      bootstrap configuration paths are not exposed in `project.json`.
+- [ ] Every service declares its profile, build context, Dockerfile and
+      production/test configuration; Django also declares `PROJECT_MODULE`.
+- [ ] `REPO_PATH`, `INSTALL_PATH`, host persistence paths, `APP_PORT`, and
+      UID/GID exist only in service settings and reach Dockerfile/Compose
+      through the generated environment, never duplicate `project.json` keys.
 - [ ] `install_services` contains application services in build/bootstrap order.
 - [ ] `permission_services` contains applications plus every selected add-on.
 - [ ] `configured_services` contains only applications; each add-on reads its

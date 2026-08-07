@@ -21,9 +21,12 @@ cp scaffold/project.json.example /tmp/my-application.json
 
 The descriptor always contains `SERVICES` and `ADDONS`. A standalone project
 has one service; an orchestrator has several. Each service independently
-selects `PROFILE` as `django` or `react-vite`. Django uses its module, runtime
-paths and Python version; React uses its browser-facing API setting from the
-generated installation configuration. Generate the baseline:
+selects `PROFILE` as `django` or `react-vite`; Django also declares its stable
+`PROJECT_MODULE`. Runtime paths, ports and numeric identities belong only to
+the service's production/test settings. `container_install.sh` renders those
+settings into the protected Compose environment before either build or start,
+so Dockerfiles and Compose do not need duplicate descriptor values. Generate
+the baseline:
 
 At most one service may use `BUILD_CONTEXT: "."`; that service owns the current
 repository's profile-specific Dockerfile, inner installer/entrypoint and
@@ -436,6 +439,12 @@ add-ons MUST reuse one application's settings source, placing their values in
 clearly marked `APACHE_*` or `KEYCLOAK_*` sections. A standalone project uses
 its only service automatically; a multi-app descriptor uses `CONFIG_SERVICE`
 only when the add-on settings are not owned by the first declared service.
+`REPO_PATH`, `INSTALL_PATH`, `HOST_DATA_PATH`, `HOST_LOG_PATH`, `APP_PORT`,
+`APP_UID`, and `APP_GID` MUST be defined in those service settings and MUST NOT
+be duplicated in `project.json`. The generated environment passes them to
+Docker build arguments, Compose interpolation, permission callbacks, proxy
+configuration, readiness checks and smoke tests. `PROJECT_MODULE` remains
+descriptor-owned because it identifies Django source structure.
 
 ### `container_start.sh`
 

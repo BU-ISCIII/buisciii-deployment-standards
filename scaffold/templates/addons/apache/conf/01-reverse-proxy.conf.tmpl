@@ -1,0 +1,51 @@
+# Apache reverse proxy source configuration for {{APP_SLUG}}.
+#
+# This file is copied to conf/apache/01-reverse-proxy.conf by the scaffold.
+# Customize its VirtualHost and route blocks in the application repository.
+# container_install.sh replaces every shell-style uppercase variable from the protected
+# deployment environment and writes deployment/apache/01-reverse-proxy.conf.
+#
+# For a multi-application deployment, duplicate this VirtualHost and use the
+# prefixed service variables exported by container_install.sh, for example
+# API_APP_PORT, WEB_APP_PORT, or API_INSTALL_PATH.
+<VirtualHost *:8080>
+    ServerName ${APACHE_SERVER_NAME}
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+    AllowEncodedSlashes NoDecode
+    RequestHeader set X-Forwarded-Proto "${APACHE_FORWARDED_PROTO}"
+    RequestHeader set X-Forwarded-Port "${APACHE_FORWARDED_PORT}"
+    RequestHeader set X-Forwarded-Host "${APACHE_SERVER_NAME}"
+
+    # Keep Apache and ModSecurity request-body limits aligned.
+    LimitRequestBody ${APACHE_LIMIT_REQUEST_BODY}
+    <IfModule security2_module>
+        SecRequestBodyLimit ${APACHE_LIMIT_REQUEST_BODY}
+        SecRequestBodyNoFilesLimit ${APACHE_LIMIT_REQUEST_BODY}
+    </IfModule>
+
+    # Default single-service route. Change or duplicate this block when the
+    # deployment exposes multiple applications or path prefixes.
+    ProxyPass / http://${APACHE_UPSTREAM_SERVICE}:${APACHE_UPSTREAM_PORT}/
+    ProxyPassReverse / http://${APACHE_UPSTREAM_SERVICE}:${APACHE_UPSTREAM_PORT}/
+    ProxyTimeout ${APACHE_PROXY_TIMEOUT}
+    TimeOut ${APACHE_PROXY_TIMEOUT}
+
+    # Django example: uncomment and replace APP_INSTALL_PATH with the selected
+    # service prefix, such as API_INSTALL_PATH, when Apache serves these mounts.
+    # ProxyPass /static !
+    # Alias /static SERVICE_INSTALL_PATH/static
+    # <Directory SERVICE_INSTALL_PATH/static>
+    #     Require all granted
+    # </Directory>
+    # ProxyPass /documents !
+    # Alias /documents SERVICE_INSTALL_PATH/documents
+    # <Directory SERVICE_INSTALL_PATH/documents>
+    #     Require all granted
+    # </Directory>
+
+    CustomLog logs/${APACHE_LOG_STEM}-apache.access.log combined env=!forwarded
+    CustomLog logs/${APACHE_LOG_STEM}-apache.access.log proxy env=forwarded
+    ErrorLog logs/${APACHE_LOG_STEM}-apache.error.log
+</VirtualHost>

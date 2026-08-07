@@ -3,16 +3,11 @@
     image: registry.access.redhat.com/ubi9/httpd-24:latest
     restart: unless-stopped
     depends_on:
-{{APACHE_DEPENDS_ON}}
-    environment:
-      # REQUIRED reverse-proxy contract consumed by the generated Apache conf.
-      APACHE_FORWARDED_PROTO: ${APACHE_FORWARDED_PROTO:-https}
-      APACHE_FORWARDED_PORT: ${APACHE_FORWARDED_PORT:-443}
-      APACHE_LIMIT_REQUEST_BODY: ${APACHE_LIMIT_REQUEST_BODY:-52428800}
+{{ADDON_DEPENDS_ON}}
     ports:
       # Public binding can be restricted to loopback when another host proxy
       # terminates TLS before forwarding traffic to this container.
-      - "${APACHE_BIND_HOST:-0.0.0.0}:${APACHE_PORT:-80}:8080"
+      - "${APACHE_BIND_HOST:?APACHE_BIND_HOST is required}:${APACHE_PORT:?APACHE_PORT is required}:8080"
     expose:
       - "8080"
     healthcheck:
@@ -22,18 +17,10 @@
       retries: 30
       start_period: 30s
     volumes:
-      # REQUIRED generated read-only configuration bind sources.
-      - ./deployment/apache/00-logs.conf:/etc/httpd/conf.d/00-logs.conf:ro,z
-      - ./deployment/apache/01-reverse-proxy.conf:/etc/httpd/conf.d/01-reverse-proxy.conf:ro,z
-      - ./deployment/apache/02-server-status.conf:/etc/httpd/conf.d/02-server-status.conf:ro,z
-      # REQUIRED persistent host log bind. Back it up/rotate per host policy.
-      - ${APACHE_LOG_PATH:-/var/log/local/{{APP_SLUG}}/apache}:/var/log/httpd:z
-      # REQUIRED when container and host timezone must agree in log records.
-      - /etc/localtime:/etc/localtime:ro
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+{{ADDON_SERVICE_VOLUMES}}
       # GENERATED MULTI-APP MOUNTS: one read-only static/documents pair for
       # every Django service. React assets remain inside the React image.
-{{APACHE_APPLICATION_MOUNTS}}
+{{ADDON_APPLICATION_MOUNTS}}
       # OPTIONAL APP MOUNTS belong in ADDONS.apache.MOUNTS. Examples:
       # - reports_data:/var/www/reports:ro,z
       # - /srv/public-downloads:/var/www/downloads:ro,Z

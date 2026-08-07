@@ -1,0 +1,20 @@
+# Keycloak add-on
+# Used only when ADDONS.keycloak selects this application as CONFIG_SERVICE.
+
+# Persistent Keycloak database identity. Database and bootstrap administrator
+# passwords are production secrets and every CHANGE_ME must be replaced.
+KEYCLOAK_DB_NAME='keycloak'
+KEYCLOAK_DB_USER='keycloak'
+KEYCLOAK_DB_PASSWORD='CHANGE_ME'
+KEYCLOAK_DB_ROOT_PASSWORD='CHANGE_ME'
+
+# Exact public URL routed by Apache and loopback diagnostic port.
+KEYCLOAK_PUBLIC_URL='https://CHANGE_ME_KEYCLOAK_DNS'
+KEYCLOAK_PORT='8081'
+
+# Bootstrap administrator created when initializing an empty identity database.
+KEYCLOAK_ADMIN='admin'
+KEYCLOAK_ADMIN_PASSWORD='CHANGE_ME'
+
+# Reproducible realm source. This does not replace a database backup.
+KEYCLOAK_IMPORT_PATH='./keycloak/tmp-import'

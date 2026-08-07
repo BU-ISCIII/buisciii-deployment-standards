@@ -1,0 +1,14 @@
+        keycloak)
+            # Realm imports are read-only, so the Keycloak container currently
+            # has no writable mount requiring an in-container ownership repair.
+            local -a keycloak_running_mount_permission_spec=()
+            apply_container_directory_permission_spec "$container_id" "${keycloak_running_mount_permission_spec[@]}"
+            ;;
+        keycloak_db)
+            # The persistent MySQL volume must remain owned by the UID/GID used
+            # by the database image, including after restoring or moving data.
+            local -a keycloak_db_running_mount_permission_spec=(
+                "/var/lib/mysql|999:999|u+rwX,g+rwX,o-rwx"
+            )
+            apply_container_directory_permission_spec "$container_id" "${keycloak_db_running_mount_permission_spec[@]}"
+            ;;

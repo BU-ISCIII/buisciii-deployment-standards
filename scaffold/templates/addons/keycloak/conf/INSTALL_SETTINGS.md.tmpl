@@ -1,0 +1,9 @@
+### Keycloak
+
+`KEYCLOAK_DB_PASSWORD`, `KEYCLOAK_DB_ROOT_PASSWORD`, and
+`KEYCLOAK_ADMIN_PASSWORD` are production secrets. `KEYCLOAK_PUBLIC_URL` must
+match the public hostname routed through the reverse proxy.
+
+`KEYCLOAK_IMPORT_PATH` contains the reproducible realm bootstrap source. Realm
+JSON does not replace a backup of the persistent Keycloak database, which is
+the authoritative identity state after initialization.

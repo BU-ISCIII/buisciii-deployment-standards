@@ -1,0 +1,22 @@
+### Apache
+
+`APACHE_LOG_PATH`, `APACHE_BIND_HOST`, `APACHE_PORT`,
+`APACHE_FORWARDED_PROTO`, `APACHE_FORWARDED_PORT`, and
+`APACHE_LIMIT_REQUEST_BODY` configure the rendered proxy. They are
+operational values, not Django or React application settings.
+
+`APACHE_SERVER_NAME` configures the baseline VirtualHost.
+`APACHE_UPSTREAM_SERVICE`, `APACHE_UPSTREAM_PORT`, `APACHE_PROXY_TIMEOUT`, and
+`APACHE_LOG_STEM` may remain empty: `container_install.sh` derives them from
+`ADDONS.apache.CONFIG_SERVICE`. Set them explicitly when the default route
+requires different values.
+
+`SERVER_STATUS_SERVER_NAME`, `SERVER_STATUS_ALIASES`, and
+`SERVER_STATUS_ALLOW_FROM` configure the restricted Apache status endpoint.
+Keep its allow-list limited to trusted diagnostic hosts.
+
+Edit the source files under `conf/apache/` to define the application's virtual
+hosts, routes, and aliases. During installation they are rendered with the
+protected deployment environment into `deployment/apache/`; only those final
+files are bind-mounted. `APACHE_LOG_PATH` is the writable persistent host log
+source.

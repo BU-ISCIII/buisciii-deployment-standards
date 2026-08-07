@@ -1,0 +1,34 @@
+    # conf/apache contains the application-owned Apache sources. Render every
+    # deployment value only after the protected settings environment is loaded,
+    # then expose the completed files as Compose bind sources.
+    local apache_source_dir="$script_dir/conf/apache"
+    local apache_output_dir="$script_dir/deployment/apache"
+    local apache_conf_name apache_config_service apache_log_path
+    apache_config_service={{CONFIG_SERVICE_SHELL}}
+    [ -d "$apache_source_dir" ] || {
+        echo "Apache source configuration directory not found: $apache_source_dir" >&2
+        return 1
+    }
+    mkdir -p "$apache_output_dir"
+
+    export APACHE_SERVER_NAME="${APACHE_SERVER_NAME:?APACHE_SERVER_NAME is required}"
+    export APACHE_UPSTREAM_SERVICE="${APACHE_UPSTREAM_SERVICE:-$apache_config_service}"
+    export APACHE_UPSTREAM_PORT="${APACHE_UPSTREAM_PORT:-$(service_environment_value "$apache_config_service" APP_PORT)}"
+    export APACHE_PROXY_TIMEOUT="${APACHE_PROXY_TIMEOUT:-$(service_environment_value "$apache_config_service" GUNICORN_TIMEOUT 120)}"
+    export APACHE_LOG_STEM="${APACHE_LOG_STEM:-$(normalize_apache_server_name "$APACHE_SERVER_NAME")}"
+
+    for apache_conf_name in 00-logs.conf 01-reverse-proxy.conf 02-server-status.conf; do
+        [ -f "$apache_source_dir/$apache_conf_name" ] || {
+            echo "Apache source configuration not found: $apache_source_dir/$apache_conf_name" >&2
+            return 1
+        }
+        render_environment_config_template \
+            "$apache_source_dir/$apache_conf_name" \
+            "$apache_output_dir/$apache_conf_name" 0644 || return 1
+    done
+
+    # Production bind-mounts Apache logs from the host; tests use a named volume.
+    if [ "$mode" = production ]; then
+        apache_log_path="${APACHE_LOG_PATH:?APACHE_LOG_PATH is required}"
+        mkdir -p "$apache_log_path"
+    fi

@@ -1,0 +1,11 @@
+    # Generated proxy configuration is read-only in Apache. Its host files need
+    # traversal/read permissions, while the production log bind must be writable.
+    apache_log_path="${APACHE_LOG_PATH:?APACHE_LOG_PATH is required}"
+    local -a apache_host_bind_permission_spec=(
+        "$script_dir/deployment/apache|-|0755"
+        "$script_dir/deployment/apache/00-logs.conf|-|0644"
+        "$script_dir/deployment/apache/01-reverse-proxy.conf|-|0644"
+        "$script_dir/deployment/apache/02-server-status.conf|-|0644"
+        "$apache_log_path|-|0775"
+    )
+    apply_host_permission_spec "${apache_host_bind_permission_spec[@]}"

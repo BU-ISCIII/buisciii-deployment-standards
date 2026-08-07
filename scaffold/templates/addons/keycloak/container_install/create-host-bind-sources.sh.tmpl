@@ -1,0 +1,9 @@
+    # Keycloak imports realm JSON only when initializing an absent realm. The
+    # bind source must exist before Compose validates and starts the container.
+    local keycloak_import_path
+    keycloak_import_path="${KEYCLOAK_IMPORT_PATH:?KEYCLOAK_IMPORT_PATH is required}"
+    mkdir -p "$keycloak_import_path"
+    compgen -G "$keycloak_import_path/*.json" >/dev/null || {
+        echo "Keycloak realm import JSON not found in $keycloak_import_path" >&2
+        return 1
+    }

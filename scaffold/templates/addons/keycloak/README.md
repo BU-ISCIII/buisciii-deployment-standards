@@ -17,6 +17,12 @@ multi-app project uses `ADDONS.keycloak.CONFIG_SERVICE` when the first service
 is not the desired owner. The section documents database/admin secrets, public
 URL, diagnostic ports and realm-import path together.
 
+The source fragments are
+`addons/keycloak/conf/docker_production_settings.txt.tmpl` and
+`docker_test_settings.txt.tmpl`. The scaffold renders and appends the selected
+fragment; Python discovers its environment keys instead of duplicating the
+configuration or defaults in `scaffold.py`.
+
 The realm import bind is required but is not the persistent identity store.
 Keycloak imports a realm only when it does not already exist, normally on a
 fresh database. Normal backup/restore therefore protects `keycloak_db_data` and

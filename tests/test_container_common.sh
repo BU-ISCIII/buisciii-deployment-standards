@@ -207,6 +207,12 @@ grep -Fq "PLATFORM_APP_UID='1212'" "$compose_env_output" \
     || fail "prefix Platform settings in Compose environment"
 grep -Fq "ISKYLIMS_APP_PORT='8001'" "$compose_env_output" \
     || fail "prefix iSkyLIMS settings in Compose environment"
+unset PLATFORM_APP_UID ISKYLIMS_APP_PORT
+load_compose_environment_file "$compose_env_output"
+assert_equal "1212" "$PLATFORM_APP_UID" \
+    "load first service value from generated Compose environment"
+assert_equal "8001" "$ISKYLIMS_APP_PORT" \
+    "load second service value from generated Compose environment"
 grep -Fq "DISPLAY_NAME='two services'" "$compose_env_output" \
     || fail "quote explicit Compose environment values"
 assert_equal "600" "$(stat -c %a "$compose_env_output")" \
@@ -253,6 +259,18 @@ trap 'rm -f "$test_conf" "$template_file" "$rendered_file" "$settings_template" 
 printf 'alpha=TOKEN\n' > "$template_file"
 render_config_template "$template_file" "$rendered_file" 0600 TOKEN 'a&b'
 assert_equal 'alpha=a&b' "$(cat "$rendered_file")" "render token template"
+
+printf 'host=${APACHE_SERVER_NAME}\nport=${APP_APP_PORT}\n' > "$template_file"
+export APACHE_SERVER_NAME='app.example.test' APP_APP_PORT='8001'
+render_environment_config_template "$template_file" "$rendered_file" 0644
+assert_equal $'host=app.example.test\nport=8001' "$(cat "$rendered_file")" \
+    "render deployment environment template"
+unset APACHE_SERVER_NAME APP_APP_PORT
+printf 'missing=${NOT_DEFINED_FOR_RENDER_TEST}\n' > "$template_file"
+if render_environment_config_template \
+    "$template_file" "$rendered_file" 0644 2>/dev/null; then
+    fail "environment renderer must reject unresolved variables"
+fi
 
 printf '%s\n' \
     'SECRET_KEY = "PLACEHOLDER"' \

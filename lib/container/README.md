@@ -57,8 +57,10 @@ explicit container names. Otherwise container resolution uses Compose labels.
 - `config_value_or_default`
 - `normalize_bind_file_path`
 - `render_config_template`
+- `render_environment_config_template`
 - `compose_environment_quote`
 - `write_compose_environment_file`
+- `load_compose_environment_file`
 - `prepare_install_configuration`
 - `cleanup_files`
 - `array_contains`

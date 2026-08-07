@@ -2,49 +2,123 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "$repo_root/lib/container/common.sh"
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT
+
+compose_env_from_settings() {
+    local settings_path="$1" prefix="$2" output_path="$3"
+    local -a settings_sources=("$prefix|$settings_path")
+    local -a explicit_values=(
+        "GIT_REVISION|current"
+        "${prefix}_IMAGE|profile-test:local"
+    )
+    write_compose_environment_file \
+        "$output_path" settings_sources explicit_values
+}
 
 django_target="$work_dir/django-app"
 react_target="$work_dir/react-app"
 django_config="$work_dir/django.json"
 react_config="$work_dir/react.json"
 legacy_config="$work_dir/legacy.json"
+legacy_service_config="$work_dir/legacy-service.json"
 cp "$repo_root/scaffold/project.json.example" "$django_config"
-sed 's/"PROFILE": "django"/"PROFILE": "react-vite"/' \
+sed -e 's/"PROFILE": "django"/"PROFILE": "react-vite"/' \
+    -e 's#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt",#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt"#' \
+    -e '/"PROJECT_MODULE":/d' \
     "$django_config" > "$react_config"
 printf '%s\n' '{"PROFILE":"django"}' > "$legacy_config"
+printf '%s\n' '{"SERVICES":{"app":{"PROFILE":"django","BUILD_CONTEXT":".","INSTALL_CONF":"conf/prod","TEST_INSTALL_CONF":"conf/test","PROJECT_MODULE":"app","APP_PORT":"8001"}}}' \
+    > "$legacy_service_config"
 
 if python3 "$repo_root/scripts/scaffold.py" init "$work_dir/legacy-app" \
     --config "$legacy_config" >/dev/null 2>&1; then
     echo "FAIL: new initialization must require the canonical SERVICES schema" >&2
     exit 1
 fi
+if python3 "$repo_root/scripts/scaffold.py" init "$work_dir/legacy-service-app" \
+    --config "$legacy_service_config" >/dev/null 2>&1; then
+    echo "FAIL: legacy runtime values must be rejected in SERVICES" >&2
+    exit 1
+fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+for compose_template in prod.service.yml test.service.yml \
+    prod.volumes.yml test.volumes.yml test.support-services.yml; do
+    test -f "$repo_root/scaffold/templates/profiles/django/compose/${compose_template}.tmpl"
+done
+for callback in readiness-path.case container-install-conf.case \
+    create-host-bind-sources set-host-bind-permissions \
+    running-permissions.case bootstrap.case smoke-profile-checks; do
+    test -f "$repo_root/scaffold/templates/profiles/django/container_install/${callback}.sh.tmpl"
+done
 test -f "$django_target/install.sh"
 test -f "$django_target/conf/template_settings.py"
 grep -Fq 'RUN --mount=type=secret,id=install_conf' "$django_target/Dockerfile"
+grep -Fq 'INSTALL_CONF: "conf/.runtime_install_settings.txt"' \
+    "$django_target/docker-compose.prod.yml"
+grep -Fq 'INSTALL_CONF: "conf/docker_test_settings.txt"' \
+    "$django_target/docker-compose.test.yml"
+grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
+    "$django_target/container_install.sh"
+grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
+grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
+for setting in REQUIRED_MODULES MIGRATION_MODULES FAKEINITIAL_MODULES APP_SHELL \
+    DB_CONN_MAX_AGE DB_SERVER_IP DB_PASS EMAIL_HOST_SERVER LOCAL_SERVER_IP \
+    DNS_URL LOG_TYPE LOG_PATH; do
+    grep -Eq "^${setting}=" "$django_target/conf/docker_production_settings.txt"
+    grep -Eq "^${setting}=" "$django_target/conf/docker_test_settings.txt"
+done
+grep -Fq "GUNICORN_TIMEOUT='300'" "$django_target/conf/docker_production_settings.txt"
+grep -Fq "EMAIL_PORT='25'" "$django_target/conf/docker_production_settings.txt"
+grep -Fq "EMAIL_USE_TLS='False'" "$django_target/conf/docker_production_settings.txt"
 bash -n "$django_target/container_install.sh"
 bash -n "$django_target/install.sh"
+test ! -e "$django_target/compose"
+test ! -e "$django_target/container_install"
+test ! -e "$django_target/documentation"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    docker compose -f "$django_target/docker-compose.test.yml" config --quiet
+    django_env="$work_dir/django.compose.env"
+    compose_env_from_settings \
+        "$django_target/conf/docker_test_settings.txt" APP "$django_env"
+    docker compose --env-file "$django_env" \
+        -f "$django_target/docker-compose.test.yml" config --quiet
 fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$react_target" \
     --config "$react_config" >/dev/null
+for compose_template in prod.service.yml test.service.yml; do
+    test -f "$repo_root/scaffold/templates/profiles/react-vite/compose/${compose_template}.tmpl"
+done
+for callback in readiness-path.case running-permissions.case bootstrap.case \
+    smoke-profile-checks; do
+    test -f "$repo_root/scaffold/templates/profiles/react-vite/container_install/${callback}.sh.tmpl"
+done
 test ! -e "$react_target/install.sh"
 test ! -e "$react_target/conf/template_settings.py"
 test -f "$react_target/nginx.conf"
 grep -Fq 'FROM docker.io/library/node:22-alpine AS build' "$react_target/Dockerfile"
 grep -Fq 'FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine' \
     "$react_target/Dockerfile"
+grep -Fq 'COPY nginx.conf /etc/nginx/templates/default.conf.template' \
+    "$react_target/Dockerfile"
+grep -Fq "APP_PORT='8080'" "$react_target/conf/docker_production_settings.txt"
+grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$react_target/docker-compose.prod.yml"
 bash -n "$react_target/container_install.sh"
 sh -n "$react_target/scripts/container_start.sh"
 bash -n "$react_target/scripts/smoke_test.sh"
+test ! -e "$react_target/compose"
+test ! -e "$react_target/container_install"
+test ! -e "$react_target/documentation"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    docker compose -f "$react_target/docker-compose.test.yml" config --quiet
+    react_env="$work_dir/react.compose.env"
+    compose_env_from_settings \
+        "$react_target/conf/docker_test_settings.txt" APP "$react_env"
+    docker compose --env-file "$react_env" \
+        -f "$react_target/docker-compose.test.yml" config --quiet
 fi
 
 # Outer deployment structure is common regardless of the selected framework.
@@ -55,6 +129,37 @@ diff <(grep '^## ' "$django_target/LEAME.md") \
 diff <(grep '^# [0-9][0-9]*\.' "$django_target/container_install.sh") \
     <(grep '^# [0-9][0-9]*\.' "$react_target/container_install.sh") >/dev/null
 cmp "$django_target/.dockerignore" "$react_target/.dockerignore" >/dev/null
+
+if grep -Eq 'healthcheck:|restart: unless-stopped|MYSQL_DATABASE:|read_only: true|tmpfs:' \
+    "$repo_root/scripts/scaffold.py"; then
+    echo "FAIL: profile Compose YAML must live in profile templates" >&2
+    exit 1
+fi
+if grep -Eq 'APP_(UID|GID|PORT)_VALUE|REPO_PATH_VALUE|INSTALL_PATH_VALUE|USER_JSON|PORT_BIND_JSON|DB_[A-Z_]+_VALUE|DJANGO_[A-Z_]+_VALUE|VITE_API_BASE_URL_VALUE' \
+    "$repo_root/scripts/scaffold.py"; then
+    echo "FAIL: profile Compose environment expressions must live in templates" >&2
+    exit 1
+fi
+if grep -Eq 'prepare_django_settings_bind_mount|stage_container_runtime_config|python manage.py check|immutable React runtime|no runtime bootstrap' \
+    "$repo_root/scripts/scaffold.py"; then
+    echo "FAIL: profile installer callbacks must live in profile templates" >&2
+    exit 1
+fi
+if grep -Eq '_DEFAULT_(REPO_PATH|INSTALL_PATH|APP_PORT|APP_UID|APP_GID)|"(8001|1212|101|300|3306|djangopass|test-only-change-me)"' \
+    "$repo_root/scripts/scaffold.py"; then
+    echo "FAIL: profile runtime defaults must live in profile settings templates" >&2
+    exit 1
+fi
+if grep -Eq 'DJANGO_(TEST_BUILD|CONTAINER)_INSTALL_CONF|_TEST_BUILD_INSTALL_CONF|_CONTAINER_INSTALL_CONF|INSTALL_CONF_PATH' \
+    "$repo_root/scripts/scaffold.py"; then
+    echo "FAIL: fixed Django lifecycle paths must live in Django templates" >&2
+    exit 1
+fi
+if grep -Eq 'smoke_checks|SMOKE_CHECKS' "$repo_root/scripts/scaffold.py" \
+    "$repo_root/scaffold/templates/common/scripts/smoke_test.sh.tmpl"; then
+    echo "FAIL: smoke URL iteration must be generic" >&2
+    exit 1
+fi
 
 test ! -e "$repo_root/scaffold/templates/profiles/django/container_install.sh.tmpl"
 test ! -e "$repo_root/scaffold/templates/profiles/react-vite/container_install.sh.tmpl"

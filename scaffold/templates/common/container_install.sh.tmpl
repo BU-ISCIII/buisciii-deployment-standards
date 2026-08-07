@@ -31,17 +31,29 @@ service_build_context_dir() {
         *) return 1 ;;
     esac
 }
+service_environment_prefix() {
+    local prefix
+    array_contains "$1" "${install_services[@]}" || return 1
+    prefix="${1^^}"
+    printf '%s\n' "${prefix//-/_}"
+}
+service_environment_value() {
+    local prefix variable
+    prefix="$(service_environment_prefix "$1")" || return 1
+    variable="${prefix}_$2"
+    if [ -n "${!variable:-}" ]; then
+        printf '%s\n' "${!variable}"
+    elif [ "$#" -ge 3 ]; then
+        printf '%s\n' "$3"
+    else
+        die "$variable is required in the rendered service settings"
+    fi
+}
 service_repo_path() {
-    case "$1" in
-{{REPO_PATH_CASES}}
-        *) return 1 ;;
-    esac
+    service_environment_value "$1" REPO_PATH
 }
 service_install_path() {
-    case "$1" in
-{{INSTALL_PATH_CASES}}
-        *) return 1 ;;
-    esac
+    service_environment_value "$1" INSTALL_PATH
 }
 service_readiness_path() {
     case "$1" in
@@ -74,16 +86,10 @@ service_container_install_conf() {
     esac
 }
 service_uid() {
-    case "$1" in
-{{UID_CASES}}
-        *) return 1 ;;
-    esac
+    service_environment_value "$1" APP_UID
 }
 service_gid() {
-    case "$1" in
-{{GID_CASES}}
-        *) return 1 ;;
-    esac
+    service_environment_value "$1" APP_GID
 }
 
 prepare_compose_environment() {
@@ -226,6 +232,7 @@ set_engine "$engine"
 compose_file="${compose_file:-docker-compose.$([ "$mode" = test ] && echo test || echo prod).yml}"
 require_compose_file "$compose_file"
 prepare_compose_environment
+load_compose_environment_file "$compose_env_file"
 prepare_application_host_sources
 prepare_host_bind_source_permissions
 deployment_compose -f "$compose_file" config --quiet \
@@ -260,12 +267,14 @@ for service_name in "${install_services[@]}"; do
             --build-arg INSTALL_CONF="$(service_container_install_conf "$service_name")" \
             --build-arg USE_INSTALL_CONF_SECRET=true \
             --build-arg RENDER_DJANGO_SETTINGS=false \
+            --build-arg APP_REPO_PATH="$(service_repo_path "$service_name")" \
             --build-arg APP_INSTALL_PATH="$(service_install_path "$service_name")" \
+            --build-arg APP_PORT="$(service_environment_value "$service_name" APP_PORT)" \
             --build-arg APP_UID="$(service_uid "$service_name")" \
             --build-arg APP_GID="$(service_gid "$service_name")" \
             --tag "$(service_image_name "$service_name")" "$context"
     else
-        vite_api_url="$(config_value VITE_API_BASE_URL "${install_conf_host_by_service[$service_name]}")"
+        vite_api_url="$(service_environment_value "$service_name" VITE_API_BASE_URL)"
         engine_build --no-cache --file "$context/$dockerfile" \
             --build-arg GIT_REVISION="$git_revision" \
             --build-arg VITE_API_BASE_URL="$vite_api_url" \

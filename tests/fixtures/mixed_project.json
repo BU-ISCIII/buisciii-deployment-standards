@@ -9,32 +9,19 @@
       "DOCKERFILE": "Dockerfile",
       "INSTALL_CONF": "../example-api/conf/docker_production_settings.txt",
       "TEST_INSTALL_CONF": "../example-api/conf/docker_test_settings.txt",
-      "PROJECT_MODULE": "example_api",
-      "INSTALL_PATH": "/opt/example-api",
-      "APP_PORT": "8000",
-      "APP_UID": "1212",
-      "APP_GID": "1212"
+      "PROJECT_MODULE": "example_api"
     },
     "web": {
       "PROFILE": "react-vite",
       "BUILD_CONTEXT": ".",
       "DOCKERFILE": "Dockerfile",
       "INSTALL_CONF": "conf/docker_production_settings.txt",
-      "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "APP_PORT": "8080",
-      "APP_UID": "1213",
-      "APP_GID": "1213",
-      "TEST_VITE_API_BASE_URL": "http://127.0.0.1:8000"
+      "TEST_INSTALL_CONF": "conf/docker_test_settings.txt"
     }
   },
   "ADDONS": {
     "apache": {
-      "CONFIG_SERVICE": "web",
-      "VIRTUAL_HOSTS": {
-        "web.example.test": "web",
-        "api.example.test": "api",
-        "id.example.test": "keycloak"
-      }
+      "CONFIG_SERVICE": "web"
     },
     "keycloak": {
       "CONFIG_SERVICE": "web"

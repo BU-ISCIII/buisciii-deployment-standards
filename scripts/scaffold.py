@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Create or safely synchronize a BU-ISCIII deployment baseline."""
+"""Create or safely synchronize a BU-ISCIII deployment baseline.
+
+The core normalizes project topology, renders templates, and merges artifacts.
+Framework and infrastructure behavior belongs in profile/add-on templates. When
+topology-dependent iteration or validation cannot be expressed by the simple
+token renderer, keep that Python in the explicitly marked compiler sections
+below and group it by owning profile or add-on.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +16,7 @@ import json
 import re
 import shlex
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -18,12 +26,70 @@ TEMPLATES = ROOT / "scaffold" / "templates"
 COMMON_TEMPLATES = TEMPLATES / "common"
 COMMON_COMPOSE_TEMPLATE = COMMON_TEMPLATES / "docker-compose.yml.tmpl"
 PROFILE_TEMPLATES = TEMPLATES / "profiles"
+ADDON_TEMPLATES = TEMPLATES / "addons"
 SHARED_LIB = ROOT / "lib"
 STATE_DIR = ".bu-isciii-deployment"
 STATE_FILE = "state.json"
 TOKEN = re.compile(r"{{([A-Z0-9_]+)}}")
-DJANGO_TEST_BUILD_INSTALL_CONF = "conf/docker_test_settings.txt"
-DJANGO_CONTAINER_INSTALL_CONF = "conf/.runtime_install_settings.txt"
+
+
+@dataclass
+class ComposeCompilation:
+    """Fragments returned by every profile or add-on Compose compiler."""
+
+    service_lines: list[str]
+    support_lines: list[str]
+    volume_lines: list[str]
+    secret_lines: list[str]
+    artifacts: list[tuple[Path, bytes]]
+
+
+@dataclass
+class ContainerInstallerCompilation:
+    """Topology fragments merged into the common container installer."""
+
+    install_services: list[str] = field(default_factory=list)
+    permission_services: list[str] = field(default_factory=list)
+    configured_services: list[str] = field(default_factory=list)
+    default_conf_cases: list[str] = field(default_factory=list)
+    build_context_cases: list[str] = field(default_factory=list)
+    readiness_cases: list[str] = field(default_factory=list)
+    image_cases: list[str] = field(default_factory=list)
+    profile_cases: list[str] = field(default_factory=list)
+    dockerfile_cases: list[str] = field(default_factory=list)
+    container_conf_cases: list[str] = field(default_factory=list)
+    settings_sources: list[str] = field(default_factory=list)
+    deployment_values: list[str] = field(default_factory=list)
+    host_sources: list[str] = field(default_factory=list)
+    host_permissions: list[str] = field(default_factory=list)
+    running_cases: list[str] = field(default_factory=list)
+    bootstrap_cases: list[str] = field(default_factory=list)
+
+    def extend(self, other: ContainerInstallerCompilation) -> None:
+        """Append another compiler result while preserving declaration order."""
+        for field_name in vars(self):
+            getattr(self, field_name).extend(getattr(other, field_name))
+
+    def template_values(self) -> dict[str, str]:
+        """Convert collected fragments into tokens used by common templates."""
+        return {
+            "INSTALL_SERVICES_LITERAL": bash_array(self.install_services),
+            "PERMISSION_SERVICES_LITERAL": bash_array(self.permission_services),
+            "CONFIGURED_SERVICES_LITERAL": bash_array(self.configured_services),
+            "DEFAULT_CONF_CASES": "\n".join(self.default_conf_cases),
+            "BUILD_CONTEXT_CASES": "\n".join(self.build_context_cases),
+            "READINESS_CASES": "\n".join(self.readiness_cases),
+            "IMAGE_CASES": "\n".join(self.image_cases),
+            "PROFILE_CASES": "\n".join(self.profile_cases),
+            "DOCKERFILE_CASES": "\n".join(self.dockerfile_cases),
+            "CONTAINER_CONF_CASES": "\n".join(self.container_conf_cases),
+            "SETTINGS_SOURCES": "\n".join(self.settings_sources),
+            "DEPLOYMENT_VALUES": "\n".join(self.deployment_values),
+            "PREPARE_HOST_SOURCES": "\n".join(self.host_sources) or "    return 0",
+            "HOST_PERMISSION_SPECS": "\n".join(self.host_permissions) or "    return 0",
+            "RUNNING_PERMISSION_CASES": "\n".join(self.running_cases),
+            "BOOTSTRAP_CASES": "\n".join(self.bootstrap_cases),
+        }
 
 
 def digest(data: bytes) -> str:
@@ -61,15 +127,12 @@ def destination_for(template: Path, source_root: Path) -> Path:
 
 
 def selected_profile(config: dict[str, Any]) -> str:
-    if "PROFILE" in config:
-        profile = str(config["PROFILE"]).strip().lower()
-    else:
-        owned = owned_profile_service(config)
-        if owned is None:
-            raise ValueError(
-                "A project profile requires one service with BUILD_CONTEXT '.'"
-            )
-        profile = str(owned[1].get("PROFILE", "")).strip().lower()
+    owned = owned_profile_service(config)
+    if owned is None:
+        raise ValueError(
+            "A project profile requires one service with BUILD_CONTEXT '.'"
+        )
+    profile = str(owned[1].get("PROFILE", "")).strip().lower()
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", profile):
         raise ValueError(f"Invalid PROFILE name: {profile!r}")
     if not (PROFILE_TEMPLATES / profile).is_dir():
@@ -80,16 +143,10 @@ def selected_profile(config: dict[str, Any]) -> str:
     return profile
 
 
-def uses_service_descriptor(config: dict[str, Any]) -> bool:
-    return "SERVICES" in config
-
-
 def owned_profile_service(
     config: dict[str, Any],
 ) -> tuple[str, dict[str, Any]] | None:
     """Return the one service whose framework artifacts live in this repo."""
-    if not uses_service_descriptor(config):
-        return None
     raw_services = config.get("SERVICES")
     if not isinstance(raw_services, dict):
         return None
@@ -109,11 +166,11 @@ def owned_profile_service(
 
 
 def owns_profile_artifacts(config: dict[str, Any]) -> bool:
-    return not uses_service_descriptor(config) or owned_profile_service(config) is not None
+    return owned_profile_service(config) is not None
 
 
 def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
-    """Return common templates plus standalone framework-owned artifacts."""
+    """Return common, profile, and repository-owned add-on templates."""
     source_roots = [COMMON_TEMPLATES]
     if owns_profile_artifacts(config):
         source_roots.append(PROFILE_TEMPLATES / selected_profile(config))
@@ -125,11 +182,33 @@ def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
             # and test); it is not a third operator-facing Compose file.
             if template == COMMON_COMPOSE_TEMPLATE:
                 continue
+            source_relative = template.relative_to(source_root)
+            # Profile Compose and container-installer fragments are internal
+            # inputs rendered into common root artifacts, not standalone
+            # application files.
+            if source_relative.parts[0] in {
+                "compose",
+                "container_install",
+                "documentation",
+            }:
+                continue
             relative = destination_for(template, source_root)
             if relative in destinations:
                 raise ValueError(
                     f"Template destination {relative} is defined by common and profile files"
                 )
+            destinations.add(relative)
+            selected.append((template, relative))
+
+    # Add-on *.conf templates become editable source configuration in the
+    # application repository. The container installer renders those sources
+    # into deployment/<addon>/ immediately before Compose validation.
+    for addon in normalized_addons(config):
+        source_root = ADDON_TEMPLATES / addon / "conf"
+        for template in sorted(source_root.glob("*.conf.tmpl")):
+            relative = Path("conf") / addon / template.name.removesuffix(".tmpl")
+            if relative in destinations:
+                raise ValueError(f"Template destination {relative} is duplicated")
             destinations.add(relative)
             selected.append((template, relative))
     return selected
@@ -167,31 +246,17 @@ def executable(relative: Path) -> bool:
 
 def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     raw = config.get("SERVICES")
-    if raw is None:
-        profile = selected_profile(config)
-        slug = str(config.get("APP_SLUG", "app"))
-        raw_service: dict[str, Any] = {
-            "PROFILE": profile,
-            "BUILD_CONTEXT": ".",
-            "DOCKERFILE": "Dockerfile",
-            "INSTALL_CONF": "conf/docker_production_settings.txt",
-            "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-            "APP_PORT": config.get("APP_PORT", "8000"),
-            "APP_UID": config.get("APP_UID", "1212"),
-            "APP_GID": config.get("APP_GID", "1212"),
-            "IMAGE": f"{slug}:local",
-            "REPO_PATH": f"/srv/{slug}",
-        }
-        if profile == "django":
-            raw_service.update(
-                {
-                    "PROJECT_MODULE": config.get("PROJECT_MODULE", "app"),
-                    "INSTALL_PATH": config.get("INSTALL_PATH", f"/opt/{slug}"),
-                }
-            )
-        raw = {"app": raw_service}
     if not isinstance(raw, dict) or not raw:
         raise ValueError("SERVICES must be a non-empty JSON object")
+    allowed_keys = {
+        "PROFILE",
+        "BUILD_CONTEXT",
+        "DOCKERFILE",
+        "IMAGE",
+        "INSTALL_CONF",
+        "TEST_INSTALL_CONF",
+        "PROJECT_MODULE",
+    }
     services: dict[str, dict[str, str]] = {}
     for raw_name, raw_service in raw.items():
         name = str(raw_name)
@@ -200,29 +265,30 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         if not isinstance(raw_service, dict):
             raise ValueError(f"SERVICES.{name} must be a JSON object")
         service = {str(key): str(value) for key, value in raw_service.items()}
-        # These are fixed lifecycle implementation paths, not application
-        # configuration. Ignore legacy descriptor entries retained in saved
-        # state from early scaffold versions.
-        service.pop("TEST_BUILD_INSTALL_CONF", None)
-        service.pop("CONTAINER_INSTALL_CONF", None)
+        unknown_keys = sorted(service.keys() - allowed_keys)
+        if unknown_keys:
+            raise ValueError(
+                f"SERVICES.{name} contains unsupported keys: "
+                + ", ".join(unknown_keys)
+            )
         profile = service.get("PROFILE", "").lower()
         if profile not in {"django", "react-vite"}:
             raise ValueError(
                 f"SERVICES.{name}.PROFILE must be django or react-vite"
             )
-        for required in ("BUILD_CONTEXT", "INSTALL_CONF", "APP_PORT", "APP_UID", "APP_GID"):
+        for required in ("BUILD_CONTEXT", "INSTALL_CONF", "TEST_INSTALL_CONF"):
             if not service.get(required):
                 raise ValueError(f"SERVICES.{name}.{required} is required")
         if profile == "django":
-            for required in ("PROJECT_MODULE", "INSTALL_PATH", "INSTALL_CONF"):
-                if not service.get(required):
-                    raise ValueError(f"SERVICES.{name}.{required} is required")
+            if not service.get("PROJECT_MODULE"):
+                raise ValueError(f"SERVICES.{name}.PROJECT_MODULE is required")
+        elif "PROJECT_MODULE" in service:
+            raise ValueError(
+                f"SERVICES.{name}.PROJECT_MODULE is valid only for Django services"
+            )
         service["PROFILE"] = profile
         service.setdefault("IMAGE", f"{name.replace('_', '-')}:local")
         service.setdefault("DOCKERFILE", "Dockerfile")
-        service.setdefault("TEST_INSTALL_CONF", service["INSTALL_CONF"])
-        service["_TEST_BUILD_INSTALL_CONF"] = DJANGO_TEST_BUILD_INSTALL_CONF
-        service["_CONTAINER_INSTALL_CONF"] = DJANGO_CONTAINER_INSTALL_CONF
         services[name] = service
     return services
 
@@ -238,15 +304,29 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if not isinstance(raw, dict):
         raise ValueError("ADDONS must be an object, list, or comma-separated string")
     addons: dict[str, dict[str, Any]] = {}
+    available_addons = {
+        path.name for path in ADDON_TEMPLATES.iterdir() if path.is_dir()
+    }
     for raw_name, options in raw.items():
         name = str(raw_name).lower()
-        if name not in {"apache", "keycloak"}:
-            raise ValueError(f"Unsupported add-on: {name}")
+        if name not in available_addons:
+            available = ", ".join(sorted(available_addons))
+            raise ValueError(
+                f"Unsupported add-on {name!r}; available add-ons: {available}"
+            )
         if options is None:
             options = {}
         if not isinstance(options, dict):
             raise ValueError(f"ADDONS.{name} must be a JSON object")
         normalized_options = dict(options)
+        unknown_options = sorted(
+            set(normalized_options) - {"CONFIG_SERVICE", "MOUNTS"}
+        )
+        if unknown_options:
+            raise ValueError(
+                f"ADDONS.{name} contains unsupported options: "
+                + ", ".join(unknown_options)
+            )
         config_service = str(
             normalized_options.get("CONFIG_SERVICE", default_config_service)
         )
@@ -255,109 +335,127 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 f"ADDONS.{name}.CONFIG_SERVICE targets unknown application "
                 f"service {config_service!r}"
             )
-        # Add-ons consume their APACHE_* or KEYCLOAK_* section from one
-        # application settings file. They never introduce another settings
-        # source of their own.
-        normalized_options.pop("INSTALL_CONF", None)
-        normalized_options.pop("TEST_INSTALL_CONF", None)
+        # Every add-on consumes its section from one application settings file;
+        # add-ons never introduce another settings source of their own.
         normalized_options["CONFIG_SERVICE"] = config_service
         addons[name] = normalized_options
     return addons
 
 
+def rendered_addon_settings(config: dict[str, Any], addon: str, mode: str) -> str:
+    """Render one add-on-owned settings fragment from its source template."""
+    template = (
+        ADDON_TEMPLATES
+        / addon
+        / "conf"
+        / f"docker_{mode}_settings.txt.tmpl"
+    )
+    if not template.is_file():
+        raise ValueError(f"Missing {addon} {mode} settings template: {template}")
+    values = scalar_values(config)
+    values.setdefault("APP_SLUG", "application")
+    return render(template, values).decode().rstrip("\n")
+
+
+def rendered_addon_settings_documentation(
+    config: dict[str, Any], addon: str
+) -> str:
+    """Render the settings guidance owned by one infrastructure add-on."""
+    template = ADDON_TEMPLATES / addon / "conf" / "INSTALL_SETTINGS.md.tmpl"
+    if not template.is_file():
+        raise ValueError(f"Missing {addon} settings documentation: {template}")
+    values = scalar_values(config)
+    values.setdefault("APP_SLUG", "application")
+    return render(template, values).decode().rstrip("\n")
+
+
+def addon_setting_keys(config: dict[str, Any], addon: str) -> list[str]:
+    """Discover the add-on environment contract from both settings templates."""
+    keys: list[str] = []
+    for mode in ("production", "test"):
+        fragment = rendered_addon_settings(config, addon, mode)
+        for key in re.findall(r"^([A-Z][A-Z0-9_]*)[ \t]*=", fragment, re.MULTILINE):
+            if key not in keys:
+                keys.append(key)
+    return keys
+
+
 def addon_settings_section(
     config: dict[str, Any], service_name: str, mode: str
 ) -> str:
-    """Return clearly grouped add-on settings owned by one application file."""
-    addons = normalized_addons(config)
-    app_slug = str(config.get("APP_SLUG", "application"))
-    sections: list[str] = []
-    if (
-        "apache" in addons
-        and addons["apache"]["CONFIG_SERVICE"] == service_name
-    ):
-        if mode == "production":
-            apache_values = [
-                f"APACHE_LOG_PATH='/var/log/local/{app_slug}/apache'",
-                "APACHE_BIND_HOST='0.0.0.0'",
-                "APACHE_PORT='80'",
-                "APACHE_FORWARDED_PROTO='https'",
-                "APACHE_FORWARDED_PORT='443'",
-                "# 50 MiB; increase only when an application endpoint requires it.",
-                "APACHE_LIMIT_REQUEST_BODY='52428800'",
-            ]
-        else:
-            apache_values = [
-                f"APACHE_LOG_PATH='/tmp/{app_slug}/apache-logs'",
-                "APACHE_BIND_HOST='127.0.0.1'",
-                "APACHE_PORT='8088'",
-                "APACHE_FORWARDED_PROTO='http'",
-                "APACHE_FORWARDED_PORT='8088'",
-                "APACHE_LIMIT_REQUEST_BODY='52428800'",
-            ]
-        sections.append(
-            "# Apache add-on\n"
-            "# Used only when ADDONS.apache selects this application as CONFIG_SERVICE.\n"
-            + "\n".join(apache_values)
-        )
-    if (
-        "keycloak" in addons
-        and addons["keycloak"]["CONFIG_SERVICE"] == service_name
-    ):
-        if mode == "production":
-            keycloak_values = [
-                "KEYCLOAK_DB_NAME='keycloak'",
-                "KEYCLOAK_DB_USER='keycloak'",
-                "KEYCLOAK_DB_PASSWORD='CHANGE_ME'",
-                "KEYCLOAK_DB_ROOT_PASSWORD='CHANGE_ME'",
-                "KEYCLOAK_PUBLIC_URL='https://CHANGE_ME_KEYCLOAK_DNS'",
-                "KEYCLOAK_PORT='8081'",
-                "KEYCLOAK_ADMIN='admin'",
-                "KEYCLOAK_ADMIN_PASSWORD='CHANGE_ME'",
-                "KEYCLOAK_IMPORT_PATH='./keycloak/tmp-import'",
-            ]
-        else:
-            keycloak_values = [
-                "KEYCLOAK_DB_NAME='keycloak'",
-                "KEYCLOAK_DB_USER='keycloak'",
-                "KEYCLOAK_DB_PASSWORD='keycloak_password'",
-                "KEYCLOAK_DB_ROOT_PASSWORD='root'",
-                "KEYCLOAK_DB_PORT_HOST='6607'",
-                "KEYCLOAK_PUBLIC_URL='http://127.0.0.1:8081'",
-                "KEYCLOAK_PORT='8081'",
-                "KEYCLOAK_ADMIN='admin'",
-                "KEYCLOAK_ADMIN_PASSWORD='admin'",
-                "KEYCLOAK_IMPORT_PATH='./keycloak/tmp-import'",
-            ]
-        sections.append(
-            "# Keycloak add-on\n"
-            "# Database/admin secrets are mandatory in production. Realm JSON is a\n"
-            "# reproducible bootstrap source, not a replacement for database backups.\n"
-            + "\n".join(keycloak_values)
-        )
+    """Append rendered add-on fragments to their owning application settings."""
+    sections = [
+        rendered_addon_settings(config, addon, mode)
+        for addon, options in normalized_addons(config).items()
+        if options["CONFIG_SERVICE"] == service_name
+    ]
     return "\n\n".join(sections) or "# No infrastructure add-on settings are owned by this service."
 
 
+def rendered_profile_callback(
+    profile: str,
+    callback: str,
+    values: dict[str, str],
+    *,
+    required: bool = False,
+) -> list[str]:
+    """Render an optional framework-owned container installer callback."""
+    template = (
+        PROFILE_TEMPLATES
+        / profile
+        / "container_install"
+        / f"{callback}.sh.tmpl"
+    )
+    if not template.is_file():
+        if not required:
+            return []
+        raise ValueError(f"Missing {profile} container callback template: {template}")
+    return render(template, values).decode().rstrip("\n").splitlines()
+
+
+def rendered_addon_callback(
+    addon: str,
+    callback: str,
+    values: dict[str, str],
+    *,
+    required: bool = False,
+) -> list[str]:
+    """Render an optional add-on-owned container installer callback."""
+    template = (
+        ADDON_TEMPLATES
+        / addon
+        / "container_install"
+        / f"{callback}.sh.tmpl"
+    )
+    if not template.is_file():
+        if not required:
+            return []
+        raise ValueError(f"Missing {addon} container callback template: {template}")
+    return render(template, values).decode().rstrip("\n").splitlines()
+
+
+def rendered_addon_compose_fragment(
+    addon: str,
+    fragment: str,
+    values: dict[str, str],
+    *,
+    required: bool = True,
+) -> list[str]:
+    """Render one repeatable add-on-owned Compose fragment."""
+    template = ADDON_TEMPLATES / addon / "compose" / f"{fragment}.yml.tmpl"
+    if not template.is_file():
+        if not required:
+            return []
+        raise ValueError(f"Missing {addon} Compose fragment: {template}")
+    return render(template, values).decode().rstrip("\n").splitlines()
+
+
 def addon_settings_documentation(config: dict[str, Any], service_name: str) -> str:
-    addons = normalized_addons(config)
-    sections: list[str] = []
-    if "apache" in addons and addons["apache"]["CONFIG_SERVICE"] == service_name:
-        sections.append(
-            "### Apache\n\n"
-            "`APACHE_LOG_PATH`, `APACHE_BIND_HOST`, `APACHE_PORT`, "
-            "`APACHE_FORWARDED_PROTO`, `APACHE_FORWARDED_PORT`, and "
-            "`APACHE_LIMIT_REQUEST_BODY` configure the generated proxy. They "
-            "are operational values, not Django settings."
-        )
-    if "keycloak" in addons and addons["keycloak"]["CONFIG_SERVICE"] == service_name:
-        sections.append(
-            "### Keycloak\n\n"
-            "`KEYCLOAK_DB_PASSWORD`, `KEYCLOAK_DB_ROOT_PASSWORD`, and "
-            "`KEYCLOAK_ADMIN_PASSWORD` are production secrets. "
-            "`KEYCLOAK_PUBLIC_URL` must match the public proxy hostname. "
-            "Preserve the Keycloak database independently of the reproducible "
-            "`KEYCLOAK_IMPORT_PATH` realm source."
-        )
+    sections = [
+        rendered_addon_settings_documentation(config, addon)
+        for addon, options in normalized_addons(config).items()
+        if options["CONFIG_SERVICE"] == service_name
+    ]
     return "\n\n".join(sections) or "No infrastructure add-on settings are owned by this service."
 
 
@@ -372,325 +470,195 @@ def compose_variable(prefix: str, key: str, default: str | None = None) -> str:
     return f"${{{name}:-{default}}}"
 
 
+# =============================================================================
+# PROFILE COMPILERS
+# =============================================================================
+# Profile compilers may select and repeat profile-owned template fragments from
+# project.json topology. Do not put framework YAML, runtime defaults, shell
+# commands, permission policy, or documentation here; those belong under
+# scaffold/templates/profiles/<profile>/.
+#
+# compose_service_block is deliberately profile-neutral. Add profile-specific
+# Python below this heading only when validation/iteration cannot be represented
+# by the profile's conventional Compose fragments.
+
+
 def compose_service_block(
     name: str, service: dict[str, str], mode: str
-) -> tuple[list[str], list[str], list[str], list[str]]:
-    """Return service lines plus extra services, volumes, and secrets."""
+) -> ComposeCompilation:
+    """Compile one service and optional profile-owned Compose fragments."""
     prefix = env_prefix(name)
     profile = service["PROFILE"]
-    port = service["APP_PORT"]
-    image = service["IMAGE"]
-    context = service["BUILD_CONTEXT"]
-    dockerfile = service["DOCKERFILE"]
-    lines = [f"  # BEGIN BU-ISCIII SERVICE: {name} ({profile})", f"  {name}:"]
-    lines += [f"    image: {compose_variable(prefix, 'IMAGE', image)}", "    build:", f"      context: {json.dumps(context)}", f"      dockerfile: {json.dumps(dockerfile)}", "      args:", "        GIT_REVISION: ${GIT_REVISION:-current}"]
-    extras: list[str] = []
-    volumes: list[str] = []
-    secrets: list[str] = []
-
-    if profile == "django":
-        install_path = service["INSTALL_PATH"]
-        module = service["PROJECT_MODULE"]
-        conf = service["_CONTAINER_INSTALL_CONF"] if mode == "prod" else service["_TEST_BUILD_INSTALL_CONF"]
-        lines += [
-            f"        INSTALL_CONF: {json.dumps(conf)}",
-            f"        USE_INSTALL_CONF_SECRET: {json.dumps('true' if mode == 'prod' else 'false')}",
-            f"        RENDER_DJANGO_SETTINGS: {json.dumps('false' if mode == 'prod' else 'true')}",
-            f"        APP_UID: {compose_variable(prefix, 'APP_UID', service['APP_UID'])}",
-            f"        APP_GID: {compose_variable(prefix, 'APP_GID', service['APP_GID'])}",
-            f"        APP_INSTALL_PATH: {json.dumps(install_path)}",
-        ]
-        lines += [
-            "    restart: unless-stopped",
-            f"    user: {json.dumps(compose_variable(prefix, 'APP_UID', service['APP_UID']) + ':' + compose_variable(prefix, 'APP_GID', service['APP_GID']))}",
-            "    environment:",
-            f"      APP_MODE: {'prod' if mode == 'prod' else 'dev'}",
-            f"      INSTALL_PATH: {json.dumps(install_path)}",
-            f"      APP_INSTALL_PATH: {json.dumps(install_path)}",
-            f"      APP_PORT: {compose_variable(prefix, 'APP_PORT', port)}",
-            f"      PROJECT_MODULE: {json.dumps(module)}",
-        ]
-        db_host = compose_variable(prefix, "DB_HOST") if mode == "prod" else f"{name}_db"
-        lines += [
-            f"      DB_HOST: {db_host}",
-            f"      DB_PORT: {compose_variable(prefix, 'DB_PORT', '3306')}",
-            f"      DB_NAME: {compose_variable(prefix, 'DB_NAME', module if mode == 'test' else None)}",
-            f"      DB_USER: {compose_variable(prefix, 'DB_USER', 'django' if mode == 'test' else None)}",
-            f"      DB_PASSWORD: {compose_variable(prefix, 'DB_PASSWORD', 'djangopass' if mode == 'test' else None)}",
-            f"      DJANGO_SECRET_KEY: {compose_variable(prefix, 'DJANGO_SECRET_KEY', 'test-only-change-me' if mode == 'test' else None)}",
-            f"      DJANGO_ALLOWED_HOSTS: {compose_variable(prefix, 'DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0' if mode == 'test' else None)}",
-        ]
-        if mode == "test":
-            lines += ["    depends_on:", f"      {name}_db:", "        condition: service_healthy"]
-        lines += ["    volumes:"]
-        if mode == "prod":
-            host_data = compose_variable(prefix, "HOST_DATA_PATH")
-            host_log = compose_variable(prefix, "HOST_LOG_PATH")
-            settings_path = compose_variable(prefix, "DJANGO_SETTINGS_PATH")
-            lines += [
-                f"      - {host_data}/documents:{install_path}/documents:Z",
-                f"      - {host_log}:{install_path}/logs:Z",
-                f"      - {settings_path}:{install_path}/{module}/settings.py:Z",
-                f"      - {name}_static:{install_path}/static:z",
-            ]
-            volumes.append(f"  {name}_static:")
-        else:
-            lines += [
-                f"      - {name}_test_documents:{install_path}/documents:z",
-                f"      - {name}_test_static:{install_path}/static:z",
-            ]
-            volumes += [f"  {name}_test_db:", f"  {name}_test_documents:", f"  {name}_test_static:"]
-            extras += [
-                f"  {name}_db:",
-                "    image: docker.io/library/mysql:8.0",
-                "    environment:",
-                f"      MYSQL_DATABASE: {compose_variable(prefix, 'DB_NAME', module)}",
-                f"      MYSQL_USER: {compose_variable(prefix, 'DB_USER', 'django')}",
-                f"      MYSQL_PASSWORD: {compose_variable(prefix, 'DB_PASSWORD', 'djangopass')}",
-                f"      MYSQL_ROOT_PASSWORD: {compose_variable(prefix, 'DB_ROOT_PASSWORD', 'root')}",
-                "    healthcheck:",
-                '      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]',
-                "      interval: 5s",
-                "      timeout: 5s",
-                "      retries: 20",
-                f"    volumes: [{name}_test_db:/var/lib/mysql]",
-                "    networks: [deployment_net]",
-            ]
-        lines += [
-            "    healthcheck:",
-            f"      test: [\"CMD\", \"python\", \"-c\", \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{port}/health/', timeout=3)\"]",
-            "      interval: 10s",
-            "      timeout: 5s",
-            "      retries: 12",
-        ]
-    else:
-        vite_api_default = (
-            service.get("TEST_VITE_API_BASE_URL", "http://127.0.0.1:8000")
-            if mode == "test"
-            else None
+    compose_templates = PROFILE_TEMPLATES / profile / "compose"
+    template = compose_templates / f"{mode}.service.yml.tmpl"
+    if not template.is_file():
+        raise ValueError(
+            f"Missing {profile} {mode} Compose service template: {template}"
         )
-        lines += [
-            f"        VITE_API_BASE_URL: {compose_variable(prefix, 'VITE_API_BASE_URL', vite_api_default)}",
-            "    restart: unless-stopped",
-            f"    user: {json.dumps(compose_variable(prefix, 'APP_UID', service['APP_UID']) + ':' + compose_variable(prefix, 'APP_GID', service['APP_GID']))}",
-            "    read_only: true",
-            "    tmpfs:",
-            "      - /tmp:size=16m,mode=1777",
-            f"      - /var/cache/nginx:size=32m,uid={compose_variable(prefix, 'APP_UID', service['APP_UID'])},gid={compose_variable(prefix, 'APP_GID', service['APP_GID'])},mode=0750",
-            f"      - /var/run:size=4m,uid={compose_variable(prefix, 'APP_UID', service['APP_UID'])},gid={compose_variable(prefix, 'APP_GID', service['APP_GID'])},mode=0750",
-            "    healthcheck:",
-            f"      test: [\"CMD\", \"wget\", \"-q\", \"-O\", \"/dev/null\", \"http://127.0.0.1:{port}/health/\"]",
-            "      interval: 10s",
-            "      timeout: 5s",
-            "      retries: 12",
-        ]
-    lines += [
-        "    ports:",
-        f"      - {json.dumps('127.0.0.1:' + compose_variable(prefix, 'APP_PORT', port) + ':' + port)}",
-        "    networks: [deployment_net]",
-        f"  # END BU-ISCIII SERVICE: {name}",
-    ]
-    return lines, extras, volumes, secrets
+    values = {
+        "SERVICE_NAME": name,
+        "ENV_PREFIX": prefix,
+        "IMAGE_NAME": service["IMAGE"],
+        "BUILD_CONTEXT_JSON": json.dumps(service["BUILD_CONTEXT"]),
+        "DOCKERFILE_JSON": json.dumps(service["DOCKERFILE"]),
+        "PROJECT_MODULE": service.get("PROJECT_MODULE", ""),
+    }
 
-
-def apache_proxy_configuration(services: dict[str, dict[str, str]], options: dict[str, Any]) -> bytes:
-    routes = options.get("ROUTES")
-    virtual_hosts = options.get("VIRTUAL_HOSTS")
-    if routes is not None and virtual_hosts is not None:
-        raise ValueError("ADDONS.apache must use either ROUTES or VIRTUAL_HOSTS, not both")
-
-    def target_port(target_name: str) -> str:
-        if target_name not in services and target_name != "keycloak":
-            raise ValueError(f"Apache proxy targets unknown service {target_name!r}")
-        return services[target_name]["APP_PORT"] if target_name in services else "8080"
-
-    def django_mount_aliases(target_name: str, url_prefix: str, indent: str = "") -> list[str]:
-        if target_name not in services or services[target_name]["PROFILE"] != "django":
+    def optional_fragment(kind: str) -> list[str]:
+        fragment = compose_templates / f"{mode}.{kind}.yml.tmpl"
+        if not fragment.is_file():
             return []
-        prefix = url_prefix.rstrip("/")
-        static_url = f"{prefix}/static/"
-        documents_url = f"{prefix}/documents/"
-        return [
-            f"{indent}ProxyPass {static_url} !",
-            f"{indent}Alias {static_url} /var/www/{target_name}/static/",
-            f'{indent}<Directory "/var/www/{target_name}/static">',
-            f"{indent}    Require all granted",
-            f"{indent}</Directory>",
-            f"{indent}ProxyPass {documents_url} !",
-            f"{indent}Alias {documents_url} /var/www/{target_name}/documents/",
-            f'{indent}<Directory "/var/www/{target_name}/documents">',
-            f"{indent}    Require all granted",
-            f"{indent}</Directory>",
-        ]
+        return render(fragment, values).decode().rstrip("\n").splitlines()
 
-    header = [
-        "# Generated reverse-proxy contract. Edit ADDONS.apache in project.json,",
-        "# not this synchronized output.",
+    lines = render(template, values).decode().rstrip("\n").splitlines()
+    return ComposeCompilation(
+        service_lines=lines,
+        support_lines=optional_fragment("support-services"),
+        volume_lines=optional_fragment("volumes"),
+        secret_lines=optional_fragment("secrets"),
+        artifacts=[],
+    )
+
+
+# =============================================================================
+# GENERIC ADD-ON COMPILER
+# =============================================================================
+# Add-ons own their Compose YAML and declare optional per-service/profile
+# fragments by filename. The compiler only repeats and merges those fragments;
+# it contains no Apache, Keycloak, framework, or runtime configuration policy.
+
+
+def addon_dependency_services(addon: str) -> list[str]:
+    """Read healthy service names another add-on may depend upon."""
+    path = ADDON_TEMPLATES / addon / "compose" / "dependency-services.txt.tmpl"
+    if not path.is_file():
+        return []
+    names = [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
     ]
-    if virtual_hosts is not None:
-        if not isinstance(virtual_hosts, dict) or not virtual_hosts:
-            raise ValueError("ADDONS.apache.VIRTUAL_HOSTS must map DNS names to service names")
-        lines = header + [
-            "# Separate virtual hosts are recommended for multi-app deployments and",
-            "# identity providers because each service keeps its native root URL.",
-        ]
-        for hostname, target in virtual_hosts.items():
-            server_name = str(hostname)
-            if not re.fullmatch(r"[A-Za-z0-9.-]+(?::[0-9]+)?", server_name):
-                raise ValueError(f"Invalid Apache virtual-host ServerName: {server_name!r}")
-            target_name = str(target)
-            port = target_port(target_name)
-            log_stem = re.sub(r"[^A-Za-z0-9_.-]", "_", server_name)
-            lines += [
-                "",
-                "<VirtualHost *:8080>",
-                f"    ServerName {server_name}",
-                "    ProxyRequests Off",
-                "    ProxyPreserveHost On",
-                "    AllowEncodedSlashes NoDecode",
-                '    RequestHeader set X-Forwarded-Proto "${APACHE_FORWARDED_PROTO}"',
-                '    RequestHeader set X-Forwarded-Port "${APACHE_FORWARDED_PORT}"',
-                f'    RequestHeader set X-Forwarded-Host "{server_name}"',
-                "    LimitRequestBody ${APACHE_LIMIT_REQUEST_BODY}",
-            ]
-            lines += django_mount_aliases(target_name, "", "    ")
-            lines += [
-                f"    ProxyPass / http://{target_name}:{port}/",
-                f"    ProxyPassReverse / http://{target_name}:{port}/",
-                "    ProxyTimeout 120",
-                "    TimeOut 120",
-                f'    ErrorLog "logs/{log_stem}.error.log"',
-                f'    CustomLog "logs/{log_stem}.access.log" combined',
-                "</VirtualHost>",
-            ]
-        return ("\n".join(lines) + "\n").encode()
-
-    if routes is None:
-        react_services = [name for name, item in services.items() if item["PROFILE"] == "react-vite"]
-        django_services = [name for name, item in services.items() if item["PROFILE"] == "django"]
-        routes = {}
-        if react_services:
-            routes["/"] = react_services[0]
-        for index, name in enumerate(django_services):
-            routes["/api/" if index == 0 else f"/{name}/"] = name
-    if not isinstance(routes, dict) or not routes:
-        raise ValueError("ADDONS.apache.ROUTES must map URL paths to service names")
-    lines = header + [
-        "# Path routing is useful only when each target supports its configured",
-        "# external prefix. Prefer VIRTUAL_HOSTS for Keycloak and mixed applications.",
-        "ProxyRequests Off",
-        "ProxyPreserveHost On",
-        "AllowEncodedSlashes NoDecode",
-        'RequestHeader set X-Forwarded-Proto "${APACHE_FORWARDED_PROTO}"',
-        'RequestHeader set X-Forwarded-Port "${APACHE_FORWARDED_PORT}"',
-        "LimitRequestBody ${APACHE_LIMIT_REQUEST_BODY}",
-    ]
-    for path, target in routes.items():
-        target_name = str(target)
-        route = str(path)
-        if not route.startswith("/"):
-            raise ValueError(f"Apache route must start with '/': {route!r}")
-        port = target_port(target_name)
-        lines += django_mount_aliases(target_name, route)
-        lines += [
-            f"ProxyPass {route} http://{target_name}:{port}/",
-            f"ProxyPassReverse {route} http://{target_name}:{port}/",
-            "ProxyTimeout 120",
-            "TimeOut 120",
-        ]
-    return ("\n".join(lines) + "\n").encode()
+    for name in names:
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", name):
+            raise ValueError(f"Invalid dependency service {name!r} in {path}")
+    return names
 
 
-def apache_log_configuration() -> bytes:
-    return b'''# Shared Apache log formats and persistent log destinations.
-ErrorLog "logs/apache_error.log"
-LogLevel warn
-LogFormat "%h %l %u %t \\"%r\\" %>s %b \\"%{Referer}i\\" \\"%{User-Agent}i\\"" combined
-<IfModule logio_module>
-    LogFormat "%v %{X-Forwarded-For}i %l %u %t \\"%r\\" %>s %b \\"%{Referer}i\\" \\"%{User-Agent}i\\" %D %I %O" proxy
-</IfModule>
-CustomLog "logs/apache.access.log" combined
-'''
+def compile_addon_compose(
+    addon: str,
+    config: dict[str, Any],
+    services: dict[str, dict[str, str]],
+    addons: dict[str, dict[str, Any]],
+    mode: str,
+) -> ComposeCompilation:
+    """Compile one add-on entirely from conventional template fragments."""
+    options = addons[addon]
+    dependency_names = list(services)
+    for selected_addon in addons:
+        if selected_addon != addon:
+            dependency_names.extend(addon_dependency_services(selected_addon))
+    depends_on = "\n".join(
+        f"      {name}:\n        condition: service_healthy"
+        for name in dict.fromkeys(dependency_names)
+    )
+
+    environment_lines: list[str] = []
+    application_mounts: list[str] = []
+    for name, service in services.items():
+        fragment_values = {
+            **service,
+            "SERVICE_NAME": name,
+            "ENV_PREFIX": env_prefix(name),
+        }
+        environment_lines += rendered_addon_compose_fragment(
+            addon, "service-environment", fragment_values, required=False
+        )
+        environment_lines += rendered_addon_compose_fragment(
+            addon,
+            f"{service['PROFILE']}-service-environment",
+            fragment_values,
+            required=False,
+        )
+        application_mounts += rendered_addon_compose_fragment(
+            addon,
+            f"{service['PROFILE']}-{mode}-mounts",
+            fragment_values,
+            required=False,
+        )
+
+    optional_mounts = options.get("MOUNTS", [])
+    if not isinstance(optional_mounts, list):
+        raise ValueError(f"ADDONS.{addon}.MOUNTS must be a JSON array")
+    for mount in optional_mounts:
+        application_mounts += rendered_addon_compose_fragment(
+            addon, "application-mount", {"MOUNT": str(mount)}, required=False
+        )
+
+    service_volumes = rendered_addon_compose_fragment(
+        addon, f"{mode}.service-volumes", {}, required=False
+    )
+    values = {
+        **scalar_values(config),
+        "ADDON_DEPENDS_ON": depends_on,
+        "ADDON_SERVICE_ENVIRONMENT": "\n".join(environment_lines),
+        "ADDON_SERVICE_VOLUMES": "\n".join(service_volumes),
+        "ADDON_APPLICATION_MOUNTS": "\n".join(application_mounts),
+    }
+    service_template = ADDON_TEMPLATES / addon / "compose" / f"{mode}.service.yml.tmpl"
+    service_lines = render(service_template, values).decode().rstrip("\n").splitlines()
+    return ComposeCompilation(
+        service_lines=service_lines,
+        support_lines=rendered_addon_compose_fragment(
+            addon, f"{mode}.support-services", values, required=False
+        ),
+        volume_lines=rendered_addon_compose_fragment(
+            addon, f"{mode}.volumes", values, required=False
+        ),
+        secret_lines=rendered_addon_compose_fragment(
+            addon, f"{mode}.secrets", values, required=False
+        ),
+        artifacts=[],
+    )
 
 
-def apache_status_configuration() -> bytes:
-    return b'''# Local-only operational endpoint; never expose it through ProxyPass.
-ExtendedStatus On
-<Location "/server-status">
-    SetHandler server-status
-    Require local
-</Location>
-'''
+# =============================================================================
+# COMPOSE AND ARTIFACT ASSEMBLY
+# =============================================================================
+# Code below this boundary coordinates profile/add-on fragments and final output.
+# Add-on dispatch may occur here, but reusable add-on-specific validation and
+# iteration must be named and placed in its compiler section above. Configuration
+# syntax and runtime defaults always remain in the owning templates.
 
 
 def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tuple[Path, bytes]]]:
     services = normalized_services(config)
     addons = normalized_addons(config)
-    service_lines = ["services:"]
-    extra_lines: list[str] = []
-    volume_lines: list[str] = []
-    secret_lines: list[str] = []
-    artifacts: list[tuple[Path, bytes]] = []
-    for name, service in services.items():
-        block, extras, volumes, secrets = compose_service_block(name, service, mode)
-        service_lines += block
-        extra_lines += extras
-        volume_lines += volumes
-        secret_lines += secrets
+    compilations = [
+        compose_service_block(name, service, mode)
+        for name, service in services.items()
+    ]
+    compilations += [
+        compile_addon_compose(name, config, services, addons, mode)
+        for name in addons
+    ]
 
-    if "apache" in addons:
-        apache_options = addons["apache"]
-        dependency_names = list(services)
-        if "keycloak" in addons:
-            dependency_names.append("keycloak")
-        depends_on = "\n".join(
-            f"      {name}:\n        condition: service_healthy"
-            for name in dependency_names
-        )
-        apache_mounts: list[str] = []
-        for name, service in services.items():
-            if service["PROFILE"] != "django":
-                continue
-            static_volume = f"{name}_static" if mode == "prod" else f"{name}_test_static"
-            if mode == "prod":
-                documents_source = compose_variable(env_prefix(name), "HOST_DATA_PATH") + "/documents"
-                documents_label = "Z"
-            else:
-                documents_source = f"{name}_test_documents"
-                documents_label = "z"
-            apache_mounts += [
-                f"      - {static_volume}:/var/www/{name}/static:ro,z",
-                f"      - {documents_source}:/var/www/{name}/documents:ro,{documents_label}",
-            ]
-        optional_mounts = apache_options.get("MOUNTS", [])
-        if not isinstance(optional_mounts, list):
-            raise ValueError("ADDONS.apache.MOUNTS must be a JSON array")
-        apache_mounts += [f"      - {str(mount)}" for mount in optional_mounts]
-        apache_template = TEMPLATES / "addons" / "apache" / "compose" / f"{mode}.service.yml.tmpl"
-        apache_fragment = render(
-            apache_template,
-            {
-                "APP_SLUG": str(config.get("APP_SLUG", "application")),
-                "APACHE_DEPENDS_ON": depends_on,
-                "APACHE_APPLICATION_MOUNTS": "\n".join(apache_mounts),
-            },
-        ).decode().rstrip("\n")
-        service_lines += apache_fragment.splitlines()
-        if mode == "test":
-            volume_lines.append("  apache_test_logs:")
-        artifacts += [
-            (Path("deployment/apache/00-logs.conf"), apache_log_configuration()),
-            (Path("deployment/apache/01-reverse-proxy.conf"), apache_proxy_configuration(services, apache_options)),
-            (Path("deployment/apache/02-server-status.conf"), apache_status_configuration()),
-        ]
-    if "keycloak" in addons:
-        keycloak_fragment = (
-            TEMPLATES / "addons" / "keycloak" / "compose" / f"{mode}.service.yml.tmpl"
-        ).read_text(encoding="utf-8").rstrip("\n")
-        service_lines += keycloak_fragment.splitlines()
-        volume_lines.append("  keycloak_db_data:")
+    service_lines = [
+        line for compilation in compilations for line in compilation.service_lines
+    ]
+    support_lines = [
+        line for compilation in compilations for line in compilation.support_lines
+    ]
+    volume_lines = [
+        line for compilation in compilations for line in compilation.volume_lines
+    ]
+    secret_lines = [
+        line for compilation in compilations for line in compilation.secret_lines
+    ]
+    artifacts = [
+        artifact for compilation in compilations for artifact in compilation.artifacts
+    ]
 
-    service_blocks = "\n".join(service_lines[1:] + extra_lines)
+    service_blocks = "\n".join(service_lines + support_lines)
     volume_section = ""
     if volume_lines:
         volume_section = "\nvolumes:\n" + "\n".join(dict.fromkeys(volume_lines))
@@ -706,7 +674,7 @@ def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tup
             "COMPOSE_SECRETS_SECTION": secret_section,
         },
     )
-    return document, artifacts
+    return document.rstrip(b"\n") + b"\n", artifacts
 
 
 def orchestrator_artifacts(config: dict[str, Any]) -> list[tuple[Path, bytes]]:
@@ -732,287 +700,100 @@ def bash_array(values: list[str]) -> str:
     return "(" + " ".join(shlex.quote(value) for value in values) + ")"
 
 
-def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
+def rendered_documentation_fragment(
+    owner: str, name: str, fragment: str, values: dict[str, str]
+) -> str:
+    """Render one common, profile, or add-on-owned documentation fragment."""
+    if owner == "common":
+        template = COMMON_TEMPLATES / "documentation" / f"{fragment}.tmpl"
+    elif owner == "profile":
+        template = PROFILE_TEMPLATES / name / "documentation" / f"{fragment}.tmpl"
+    elif owner == "addon":
+        template = ADDON_TEMPLATES / name / "documentation" / f"{fragment}.tmpl"
+    else:
+        raise ValueError(f"Unsupported documentation owner: {owner}")
+    if not template.is_file():
+        raise ValueError(f"Missing {owner} documentation fragment: {template}")
+    return render(template, values).decode().rstrip("\n")
+
+
+def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
+    """Render and combine documentation fragments selected by project topology."""
     services = normalized_services(config)
     addons = normalized_addons(config)
-    app_slug = str(config.get("APP_SLUG", "application"))
-    names = list(services)
-    permission_names = list(names)
-    if "apache" in addons:
-        permission_names.append("apache")
-    if "keycloak" in addons:
-        permission_names += ["keycloak_db", "keycloak"]
-    configured_names = names
-
-    default_conf_cases = []
-    build_context_cases = []
-    repo_path_cases = []
-    install_path_cases = []
-    readiness_cases = []
-    image_cases = []
-    profile_cases = []
-    dockerfile_cases = []
-    container_conf_cases = []
-    uid_cases = []
-    gid_cases = []
-    settings_sources = []
-    deployment_values = ['        "GIT_REVISION|$git_revision"']
-    host_sources = []
-    host_permissions = []
-    running_cases = []
-    bootstrap_cases = []
-    smoke_checks = []
-    smoke_profile_checks = []
-    service_rows = []
-    persistence_rows = []
-    config_map_examples = []
-    selected_profiles: list[str] = []
-    owned = owned_profile_service(config) if uses_service_descriptor(config) else None
-    settings_owner = owned[0] if owned else names[0]
+    service_rows: list[str] = []
+    persistence_rows: list[str] = []
+    config_map_examples: list[str] = []
+    selected_profiles = list(
+        dict.fromkeys(service["PROFILE"] for service in services.values())
+    )
 
     for name, service in services.items():
-        prefix = env_prefix(name)
-        if service["PROFILE"] not in selected_profiles:
-            selected_profiles.append(service["PROFILE"])
         service_rows.append(
-            f"| `{name}` | `{service['PROFILE']}` | `{service['BUILD_CONTEXT']}` | `{service['APP_PORT']}` |"
+            rendered_documentation_fragment(
+                "common",
+                "",
+                "service-inventory-row.md",
+                {
+                    "SERVICE_NAME": name,
+                    "PROFILE": service["PROFILE"],
+                    "BUILD_CONTEXT": service["BUILD_CONTEXT"],
+                },
+            )
         )
         config_map_examples.append(
-            f"--install_conf_map {name},/protected/{name}_production_settings.txt"
-        )
-        quoted_name = shlex.quote(name)
-        default_conf_cases.append(
-            f"        {name}) [ \"$mode\" = test ] && echo {shlex.quote(service['TEST_INSTALL_CONF'])} || echo {shlex.quote(service['INSTALL_CONF'])} ;;"
-        )
-        build_context_cases.append(f"        {name}) echo {shlex.quote(service['BUILD_CONTEXT'])} ;;")
-        repo_path = service.get("REPO_PATH", f"/srv/{name.replace('_', '-')}")
-        repo_path_cases.append(f"        {name}) echo {shlex.quote(repo_path)} ;;")
-        install_path = service.get("INSTALL_PATH", "/usr/share/nginx/html")
-        install_path_cases.append(f"        {name}) echo {shlex.quote(install_path)} ;;")
-        readiness = f"{install_path}/manage.py" if service["PROFILE"] == "django" else "/usr/share/nginx/html/index.html"
-        readiness_cases.append(f"        {name}) echo {shlex.quote(readiness)} ;;")
-        image_cases.append(f"        {name}) echo {shlex.quote(service['IMAGE'])} ;;")
-        profile_cases.append(f"        {name}) echo {service['PROFILE']} ;;")
-        dockerfile_cases.append(f"        {name}) echo {shlex.quote(service['DOCKERFILE'])} ;;")
-        container_conf_cases.append(f"        {name}) echo {shlex.quote(service['_CONTAINER_INSTALL_CONF'])} ;;")
-        uid_cases.append(f"        {name}) config_value_or_default APP_UID \"${{install_conf_host_by_service[$1]}}\" {shlex.quote(service['APP_UID'])} ;;")
-        gid_cases.append(f"        {name}) config_value_or_default APP_GID \"${{install_conf_host_by_service[$1]}}\" {shlex.quote(service['APP_GID'])} ;;")
-        settings_sources.append(f'        "{prefix}|${{install_conf_host_by_service[{name}]}}"')
-        deployment_values += [
-            f'        "{prefix}_IMAGE|{service["IMAGE"]}"',
-            f'        "{prefix}_INSTALL_CONF_PATH|${{install_conf_host_by_service[{name}]}}"',
-        ]
-        if service["PROFILE"] == "django":
-            module = service["PROJECT_MODULE"]
-            host_sources += [
-                "    if [ \"$mode\" = production ]; then",
-                f"        settings_output=\"$(config_value DJANGO_SETTINGS_PATH \"${{install_conf_host_by_service[{name}]}}\")\"",
-                f"        mkdir -p \"$(dirname \"$settings_output\")\"",
-                f"        prepare_django_settings_bind_mount {shlex.quote(service['BUILD_CONTEXT'] + '/conf/template_settings.py')} \"$settings_output\" \"${{install_conf_host_by_service[{name}]}}\"",
-                "    fi",
-            ]
-            spec_name = re.sub(r"[^a-zA-Z0-9_]", "_", name) + "_host_bind_permission_spec"
-            host_permissions += [
-                f"    data_path=\"$(config_value HOST_DATA_PATH \"${{install_conf_host_by_service[{name}]}}\")\"",
-                f"    log_path=\"$(config_value HOST_LOG_PATH \"${{install_conf_host_by_service[{name}]}}\")\"",
-                f"    settings_path=\"$(config_value DJANGO_SETTINGS_PATH \"${{install_conf_host_by_service[{name}]}}\")\"",
-                f"    uid=\"$(service_uid {quoted_name})\"; gid=\"$(service_gid {quoted_name})\"",
-                f"    local -a {spec_name}=(",
-                '        "$data_path/documents|$uid:$gid|0775"', '        "$log_path|$uid:$gid|0775"',
-                '        "$(dirname "$settings_path")|-|0755"', '        "$settings_path|$uid:$gid|0664"', "    )",
-                f'    apply_host_permission_spec "${{{spec_name}[@]}}"',
-            ]
-            running_cases += [
-                f"        {name})",
-                '            install_path="$(service_install_path "$service_name")"',
-                '            uid="$(service_uid "$service_name")"; gid="$(service_gid "$service_name")"',
-                f"            local -a {re.sub(r'[^a-zA-Z0-9_]', '_', name)}_running_mount_permission_spec=(",
-                '                "$install_path/logs|$uid:$gid|u+rwX,g+rwX"',
-                '                "$install_path/documents|$uid:$gid|u+rwX,g+rwX"',
-                '                "$install_path/static|$uid:$gid|u+rwX,g+rwX,o+rX"', "            )",
-                f'            apply_container_directory_permission_spec "$container_id" "${{{re.sub(r"[^a-zA-Z0-9_]", "_", name)}_running_mount_permission_spec[@]}}"',
-                f'            prepare_django_container_settings_permissions "$container_id" "$install_path/{module}/settings.py" "$uid" "$gid"',
-                "            ;;",
-            ]
-            bootstrap_cases += [
-                f"        {name})",
-                '            repo_path="$(service_repo_path "$service_name")"',
-                f"            runtime_conf={shlex.quote(service['_CONTAINER_INSTALL_CONF'])}",
-                '            [[ "$runtime_conf" == /* ]] || runtime_conf="$repo_path/$runtime_conf"',
-                '            uid="$(service_uid "$service_name")"; gid="$(service_gid "$service_name")"',
-                '            stage_container_runtime_config "$container_id" "${install_conf_host_by_service[$service_name]}" "$runtime_conf" "$uid" "$gid"',
-                '            args=(--bootstrap "$deployment_action" --git_revision "$git_revision" --conf "$runtime_conf" --skip_apache_restart)',
-                '            for hook in "${migration_script_before[@]}"; do args+=(--script_before "$hook"); done',
-                '            for hook in "${migration_script_after[@]}"; do args+=(--script_after "$hook"); done',
-                '            status=0; engine_exec exec "$container_id" bash "$repo_path/install.sh" "${args[@]}" || status=$?',
-                '            [ "$mode" = test ] || remove_container_runtime_config "$container_id" "$runtime_conf" || true',
-                '            return "$status"', "            ;;",
-            ]
-            persistence_rows += [
-                f"| `{name}` database | External production database | Database backup before migration |",
-                f"| `{name}` documents | `HOST_DATA_PATH/documents` | Filesystem backup |",
-                f"| `{name}` static | `{name}_static` named volume | Replaceable through collectstatic |",
-            ]
-            smoke_profile_checks += [
-                f'    container_id="$(compose_run ps -q {shlex.quote(name)})"',
-                f'    [ -n "$container_id" ] || fail "Service {name} has no container"',
-                f'    compose_run exec -T {shlex.quote(name)} bash -lc {shlex.quote(f"cd {install_path} && source virtualenv/bin/activate && python manage.py check && ! python manage.py showmigrations --plan | grep -F \'[ ]\'")}',
-                f'    echo "PASS: {name} Django checks and migrations"',
-            ]
-        else:
-            running_cases += [f"        {name}) return 0 ;; # immutable React runtime"]
-            bootstrap_cases += [f"        {name}) return 0 ;; # no runtime bootstrap"]
-            persistence_rows.append(
-                f"| `{name}` browser bundle | Immutable container image | Rebuild from recorded revision |"
+            rendered_documentation_fragment(
+                "common",
+                "",
+                "config-map-example.txt",
+                {"SERVICE_NAME": name},
             )
-            smoke_profile_checks += [
-                f'    compose_run exec -T {shlex.quote(name)} test -f /usr/share/nginx/html/index.html',
-                f'    echo "PASS: {name} React/Vite bundle exists"',
-            ]
-        smoke_checks += [f'    check_url {shlex.quote(name)} "http://127.0.0.1:{service["APP_PORT"]}/health/"']
-
-    for addon in addons:
-        if addon == "apache":
-            running_cases += [
-                "        apache)",
-                "            local -a apache_running_mount_permission_spec=()",
-                '            apply_container_directory_permission_spec "$container_id" "${apache_running_mount_permission_spec[@]}"',
-                "            ;;",
-            ]
-        elif addon == "keycloak":
-            running_cases += [
-                "        keycloak)",
-                "            local -a keycloak_running_mount_permission_spec=()",
-                '            apply_container_directory_permission_spec "$container_id" "${keycloak_running_mount_permission_spec[@]}"',
-                "            ;;",
-                "        keycloak_db)",
-                "            local -a keycloak_db_running_mount_permission_spec=(",
-                '                "/var/lib/mysql|999:999|u+rwX,g+rwX,o-rwx"',
-                "            )",
-                '            apply_container_directory_permission_spec "$container_id" "${keycloak_db_running_mount_permission_spec[@]}"',
-                "            ;;",
-            ]
-
-    for addon, options in addons.items():
-        config_service = str(options["CONFIG_SERVICE"])
-        config_reference = f'"${{install_conf_host_by_service[{config_service}]}}"'
-        if addon == "apache":
-            apache_defaults = {
-                "APACHE_LOG_PATH": f"/var/log/local/{app_slug}/apache",
-                "APACHE_BIND_HOST": "0.0.0.0",
-                "APACHE_PORT": "80",
-                "APACHE_FORWARDED_PROTO": "https",
-                "APACHE_FORWARDED_PORT": "443",
-                "APACHE_LIMIT_REQUEST_BODY": "52428800",
-            }
-            for key, default in apache_defaults.items():
-                deployment_values.append(
-                    f'        "{key}|$(config_value_or_default {key} {config_reference} {shlex.quote(default)})"'
-                )
-        elif addon == "keycloak":
-            keycloak_defaults = {
-                "KEYCLOAK_DB_NAME": "keycloak",
-                "KEYCLOAK_DB_USER": "keycloak",
-                "KEYCLOAK_DB_PORT_HOST": "6607",
-                "KEYCLOAK_PORT": "8081",
-                "KEYCLOAK_ADMIN": "admin",
-                "KEYCLOAK_IMPORT_PATH": "./keycloak/tmp-import",
-            }
-            for key, default in keycloak_defaults.items():
-                deployment_values.append(
-                    f'        "{key}|$(config_value_or_default {key} {config_reference} {shlex.quote(default)})"'
-                )
-            for key in (
-                "KEYCLOAK_DB_PASSWORD",
-                "KEYCLOAK_DB_ROOT_PASSWORD",
-                "KEYCLOAK_PUBLIC_URL",
-                "KEYCLOAK_ADMIN_PASSWORD",
-            ):
-                deployment_values.append(
-                    f'        "{key}|$(config_value {key} {config_reference})"'
-                )
-        if addon == "apache":
-            host_sources += [
-                "    if [ \"$mode\" = production ]; then",
-                f'        apache_log_path="$(config_value_or_default APACHE_LOG_PATH "${{install_conf_host_by_service[{config_service}]}}" "/var/log/local/{app_slug}/apache")"',
-                '        mkdir -p "$script_dir/deployment/apache" "$apache_log_path"',
-                "    fi",
-            ]
-            host_permissions += [
-                f'    apache_log_path="$(config_value_or_default APACHE_LOG_PATH "${{install_conf_host_by_service[{config_service}]}}" "/var/log/local/{app_slug}/apache")"',
-                "    local -a apache_host_bind_permission_spec=(",
-                '        "$script_dir/deployment/apache|-|0755"',
-                '        "$script_dir/deployment/apache/00-logs.conf|-|0644"',
-                '        "$script_dir/deployment/apache/01-reverse-proxy.conf|-|0644"',
-                '        "$script_dir/deployment/apache/02-server-status.conf|-|0644"',
-                '        "$apache_log_path|-|0775"',
-                "    )",
-                '    apply_host_permission_spec "${apache_host_bind_permission_spec[@]}"',
-            ]
-        elif addon == "keycloak":
-            host_sources += [
-                f'    keycloak_import_path="$(config_value_or_default KEYCLOAK_IMPORT_PATH "${{install_conf_host_by_service[{config_service}]}}" "$script_dir/keycloak/tmp-import")"',
-                '    mkdir -p "$keycloak_import_path"',
-                '    compgen -G "$keycloak_import_path/*.json" >/dev/null || { echo "Keycloak realm import JSON not found in $keycloak_import_path" >&2; return 1; }',
-            ]
-            host_permissions += [
-                f'    keycloak_import_path="$(config_value_or_default KEYCLOAK_IMPORT_PATH "${{install_conf_host_by_service[{config_service}]}}" "$script_dir/keycloak/tmp-import")"',
-                "    local -a keycloak_host_bind_permission_spec=(",
-                '        "$keycloak_import_path|-|0755"',
-                "    )",
-                '    for realm_file in "$keycloak_import_path"/*.json; do',
-                '        keycloak_host_bind_permission_spec+=("$realm_file|-|0640")',
-                "    done",
-                '    apply_host_permission_spec "${keycloak_host_bind_permission_spec[@]}"',
-            ]
-
-    if "keycloak" in addons:
+        )
         persistence_rows.append(
-            "| Keycloak database | `keycloak_db_data` MySQL named volume | Database and identity backup |"
+            rendered_documentation_fragment(
+                "profile",
+                service["PROFILE"],
+                "persistence-rows.md",
+                {"SERVICE_NAME": name},
+            )
         )
 
-    profile_notes = []
-    if "django" in selected_profiles:
-        profile_notes.append(
-            "- Django services build with an ephemeral settings secret, render protected host settings, and run controlled migration/bootstrap steps."
+    profile_notes = [
+        rendered_documentation_fragment("profile", profile, "profile.md", {})
+        for profile in selected_profiles
+    ]
+    addon_notes = [
+        rendered_documentation_fragment("addon", addon, "addon.md", {})
+        for addon in addons
+    ]
+    for addon in addons:
+        persistence = ADDON_TEMPLATES / addon / "documentation" / "persistence-rows.md.tmpl"
+        if persistence.is_file():
+            persistence_rows.append(
+                rendered_documentation_fragment(
+                    "addon", addon, "persistence-rows.md", {}
+                )
+            )
+    if not addon_notes:
+        addon_notes.append(
+            rendered_documentation_fragment("common", "", "no-addons.md", {})
         )
-    if "react-vite" in selected_profiles:
-        profile_notes.append(
-            "- React/Vite services use public build-time `VITE_*` configuration and an immutable, unprivileged Nginx runtime; they never run Django bootstrap."
-        )
-    addon_notes = []
-    if "apache" in addons:
-        addon_notes.append("- Apache generates either DNS virtual hosts from `ADDONS.apache.VIRTUAL_HOSTS` or prefix routes from `ADDONS.apache.ROUTES`.")
-    if "keycloak" in addons:
-        addon_notes.append("- Keycloak provides centralized identity with a health-checked MySQL service, realm import, and persistent database state.")
+
     return {
-        "INSTALL_SERVICES_LITERAL": bash_array(names),
-        "PERMISSION_SERVICES_LITERAL": bash_array(permission_names),
-        "CONFIGURED_SERVICES_LITERAL": bash_array(configured_names),
-        "DEFAULT_CONF_CASES": "\n".join(default_conf_cases),
-        "BUILD_CONTEXT_CASES": "\n".join(build_context_cases),
-        "REPO_PATH_CASES": "\n".join(repo_path_cases),
-        "INSTALL_PATH_CASES": "\n".join(install_path_cases),
-        "READINESS_CASES": "\n".join(readiness_cases),
-        "IMAGE_CASES": "\n".join(image_cases),
-        "PROFILE_CASES": "\n".join(profile_cases),
-        "DOCKERFILE_CASES": "\n".join(dockerfile_cases),
-        "CONTAINER_CONF_CASES": "\n".join(container_conf_cases),
-        "UID_CASES": "\n".join(uid_cases),
-        "GID_CASES": "\n".join(gid_cases),
-        "SETTINGS_SOURCES": "\n".join(settings_sources),
-        "DEPLOYMENT_VALUES": "\n".join(deployment_values),
-        "PREPARE_HOST_SOURCES": "\n".join(host_sources) or "    return 0",
-        "HOST_PERMISSION_SPECS": "\n".join(host_permissions) or "    return 0",
-        "RUNNING_PERMISSION_CASES": "\n".join(running_cases),
-        "BOOTSTRAP_CASES": "\n".join(bootstrap_cases),
-        "SMOKE_CHECKS": "\n".join(smoke_checks),
-        "SMOKE_PROFILE_CHECKS": "\n".join(smoke_profile_checks),
         "SERVICE_INVENTORY_ROWS": "\n".join(service_rows),
-        "PROFILE_DOCUMENTATION": "\n".join(profile_notes) or "- No framework profile selected.",
-        "ADDON_DOCUMENTATION": "\n".join(addon_notes) or "- No optional add-ons selected.",
-        "PERSISTENCE_ROWS": "\n".join(persistence_rows) or "| None | Immutable image | Rebuild |",
+        "PROFILE_DOCUMENTATION": "\n".join(profile_notes),
+        "ADDON_DOCUMENTATION": "\n".join(addon_notes),
+        "PERSISTENCE_ROWS": "\n".join(persistence_rows),
         "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
+    }
+
+
+def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
+    """Build only profile-settings sections and their add-on documentation."""
+    services = normalized_services(config)
+    owned = owned_profile_service(config)
+    settings_owner = owned[0] if owned else next(iter(services))
+    return {
         "PRODUCTION_ADDON_SETTINGS": addon_settings_section(
             config, settings_owner, "production"
         ),
@@ -1020,6 +801,153 @@ def orchestrator_template_values(config: dict[str, Any]) -> dict[str, str]:
         "ADDON_SETTINGS_DOCUMENTATION": addon_settings_documentation(
             config, settings_owner
         ),
+    }
+
+
+def service_container_installer_compilation(
+    services: dict[str, dict[str, str]],
+) -> ContainerInstallerCompilation:
+    """Compile application-neutral mappings declared by every service."""
+    result = ContainerInstallerCompilation()
+    result.install_services.extend(services)
+    result.permission_services.extend(services)
+    result.configured_services.extend(services)
+    result.deployment_values.append('        "GIT_REVISION|$git_revision"')
+    for name, service in services.items():
+        prefix = env_prefix(name)
+        result.default_conf_cases.append(
+            f"        {name}) [ \"$mode\" = test ] && echo "
+            f"{shlex.quote(service['TEST_INSTALL_CONF'])} || echo "
+            f"{shlex.quote(service['INSTALL_CONF'])} ;;"
+        )
+        result.build_context_cases.append(
+            f"        {name}) echo {shlex.quote(service['BUILD_CONTEXT'])} ;;"
+        )
+        result.image_cases.append(
+            f"        {name}) echo {shlex.quote(service['IMAGE'])} ;;"
+        )
+        result.profile_cases.append(f"        {name}) echo {service['PROFILE']} ;;")
+        result.dockerfile_cases.append(
+            f"        {name}) echo {shlex.quote(service['DOCKERFILE'])} ;;"
+        )
+        result.settings_sources.append(
+            f'        "{prefix}|${{install_conf_host_by_service[{name}]}}"'
+        )
+        result.deployment_values.append(
+            f'        "{prefix}_IMAGE|{service["IMAGE"]}"'
+        )
+    return result
+
+
+def profile_container_installer_compilation(
+    services: dict[str, dict[str, str]],
+) -> ContainerInstallerCompilation:
+    """Compile callbacks owned by each service's selected framework profile."""
+    result = ContainerInstallerCompilation()
+    callback_targets = {
+        "readiness-path.case": result.readiness_cases,
+        "container-install-conf.case": result.container_conf_cases,
+        "create-host-bind-sources": result.host_sources,
+        "set-host-bind-permissions": result.host_permissions,
+        "running-permissions.case": result.running_cases,
+        "bootstrap.case": result.bootstrap_cases,
+    }
+    for name, service in services.items():
+        callback_values = {
+            **service,
+            "SERVICE_NAME": name,
+            "SERVICE_NAME_SHELL": shlex.quote(name),
+            "SPEC_NAME": re.sub(r"[^a-zA-Z0-9_]", "_", name),
+            "BUILD_CONTEXT_SHELL": shlex.quote(service["BUILD_CONTEXT"]),
+        }
+        for callback, target in callback_targets.items():
+            target.extend(
+                rendered_profile_callback(
+                    service["PROFILE"], callback, callback_values
+                )
+            )
+    return result
+
+
+def addon_permission_services(addon: str) -> list[str]:
+    """Read permission-repair service names declared by an add-on."""
+    template = (
+        ADDON_TEMPLATES
+        / addon
+        / "container_install"
+        / "permission-services.txt.tmpl"
+    )
+    if not template.is_file():
+        return []
+    names = [line.strip() for line in template.read_text(encoding="utf-8").splitlines()]
+    names = [name for name in names if name and not name.startswith("#")]
+    for name in names:
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", name):
+            raise ValueError(f"Invalid permission service {name!r} in {template}")
+    return names
+
+
+def addon_container_installer_compilation(
+    config: dict[str, Any], addons: dict[str, dict[str, Any]]
+) -> ContainerInstallerCompilation:
+    """Compile callbacks and settings exports owned by selected add-ons."""
+    result = ContainerInstallerCompilation()
+    callback_targets = {
+        "create-host-bind-sources": result.host_sources,
+        "set-host-bind-permissions": result.host_permissions,
+        "running-permissions.case": result.running_cases,
+    }
+    for addon, options in addons.items():
+        config_service = str(options["CONFIG_SERVICE"])
+        callback_values = {
+            "CONFIG_SERVICE": config_service,
+            "CONFIG_SERVICE_SHELL": shlex.quote(config_service),
+        }
+        result.permission_services.extend(addon_permission_services(addon))
+        for callback, target in callback_targets.items():
+            target.extend(rendered_addon_callback(addon, callback, callback_values))
+
+        config_reference = f'"${{install_conf_host_by_service[{config_service}]}}"'
+        for key in addon_setting_keys(config, addon):
+            result.deployment_values.append(
+                f'        "{key}|$(config_value_or_default {key} '
+                f"{config_reference} '')\""
+            )
+    return result
+
+
+def smoke_test_template_values(
+    services: dict[str, dict[str, str]],
+) -> dict[str, str]:
+    """Compile profile smoke checks independently from installer callbacks."""
+    checks: list[str] = []
+    for name, service in services.items():
+        checks.extend(
+            rendered_profile_callback(
+                service["PROFILE"],
+                "smoke-profile-checks",
+                {
+                    "SERVICE_NAME": name,
+                    "SERVICE_NAME_SHELL": shlex.quote(name),
+                },
+            )
+        )
+    return {
+        "SMOKE_SERVICES_LITERAL": bash_array(list(services)),
+        "SMOKE_PROFILE_CHECKS": "\n".join(checks),
+    }
+
+
+def container_installer_template_values(config: dict[str, Any]) -> dict[str, str]:
+    """Merge generic, profile, add-on, and smoke-test compiler results."""
+    services = normalized_services(config)
+    addons = normalized_addons(config)
+    compilation = service_container_installer_compilation(services)
+    compilation.extend(profile_container_installer_compilation(services))
+    compilation.extend(addon_container_installer_compilation(config, addons))
+    return {
+        **compilation.template_values(),
+        **smoke_test_template_values(services),
     }
 
 
@@ -1031,10 +959,9 @@ def deployment_shape(config: dict[str, Any]) -> str:
 
 def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
     state = load_state(target)
-    if not uses_service_descriptor(config) and (initial or not state.get("files")):
+    if "SERVICES" not in config:
         raise ValueError(
-            "New projects must use the canonical SERVICES descriptor; "
-            "top-level PROFILE is supported only when synchronizing old state"
+            "Projects must use the canonical SERVICES descriptor"
         )
     shape = deployment_shape(config)
     old_config = state.get("config", {})
@@ -1046,12 +973,11 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
         )
     render_values = scalar_values(config)
     if owns_profile_artifacts(config):
-        if uses_service_descriptor(config):
-            owned_name, _ = owned_profile_service(config) or ("", {})
-            render_values.update(normalized_services(config)[owned_name])
-        else:
-            render_values.update(next(iter(normalized_services(config).values())))
-    render_values.update(orchestrator_template_values(config))
+        owned_name, _ = owned_profile_service(config) or ("", {})
+        render_values.update(normalized_services(config)[owned_name])
+    render_values.update(container_installer_template_values(config))
+    render_values.update(documentation_template_values(config))
+    render_values.update(settings_template_values(config))
     old_hashes = state.get("files", {})
     new_hashes: dict[str, str] = {}
     conflicts = 0

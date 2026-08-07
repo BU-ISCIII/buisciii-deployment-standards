@@ -6,7 +6,6 @@
   "DEFAULT_BRANCH": "main",
   "PYTHON_VERSION": "3.11",
   "TIMEZONE": "Europe/Madrid",
-  "DB_PORT_HOST": "6606",
   "SERVICES": {
     "app": {
       "PROFILE": "django",
@@ -15,14 +14,7 @@
       "IMAGE": "example-app:local",
       "INSTALL_CONF": "conf/docker_production_settings.txt",
       "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "REPO_PATH": "/srv/example-app",
-      "PROJECT_MODULE": "example_app",
-      "INSTALL_PATH": "/opt/example-app",
-      "HOST_DATA_PATH": "/srv/containers/bind/example-app",
-      "HOST_LOG_PATH": "/var/log/local/example-app",
-      "APP_PORT": "8000",
-      "APP_UID": "1212",
-      "APP_GID": "1212"
+      "PROJECT_MODULE": "example_app"
     }
   },
   "ADDONS": {}

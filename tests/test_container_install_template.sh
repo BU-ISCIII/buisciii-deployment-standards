@@ -20,6 +20,18 @@ require_text 'permission_services={{PERMISSION_SERVICES_LITERAL}}' "$template" \
     "common installer must receive application/add-on permission services"
 require_text 'configured_services={{CONFIGURED_SERVICES_LITERAL}}' "$template" \
     "common installer must receive configuration-owning components"
+require_text 'prefix="${1^^}"' "$template" \
+    "service environment prefixes must be derived generically"
+require_text 'printf '\''%s\n'\'' "${prefix//-/_}"' "$template" \
+    "hyphenated service names must map to valid environment prefixes"
+require_text 'service_environment_value "$1" REPO_PATH' "$template" \
+    "repository paths must use the generic settings lookup"
+require_text 'service_environment_value "$1" INSTALL_PATH' "$template" \
+    "installation paths must use the generic settings lookup"
+require_text 'service_environment_value "$1" APP_UID' "$template" \
+    "runtime UIDs must use the generic settings lookup"
+require_text 'service_environment_value "$1" APP_GID' "$template" \
+    "runtime GIDs must use the generic settings lookup"
 require_text 'write_compose_environment_file' "$template" \
     "common installer must generate the prefixed Compose environment"
 require_text 'prepare_host_bind_source_permissions()' "$template" \
@@ -30,6 +42,10 @@ require_text '--secret "id=install_conf,src=' "$template" \
     "common installer must build Django with an ephemeral secret"
 require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
     "common installer must build React with public Vite configuration"
+
+if grep -Eq '\{\{(ENV_PREFIX|REPO_PATH|INSTALL_PATH|UID|GID)_CASES\}\}' "$template"; then
+    fail "generic settings lookups must not use generated service case tables"
+fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$target" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
@@ -47,12 +63,43 @@ require_text 'web) echo react-vite' "$generated" \
     "mixed installer must dispatch the React profile"
 require_text 'stage_container_runtime_config' "$generated" \
     "generated Django callback must stage protected runtime configuration"
+require_text 'service_environment_value "$1" REPO_PATH' "$generated" \
+    "repository paths must come from rendered service settings"
+require_text 'service_environment_value "$1" INSTALL_PATH' "$generated" \
+    "installation paths must come from rendered service settings"
+require_text '--build-arg APP_PORT="$(service_environment_value' "$generated" \
+    "Django builds must receive the settings-owned application port"
+require_text '--build-arg APP_REPO_PATH="$(service_repo_path' "$generated" \
+    "Django builds must receive the settings-owned repository path"
+require_text 'load_compose_environment_file "$compose_env_file"' "$generated" \
+    "installer must load the generated values before host preparation and direct builds"
+require_text 'vite_api_url="$(service_environment_value "$service_name" VITE_API_BASE_URL)"' "$generated" \
+    "React builds must consume the value rendered into the shared environment"
 require_text 'apache_running_mount_permission_spec=()' "$generated" \
     "Apache must declare an explicit running-mount spec"
 require_text 'keycloak_running_mount_permission_spec=(' "$generated" \
     "Keycloak must declare a separate running-mount spec"
 require_text 'keycloak_db_running_mount_permission_spec=(' "$generated" \
     "Keycloak database must declare its own volume permission spec"
+require_text 'keycloak_db' \
+    "$repo_root/scaffold/templates/addons/keycloak/container_install/permission-services.txt.tmpl" \
+    "Keycloak must own its permission-service declaration"
+require_text 'apache' \
+    "$repo_root/scaffold/templates/addons/apache/container_install/permission-services.txt.tmpl" \
+    "Apache must own its permission-service declaration"
+
+installer_compiler_source="$(sed -n \
+    '/^def service_container_installer_compilation(/,/^def deployment_shape(/p' \
+    "$repo_root/scripts/scaffold.py")"
+if grep -Fq 'DJANGO_TEMPLATE_PATH_SHELL' <<<"$installer_compiler_source"; then
+    fail "generic installer compilation must not calculate Django-only paths"
+fi
+if grep -Fq 'if service["PROFILE"] ==' <<<"$installer_compiler_source"; then
+    fail "generic installer compilation must discover profile callbacks"
+fi
+if grep -Fq 'if addon ==' <<<"$installer_compiler_source"; then
+    fail "generic installer compilation must discover add-on callbacks"
+fi
 
 previous=0
 for section in {1..11}; do

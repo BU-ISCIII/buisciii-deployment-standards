@@ -80,6 +80,7 @@ grep -Fq 'INSTALL_CONF: "conf/docker_test_settings.txt"' \
 grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
     "$django_target/container_install.sh"
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
+grep -Fq "DB_HOST='app_db'" "$django_target/conf/docker_test_settings.txt"
 grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
 for setting in REQUIRED_MODULES MIGRATION_MODULES FAKEINITIAL_MODULES APP_SHELL \
     DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH \

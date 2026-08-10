@@ -25,7 +25,7 @@ HOST_LOG_PATH='/tmp/{{APP_SLUG}}/logs'
 DJANGO_SETTINGS_PATH='/tmp/{{APP_SLUG}}/data/settings/{{PROJECT_MODULE}}/settings.py'
 
 ### Compose test database
-DB_HOST='db'
+DB_HOST='{{SERVICE_NAME}}_db'
 DB_PORT='3306'
 DB_NAME='{{PROJECT_MODULE}}'
 DB_USER='django'

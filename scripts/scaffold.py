@@ -975,6 +975,9 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
     if owns_profile_artifacts(config):
         owned_name, _ = owned_profile_service(config) or ("", {})
         render_values.update(normalized_services(config)[owned_name])
+        # Root profile artifacts are rendered separately from Compose service
+        # fragments, so expose the owning SERVICES key to those templates too.
+        render_values["SERVICE_NAME"] = owned_name
     render_values.update(container_installer_template_values(config))
     render_values.update(documentation_template_values(config))
     render_values.update(settings_template_values(config))

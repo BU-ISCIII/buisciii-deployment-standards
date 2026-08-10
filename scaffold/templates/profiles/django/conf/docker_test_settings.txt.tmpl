@@ -46,6 +46,12 @@ EMAIL_HOST_USER='bioinformatica@isciii.es'
 EMAIL_HOST_PASSWORD=''
 EMAIL_USE_TLS='False'
 
+### Initial administrator (bootstrap install only)
+CREATE_INITIAL_SUPERUSER='false'
+DJANGO_SUPERUSER_USERNAME='admin'
+DJANGO_SUPERUSER_EMAIL=''
+DJANGO_SUPERUSER_PASSWORD=''
+
 ### Gunicorn and startup tuning
 WEB_CONCURRENCY='2'
 GUNICORN_THREADS='2'

@@ -70,6 +70,14 @@ EMAIL_HOST_PASSWORD='CHANGE_ME'
 # directly into settings.py.
 EMAIL_USE_TLS='False'
 
+### Initial administrator (bootstrap install only)
+# Opt in only when a fresh installation should create its first Django
+# administrator. Keep the protected production settings file mode at 0600.
+CREATE_INITIAL_SUPERUSER='false'
+DJANGO_SUPERUSER_USERNAME='admin'
+DJANGO_SUPERUSER_EMAIL=''
+DJANGO_SUPERUSER_PASSWORD=''
+
 ### Gunicorn and startup tuning
 WEB_CONCURRENCY='2'
 GUNICORN_THREADS='2'

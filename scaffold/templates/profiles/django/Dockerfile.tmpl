@@ -22,7 +22,7 @@ ENV APP_REPO_PATH=${APP_REPO_PATH} \
 
 RUN microdnf -y update && \
     microdnf -y install python{{PYTHON_VERSION}} python{{PYTHON_VERSION}}-pip \
-      python{{PYTHON_VERSION}}-devel tar gcc git rsync wget mariadb-connector-c-devel shadow-utils && \
+      tar gcc git rsync wget && \
     microdnf clean all
 
 ARG SUPERCRONIC_VERSION=v0.2.38

@@ -175,14 +175,25 @@ PY
 # ============================================================================
 
 install_application_system_packages() {
-    # Called only for direct dependency/full workflows and only as root.
-    # Container images should normally install OS packages in the Dockerfile.
-    # Example (Debian/Ubuntu):
-    #   apt-get update
-    #   apt-get install -y --no-install-recommends default-mysql-client gnuplot
-    # Example (RHEL/Fedora):
-    #   dnf install -y mariadb-connector-c-devel gcc
-    :
+    # Keep the Dockerfile limited to tools needed to launch this installer.
+    # Framework build headers and post-install user-management tools belong to
+    # this lifecycle and are installed before virtualenv creation.
+    [[ "${SKIP_SYSTEM_PACKAGES:-0}" != "1" ]] || return 0
+    [[ $(id -u) -eq 0 ]] || return 0
+    if [[ -f /etc/debian_version ]]; then
+        apt-get update
+        apt-get install -y --no-install-recommends \
+            python3-dev default-libmysqlclient-dev passwd
+    elif command -v microdnf >/dev/null 2>&1; then
+        microdnf install -y \
+            python{{PYTHON_VERSION}}-devel mariadb-connector-c-devel shadow-utils
+        microdnf clean all
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y \
+            python{{PYTHON_VERSION}}-devel mariadb-connector-c-devel shadow-utils
+    else
+        die "Unsupported package manager for system dependency installation"
+    fi
 }
 
 prepare_application_directories() {
@@ -230,15 +241,38 @@ before_django_migrate() {
 }
 
 after_django_migrate() {
-    # Argument: action. Put idempotent post-migration setup here.
-    # Patho Core-style superuser example (opt-in only):
-    #   if [[ "${CREATE_DEFAULT_SUPERUSER:-false}" == true ]]; then
-    #       python manage.py ensure_default_superuser \
-    #         --username "${DJANGO_SUPERUSER_USERNAME:?required}" \
-    #         --email "${DJANGO_SUPERUSER_EMAIL:?required}" \
-    #         --password "${DJANGO_SUPERUSER_PASSWORD:?required}"
-    #   fi
-    :
+    # Create the initial administrator only for an explicitly enabled fresh
+    # runtime bootstrap. Retries leave an existing account unchanged.
+    [[ "$WORKFLOW" == "bootstrap" && "$ACTION" == "install" ]] || return 0
+    [[ "${CREATE_INITIAL_SUPERUSER:-false}" == "true" ]] || return 0
+    : "${DJANGO_SUPERUSER_USERNAME:?DJANGO_SUPERUSER_USERNAME is required}"
+    : "${DJANGO_SUPERUSER_PASSWORD:?DJANGO_SUPERUSER_PASSWORD is required}"
+
+    DJANGO_SUPERUSER_USERNAME="$DJANGO_SUPERUSER_USERNAME" \
+    DJANGO_SUPERUSER_EMAIL="${DJANGO_SUPERUSER_EMAIL:-}" \
+    DJANGO_SUPERUSER_PASSWORD="$DJANGO_SUPERUSER_PASSWORD" \
+        python manage.py shell <<'PY'
+import os
+
+from django.contrib.auth import get_user_model
+
+user_model = get_user_model()
+username = os.environ["DJANGO_SUPERUSER_USERNAME"]
+email = os.environ.get("DJANGO_SUPERUSER_EMAIL", "")
+password = os.environ["DJANGO_SUPERUSER_PASSWORD"]
+lookup = {user_model.USERNAME_FIELD: username}
+user, created = user_model._default_manager.get_or_create(**lookup)
+if created:
+    if hasattr(user, "email"):
+        user.email = email
+    user.is_staff = True
+    user.is_superuser = True
+    user.set_password(password)
+    user.save()
+    print(f"Created initial superuser: {username}")
+else:
+    print(f"Initial superuser already exists: {username}")
+PY
 }
 
 set_application_permissions() {
@@ -260,9 +294,7 @@ stage_dependencies() {
     checkout_git_revision
     check_python
     check_required_modules
-    if [[ "$WORKFLOW" == "standard" && $(id -u) -eq 0 ]]; then
-        install_application_system_packages
-    fi
+    install_application_system_packages
     mkdir -p "$INSTALL_PATH"
     [[ -d "$INSTALL_PATH/virtualenv" ]] \
         || "$PYTHON_BIN_PATH" -m venv "$INSTALL_PATH/virtualenv"

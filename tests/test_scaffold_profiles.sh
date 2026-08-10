@@ -69,6 +69,10 @@ for setting_example in APPS_NAMES CRONJOBS DATA_UPLOAD_MAX_MEMORY_SIZE \
     grep -Fq "$setting_example" "$django_target/conf/template_settings.py"
 done
 grep -Fq 'RUN --mount=type=secret,id=install_conf' "$django_target/Dockerfile"
+grep -Fq 'tar gcc git rsync wget' "$django_target/Dockerfile"
+! grep -Fq 'mariadb-connector-c-devel shadow-utils' "$django_target/Dockerfile"
+grep -Fq 'python3.11-devel mariadb-connector-c-devel shadow-utils' \
+    "$django_target/install.sh"
 grep -Fq 'INSTALL_CONF: "conf/.runtime_install_settings.txt"' \
     "$django_target/docker-compose.prod.yml"
 grep -Fq 'INSTALL_CONF: "conf/docker_test_settings.txt"' \
@@ -78,10 +82,14 @@ grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
 grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
 for setting in REQUIRED_MODULES MIGRATION_MODULES FAKEINITIAL_MODULES APP_SHELL \
-    DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH; do
+    DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH \
+    CREATE_INITIAL_SUPERUSER DJANGO_SUPERUSER_USERNAME \
+    DJANGO_SUPERUSER_EMAIL DJANGO_SUPERUSER_PASSWORD; do
     grep -Eq "^${setting}=" "$django_target/conf/docker_production_settings.txt"
     grep -Eq "^${setting}=" "$django_target/conf/docker_test_settings.txt"
 done
+grep -Fq '[[ "$WORKFLOW" == "bootstrap" && "$ACTION" == "install" ]]' \
+    "$django_target/install.sh"
 for legacy_setting in DB_SERVER_IP DB_PASS EMAIL_HOST_SERVER LOCAL_SERVER_IP DNS_URL; do
     ! grep -Eq "^${legacy_setting}=" "$django_target/conf/docker_production_settings.txt"
     ! grep -Eq "^${legacy_setting}=" "$django_target/conf/docker_test_settings.txt"

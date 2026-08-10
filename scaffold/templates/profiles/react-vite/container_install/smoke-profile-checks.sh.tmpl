@@ -1,2 +1,5 @@
-    compose_run exec -T {{SERVICE_NAME_SHELL}} test -f /usr/share/nginx/html/index.html
+    container_id="$(resolve_service_container {{SERVICE_NAME_SHELL}})"
+    [ -n "$container_id" ] || fail "Service {{SERVICE_NAME}} has no container"
+    ensure_service_running {{SERVICE_NAME_SHELL}} "$container_id" >/dev/null
+    engine_exec exec "$container_id" test -f /usr/share/nginx/html/index.html
     echo "PASS: {{SERVICE_NAME}} React/Vite bundle exists"

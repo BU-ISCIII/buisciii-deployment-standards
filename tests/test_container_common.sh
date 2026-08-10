@@ -274,16 +274,26 @@ fi
 
 printf '%s\n' \
     'SECRET_KEY = "PLACEHOLDER"' \
+    'DEBUG = djangodebug' \
+    'CSRF_TRUSTED_ORIGINS = "djangocsrftrustedorigins"' \
+    'CONN_MAX_AGE = dbconnmaxage' \
     'DB_USER = "djangouser"' \
     'DB_HOST = "djangohost"' > "$settings_template"
-printf '%s\n' 'DB_USER=test_user' 'DB_SERVER_IP=db.internal' > "$test_conf"
+printf '%s\n' 'DB_USER=test_user' 'DB_HOST=db.internal' \
+    'DJANGO_DEBUG=true' 'DJANGO_CSRF_TRUSTED_ORIGINS=https://app.example.test' \
+    'DB_CONN_MAX_AGE=60' > "$test_conf"
 engine=docker
 render_django_settings_file "$settings_template" "$settings_file" "$test_conf"
 grep -Fq 'DB_USER = "test_user"' "$settings_file" || fail "Django DB user rendering"
 grep -Fq 'DB_HOST = "db.internal"' "$settings_file" || fail "Django DB host rendering"
+grep -Fq 'DEBUG = True' "$settings_file" || fail "Django debug rendering"
+grep -Fq 'CSRF_TRUSTED_ORIGINS = "https://app.example.test"' "$settings_file" \
+    || fail "Django CSRF origins rendering"
+grep -Fq 'CONN_MAX_AGE = 60' "$settings_file" || fail "Django connection age rendering"
 grep -Eq "^SECRET_KEY = '[^']+'$" "$settings_file" || fail "Django secret rendering"
 first_secret="$(grep -E '^SECRET_KEY[[:space:]]*=' "$settings_file")"
-printf '%s\n' 'DB_USER=updated_user' 'DB_SERVER_IP=db.internal' > "$test_conf"
+printf '%s\n' 'DB_USER=updated_user' 'DB_HOST=db.internal' \
+    'DJANGO_DEBUG=false' > "$test_conf"
 render_django_settings_file "$settings_template" "$settings_file" "$test_conf"
 assert_equal "$first_secret" "$(grep -E '^SECRET_KEY[[:space:]]*=' "$settings_file")" \
     "preserve Django secret during rerender"
@@ -312,6 +322,30 @@ engine_exec() {
 }
 assert_equal "known_app" "$(resolve_service_container app)" \
     "resolve explicit container name"
+(
+    unset -f service_container_name
+    compose_file="compose.example.yml"
+    compose_with_env_exec() {
+        assert_equal "-f" "$1" "container resolver Compose file flag"
+        assert_equal "$compose_file" "$2" "container resolver Compose file"
+        assert_equal "ps" "$3" "container resolver Compose operation"
+        assert_equal "-q" "$4" "container resolver quiet flag"
+        [ "$#" -eq 4 ] || fail "container resolver must not pass a service to Compose ps"
+        printf '%s\n' other-project-app selected-project-app
+    }
+    engine_exec() {
+        if [ "$1" = inspect ]; then
+            case "${4:-}" in
+                other-project-app) printf '%s\n' worker ;;
+                selected-project-app) printf '%s\n' app ;;
+            esac
+            return 0
+        fi
+        return 1
+    }
+    assert_equal "selected-project-app" "$(resolve_service_container app)" \
+        "resolve service within selected Compose project"
+)
 assert_equal "known_app" "$(ensure_service_running app known_app)" \
     "ensure running container"
 prepare_django_container_settings_permissions \

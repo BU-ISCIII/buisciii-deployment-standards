@@ -34,6 +34,11 @@ require_text 'service_environment_value "$1" APP_GID' "$template" \
     "runtime GIDs must use the generic settings lookup"
 require_text 'write_compose_environment_file' "$template" \
     "common installer must generate the prefixed Compose environment"
+require_text 'resolve_service_container "$1"' "$template" \
+    "container lookup must use the Podman-compatible shared resolver"
+if grep -Fq 'ps -q "$1"' "$template"; then
+    fail "container lookup must not pass a service to podman-compose ps"
+fi
 require_text 'prepare_host_bind_source_permissions()' "$template" \
     "common installer must expose host permission policy"
 require_text 'prepare_running_container_mount_permissions()' "$template" \
@@ -42,6 +47,8 @@ require_text '--secret "id=install_conf,src=' "$template" \
     "common installer must build Django with an ephemeral secret"
 require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
     "common installer must build React with public Vite configuration"
+require_text 'up -d --force-recreate' "$template" \
+    "a successful build must replace containers that reference the old image"
 
 if grep -Eq '\{\{(ENV_PREFIX|REPO_PATH|INSTALL_PATH|UID|GID)_CASES\}\}' "$template"; then
     fail "generic settings lookups must not use generated service case tables"

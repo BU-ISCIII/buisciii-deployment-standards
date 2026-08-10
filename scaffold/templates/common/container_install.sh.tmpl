@@ -109,7 +109,7 @@ deployment_compose() {
     compose_exec --env-file "$compose_env_file" "$@"
 }
 current_service_container() {
-    deployment_compose -f "$compose_file" ps -q "$1" | tail -n 1
+    resolve_service_container "$1"
 }
 
 # Each Django service renders its own protected host settings bind. React
@@ -281,8 +281,11 @@ for service_name in "${install_services[@]}"; do
             --tag "$(service_image_name "$service_name")" "$context"
     fi
 done
-# 7. Start the complete topology from one Compose file.
-deployment_compose -f "$compose_file" up -d
+# 7. Start the complete topology from one Compose file. Recreate containers so
+# a freshly built image is actually deployed; podman-compose 1.0.x may otherwise
+# restart an existing named container that still references the previous image.
+# Named volumes and bind-mounted persistent data are preserved.
+deployment_compose -f "$compose_file" up -d --force-recreate
 
 # 8. Wait for every application service readiness contract.
 for service_name in "${install_services[@]}"; do

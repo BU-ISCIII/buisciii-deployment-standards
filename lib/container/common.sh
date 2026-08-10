@@ -772,7 +772,10 @@ service_exists() {
 }
 
 # Resolve a service to a container name/ID, supporting application legacy names
-# first and standard Compose service labels as the portable fallback.
+# first. Otherwise inspect every container returned by the selected Compose
+# project and match its service label. Listing the project first avoids both a
+# cross-project "app" collision and the unsupported `ps -q SERVICE` syntax in
+# podman-compose 1.0.x.
 resolve_service_container() {
     local service_name="$1"
     local service_container=""
@@ -786,7 +789,22 @@ resolve_service_container() {
     if [ -n "$container_name" ] \
         && engine_exec inspect -f '{{.Id}}' "$container_name" >/dev/null 2>&1; then
         service_container="$container_name"
-    else
+    elif [ -n "${compose_file:-}" ]; then
+        local candidate candidate_service
+        while IFS= read -r candidate; do
+            [ -n "$candidate" ] || continue
+            candidate_service="$(engine_exec inspect -f \
+                '{{ index .Config.Labels "com.docker.compose.service" }}' \
+                "$candidate" 2>/dev/null || true)"
+            if [ "$candidate_service" = "$service_name" ]; then
+                service_container="$candidate"
+                break
+            fi
+        done < <(compose_with_env_exec -f "$compose_file" ps -q 2>/dev/null || true)
+    fi
+    # Retain the label query as a compatibility fallback for callers that do
+    # not have a Compose file in scope (including older application wrappers).
+    if [ -z "$service_container" ]; then
         service_container="$(engine_exec ps -a \
             --filter "label=com.docker.compose.service=${service_name}" \
             --format '{{.ID}}' | head -n 1)"

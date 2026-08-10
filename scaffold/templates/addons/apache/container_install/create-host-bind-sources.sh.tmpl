@@ -14,6 +14,10 @@
     export APACHE_SERVER_NAME="${APACHE_SERVER_NAME:?APACHE_SERVER_NAME is required}"
     export APACHE_UPSTREAM_SERVICE="${APACHE_UPSTREAM_SERVICE:-$apache_config_service}"
     export APACHE_UPSTREAM_PORT="${APACHE_UPSTREAM_PORT:-$(service_environment_value "$apache_config_service" APP_PORT)}"
+    # For the default route, INSTALL_PATH means the service selected by
+    # ADDONS.apache.CONFIG_SERVICE. Multi-service routes use their explicit
+    # API_INSTALL_PATH, WEB_INSTALL_PATH, etc. values instead.
+    export INSTALL_PATH="$(service_install_path "$apache_config_service")"
     export APACHE_PROXY_TIMEOUT="${APACHE_PROXY_TIMEOUT:-$(service_environment_value "$apache_config_service" GUNICORN_TIMEOUT 120)}"
     export APACHE_LOG_STEM="${APACHE_LOG_STEM:-$(normalize_apache_server_name "$APACHE_SERVER_NAME")}"
 

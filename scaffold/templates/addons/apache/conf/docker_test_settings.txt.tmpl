@@ -10,12 +10,24 @@ APACHE_LOG_PATH='/tmp/{{APP_SLUG}}/apache-logs'
 APACHE_BIND_HOST='127.0.0.1'
 APACHE_PORT='8081'
 
-# Default local VirtualHost. Empty upstream values are derived from the
-# add-on's CONFIG_SERVICE by container_install.sh.
+# Host name handled by the local test VirtualHost.
 APACHE_SERVER_NAME='localhost'
+
+# Compose service receiving proxied requests. Leave empty to use the service
+# selected by ADDONS.apache.CONFIG_SERVICE (normally app for a single service).
 APACHE_UPSTREAM_SERVICE=''
+
+# Internal application port used by ProxyPass. Leave empty to use APP_PORT from
+# the selected service's test settings.
 APACHE_UPSTREAM_PORT=''
+
+# Maximum proxy request duration in seconds. Leave empty to use the selected
+# service's GUNICORN_TIMEOUT, falling back to 120 seconds when it is undefined.
 APACHE_PROXY_TIMEOUT=''
+
+# Prefix for the generated <stem>-apache.access.log and
+# <stem>-apache.error.log files. Leave empty to derive it from
+# APACHE_SERVER_NAME, with URL schemes, paths and ports removed.
 APACHE_LOG_STEM=''
 
 # Local server-status defaults.

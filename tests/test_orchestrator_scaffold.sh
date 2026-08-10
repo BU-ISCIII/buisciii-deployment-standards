@@ -154,6 +154,12 @@ grep -Fq 'service_environment_value "$1" REPO_PATH' \
     "$target/container_install.sh"
 grep -Fq 'service_environment_value "$1" INSTALL_PATH' \
     "$target/container_install.sh"
+grep -Fq 'INSTALL_PATH="$(service_install_path "$apache_config_service")"' \
+    "$target/container_install.sh"
+grep -Fq 'Alias /static/ "${INSTALL_PATH}/static/"' \
+    "$target/conf/apache/01-reverse-proxy.conf"
+grep -Fq 'Alias /documents/ "${INSTALL_PATH}/documents/"' \
+    "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq 'config_value_or_default APACHE_PORT "${install_conf_host_by_service[web]}"' \
     "$target/container_install.sh"
 grep -Fq 'config_value_or_default KEYCLOAK_DB_PASSWORD "${install_conf_host_by_service[web]}"' \

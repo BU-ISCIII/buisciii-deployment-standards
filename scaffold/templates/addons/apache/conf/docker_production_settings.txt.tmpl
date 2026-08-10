@@ -16,14 +16,25 @@ APACHE_LOG_PATH='/var/log/local/{{APP_SLUG}}/apache'
 APACHE_BIND_HOST='0.0.0.0'
 APACHE_PORT='8080'
 
-# Default VirtualHost rendered from conf/apache/01-reverse-proxy.conf.
-# Customize that repository-owned file directly for additional DNS names,
-# services, static aliases, or path-based routes. Empty upstream values are
-# derived from ADDONS.apache.CONFIG_SERVICE by container_install.sh.
+# Public host name handled by the default VirtualHost. Use localhost for a
+# workstation deployment or the externally visible DNS name in production.
 APACHE_SERVER_NAME='CHANGE_ME_DNS_NAME'
+
+# Compose service receiving proxied requests. Leave empty to use the service
+# selected by ADDONS.apache.CONFIG_SERVICE (normally app for a single service).
 APACHE_UPSTREAM_SERVICE=''
+
+# Internal application port used by ProxyPass. Leave empty to use APP_PORT from
+# the selected service's production settings.
 APACHE_UPSTREAM_PORT=''
+
+# Maximum proxy request duration in seconds. Leave empty to use the selected
+# service's GUNICORN_TIMEOUT, falling back to 120 seconds when it is undefined.
 APACHE_PROXY_TIMEOUT=''
+
+# Prefix for the generated <stem>-apache.access.log and
+# <stem>-apache.error.log files. Leave empty to derive it from
+# APACHE_SERVER_NAME, with URL schemes, paths and ports removed.
 APACHE_LOG_STEM=''
 
 # Server-status stays restricted by default. Use a local-only diagnostic name;

@@ -47,8 +47,10 @@ require_text '--secret "id=install_conf,src=' "$template" \
     "common installer must build Django with an ephemeral secret"
 require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
     "common installer must build React with public Vite configuration"
-require_text 'up -d --force-recreate' "$template" \
-    "a successful build must replace containers that reference the old image"
+require_text 'up -d --force-recreate "${install_services[@]}"' "$template" \
+    "a successful build must replace only rebuilt application containers"
+require_text 'deployment_compose -f "$compose_file" up -d' "$template" \
+    "installer must converge add-ons and support services without forcing restarts"
 
 if grep -Eq '\{\{(ENV_PREFIX|REPO_PATH|INSTALL_PATH|UID|GID)_CASES\}\}' "$template"; then
     fail "generic settings lookups must not use generated service case tables"

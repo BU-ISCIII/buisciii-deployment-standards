@@ -185,21 +185,22 @@ owned by the other script type.
 --bootstrap install|upgrade
 --git_revision <branch|tag|commit|current>
 --conf <path>
+--render-settings
+--settings-output <path>
 --tables
 --skip_tables
 --script_before <script[,args]>
 --script_after <script[,args]>
 --script <script[,args]>
---ren_app
 --docker
 --skip_apache_restart
 --help
 --version
 ```
 
-`--ren_app` is retained for compatibility with the historical RELECOV/iSkyLIMS
-application rename migration. Applications where it is not applicable MUST
-recognize it and fail clearly before modifying state. `--docker` is a deprecated
+The historical RELECOV/iSkyLIMS `--ren_app` migration is intentionally not part
+of the standard interface. It was a one-time destructive migration and new
+installers MUST reject it as an unknown option. `--docker` is a deprecated
 compatibility option; new internal calls SHOULD use `--skip_apache_restart`.
 
 ### `container_install.sh` interface

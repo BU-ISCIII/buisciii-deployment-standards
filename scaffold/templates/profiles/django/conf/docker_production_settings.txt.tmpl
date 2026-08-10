@@ -47,10 +47,6 @@ DB_PORT='3306'
 DB_NAME='CHANGE_ME'
 DB_USER='CHANGE_ME'
 DB_PASSWORD='CHANGE_ME'
-# Compatibility aliases for application installers that still use the
-# RELECOV/iSkyLIMS names. Keep each pair identical until install.sh is migrated.
-DB_SERVER_IP='CHANGE_ME'
-DB_PASS='CHANGE_ME'
 
 ### Django security and public URLs
 # Production debug must remain disabled.
@@ -64,24 +60,15 @@ DJANGO_CSRF_TRUSTED_ORIGINS='https://CHANGE_ME'
 # Persistent database connection lifetime in seconds.
 DB_CONN_MAX_AGE='60'
 
-### Application access compatibility
-# Legacy application templates may still consume these values. Use the server
-# address/host name expected in ALLOWED_HOSTS and the public DNS name used by
-# the reverse proxy. Replace them while the legacy renderer remains in use.
-LOCAL_SERVER_IP='CHANGE_ME'
-DNS_URL='CHANGE_ME'
-
 ### Email
 # SMTP endpoint reachable from the application container.
 EMAIL_HOST='CHANGE_ME'
 EMAIL_PORT='25'
 EMAIL_HOST_USER='CHANGE_ME'
 EMAIL_HOST_PASSWORD='CHANGE_ME'
-# Python boolean spelling is retained because legacy settings rendering writes
-# this value directly into settings.py.
+# Python boolean spelling is used because settings rendering writes this value
+# directly into settings.py.
 EMAIL_USE_TLS='False'
-# Compatibility alias used by the current RELECOV/iSkyLIMS install.sh.
-EMAIL_HOST_SERVER='CHANGE_ME'
 
 ### Gunicorn and startup tuning
 WEB_CONCURRENCY='2'

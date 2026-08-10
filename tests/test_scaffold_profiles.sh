@@ -57,6 +57,17 @@ for callback in readiness-path.case container-install-conf.case \
 done
 test -f "$django_target/install.sh"
 test -f "$django_target/conf/template_settings.py"
+for health_file in __init__.py views.py urls.py README.md; do
+    test -f "$django_target/deployment_health/$health_file"
+done
+grep -Fq 'path("", health_check, name="deployment-health")' \
+    "$django_target/deployment_health/urls.py"
+grep -Fq 'path("health/", include("deployment_health.urls"))' \
+    "$django_target/deployment_health/README.md"
+for setting_example in APPS_NAMES CRONJOBS DATA_UPLOAD_MAX_MEMORY_SIZE \
+    SECURE_PROXY_SSL_HEADER CSRF_TRUSTED_ORIGINS CONN_MAX_AGE; do
+    grep -Fq "$setting_example" "$django_target/conf/template_settings.py"
+done
 grep -Fq 'RUN --mount=type=secret,id=install_conf' "$django_target/Dockerfile"
 grep -Fq 'INSTALL_CONF: "conf/.runtime_install_settings.txt"' \
     "$django_target/docker-compose.prod.yml"
@@ -67,10 +78,20 @@ grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
 grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
 for setting in REQUIRED_MODULES MIGRATION_MODULES FAKEINITIAL_MODULES APP_SHELL \
-    DB_CONN_MAX_AGE DB_SERVER_IP DB_PASS EMAIL_HOST_SERVER LOCAL_SERVER_IP \
-    DNS_URL LOG_TYPE LOG_PATH; do
+    DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH; do
     grep -Eq "^${setting}=" "$django_target/conf/docker_production_settings.txt"
     grep -Eq "^${setting}=" "$django_target/conf/docker_test_settings.txt"
+done
+for legacy_setting in DB_SERVER_IP DB_PASS EMAIL_HOST_SERVER LOCAL_SERVER_IP DNS_URL; do
+    ! grep -Eq "^${legacy_setting}=" "$django_target/conf/docker_production_settings.txt"
+    ! grep -Eq "^${legacy_setting}=" "$django_target/conf/docker_test_settings.txt"
+done
+! grep -Fq -- '--ren_app' "$django_target/install.sh"
+for hook in install_application_system_packages prepare_application_directories \
+    stage_application_custom_files write_application_runtime_env \
+    validate_application_runtime before_django_migrate after_django_migrate \
+    set_application_permissions restart_application_server; do
+    grep -Fq "${hook}()" "$django_target/install.sh"
 done
 grep -Fq "GUNICORN_TIMEOUT='300'" "$django_target/conf/docker_production_settings.txt"
 grep -Fq "EMAIL_PORT='25'" "$django_target/conf/docker_production_settings.txt"

@@ -1,12 +1,9 @@
-    data_path="$(service_environment_value {{SERVICE_NAME_SHELL}} HOST_DATA_PATH)"
     log_path="$(service_environment_value {{SERVICE_NAME_SHELL}} HOST_LOG_PATH)"
     settings_path="$(service_environment_value {{SERVICE_NAME_SHELL}} DJANGO_SETTINGS_PATH)"
-    [ -n "$data_path" ] || { echo "HOST_DATA_PATH is required for {{SERVICE_NAME}}" >&2; return 1; }
     [ -n "$log_path" ] || { echo "HOST_LOG_PATH is required for {{SERVICE_NAME}}" >&2; return 1; }
     [ -n "$settings_path" ] || { echo "DJANGO_SETTINGS_PATH is required for {{SERVICE_NAME}}" >&2; return 1; }
     uid="$(service_uid {{SERVICE_NAME_SHELL}})"; gid="$(service_gid {{SERVICE_NAME_SHELL}})"
     local -a {{SPEC_NAME}}_host_bind_permission_spec=(
-        "$data_path/documents|$uid:$gid|0775"
         "$log_path|$uid:$gid|0775"
         "$(dirname "$settings_path")|-|0755"
         "$settings_path|$uid:$gid|0664"

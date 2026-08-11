@@ -124,7 +124,7 @@ prepare_application_host_sources() {
 # that add-on declares writable bind sources.
 prepare_host_bind_source_permissions() {
     [ "$mode" = production ] || return 0
-    local data_path log_path settings_path uid gid
+    local log_path settings_path uid gid
 {{HOST_PERMISSION_SPECS}}
 }
 

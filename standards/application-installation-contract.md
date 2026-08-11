@@ -440,12 +440,14 @@ add-ons MUST reuse one application's settings source, placing their values in
 clearly marked `APACHE_*` or `KEYCLOAK_*` sections. A standalone project uses
 its only service automatically; a multi-app descriptor uses `CONFIG_SERVICE`
 only when the add-on settings are not owned by the first declared service.
-`REPO_PATH`, `INSTALL_PATH`, `HOST_DATA_PATH`, `HOST_LOG_PATH`, `APP_PORT`,
+`REPO_PATH`, `INSTALL_PATH`, `HOST_LOG_PATH`, `APP_PORT`,
 `APP_UID`, and `APP_GID` MUST be defined in those service settings and MUST NOT
 be duplicated in `project.json`. The generated environment passes them to
 Docker build arguments, Compose interpolation, permission callbacks, proxy
 configuration, readiness checks and smoke tests. `PROJECT_MODULE` remains
-descriptor-owned because it identifies Django source structure.
+descriptor-owned because it identifies Django source structure. Every Django
+service receives `<service>_documents` and `<service>_static` named volumes from
+its profile; these conventional resources are not application configuration.
 
 ### `container_start.sh`
 

@@ -31,7 +31,7 @@
       DJANGO_SECRET_KEY: ${{{ENV_PREFIX}}_DJANGO_SECRET_KEY:?{{ENV_PREFIX}}_DJANGO_SECRET_KEY is required}
       DJANGO_ALLOWED_HOSTS: ${{{ENV_PREFIX}}_DJANGO_ALLOWED_HOSTS:?{{ENV_PREFIX}}_DJANGO_ALLOWED_HOSTS is required}
     volumes:
-      - ${{{ENV_PREFIX}}_HOST_DATA_PATH:?{{ENV_PREFIX}}_HOST_DATA_PATH is required}/documents:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/documents:Z
+      - {{SERVICE_NAME}}_documents:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/documents:z
       - ${{{ENV_PREFIX}}_HOST_LOG_PATH:?{{ENV_PREFIX}}_HOST_LOG_PATH is required}:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/logs:Z
       - ${{{ENV_PREFIX}}_DJANGO_SETTINGS_PATH:?{{ENV_PREFIX}}_DJANGO_SETTINGS_PATH is required}:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/{{PROJECT_MODULE}}/settings.py:Z
       - {{SERVICE_NAME}}_static:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/static:z

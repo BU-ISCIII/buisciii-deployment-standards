@@ -317,7 +317,7 @@ stage_application_files() {
     rm -f "$INSTALL_PATH/manage.py"
     rsync -rl --delete \
         --exclude .git --exclude .env --exclude /logs --exclude /documents \
-        --exclude /static --exclude /tmp --exclude /virtualenv \
+        --exclude /static --exclude /cron --exclude /tmp --exclude /virtualenv \
         --exclude /manage.py --exclude "/$PROJECT_MODULE" \
         ./ "$INSTALL_PATH/"
     mkdir -p "$INSTALL_PATH/logs" "$INSTALL_PATH/documents" \

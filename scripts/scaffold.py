@@ -208,6 +208,13 @@ def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
     # assets are repository-owned build inputs copied at their relative paths.
     for addon in normalized_addons(config):
         source_root = ADDON_TEMPLATES / addon / "conf"
+        for mode in ("production", "test"):
+            template = source_root / f"docker_{mode}_settings.txt.tmpl"
+            relative = Path("conf") / addon / f"{addon}_{mode}_settings.txt"
+            if relative in destinations:
+                raise ValueError(f"Template destination {relative} is duplicated")
+            destinations.add(relative)
+            selected.append((template, relative))
         for template in sorted(source_root.glob("*.conf.tmpl")):
             relative = Path("conf") / addon / template.name.removesuffix(".tmpl")
             if relative in destinations:
@@ -347,8 +354,6 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 f"ADDONS.{name}.CONFIG_SERVICE targets unknown application "
                 f"service {config_service!r}"
             )
-        # Every add-on consumes its section from one application settings file;
-        # add-ons never introduce another settings source of their own.
         normalized_options["CONFIG_SERVICE"] = config_service
         raw_modes = normalized_options.get("MODES", ["prod", "test"])
         if not isinstance(raw_modes, list) or not raw_modes:
@@ -409,13 +414,8 @@ def addon_setting_keys(config: dict[str, Any], addon: str) -> list[str]:
 def addon_settings_section(
     config: dict[str, Any], service_name: str, mode: str
 ) -> str:
-    """Append rendered add-on fragments to their owning application settings."""
-    sections = [
-        rendered_addon_settings(config, addon, mode)
-        for addon, options in normalized_addons(config).items()
-        if options["CONFIG_SERVICE"] == service_name
-    ]
-    return "\n\n".join(sections) or "# No infrastructure add-on settings are owned by this service."
+    """Keep application settings free of independently mapped add-on values."""
+    return "# Infrastructure add-ons use files below conf/<addon>/."
 
 
 def rendered_profile_callback(
@@ -785,6 +785,15 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
                 {"SERVICE_NAME": name, "APP_SLUG": str(config["APP_SLUG"])},
             )
         )
+    for addon in addons:
+        config_map_examples.append(
+            rendered_documentation_fragment(
+                "common",
+                "",
+                "config-map-example.txt",
+                {"SERVICE_NAME": addon},
+            )
+        )
 
     profile_notes = [
         rendered_documentation_fragment("profile", profile, "profile.md", {})
@@ -1044,15 +1053,18 @@ def addon_container_installer_compilation(
         result.permission_services.extend(
             addon_container_services(addon, "permission-services.txt.tmpl")
         )
+        result.configured_services.append(addon)
+        result.default_conf_cases.append(
+            f"        {addon}) [ \"$mode\" = test ] && echo "
+            f"conf/{addon}/{addon}_test_settings.txt || echo "
+            f"conf/{addon}/{addon}_production_settings.txt ;;"
+        )
+        result.settings_sources.append(
+            f'        "|${{install_conf_host_by_service[{addon}]}}"'
+        )
         for callback, target in callback_targets.items():
             target.extend(rendered_addon_callback(addon, callback, callback_values))
 
-        config_reference = f'"${{install_conf_host_by_service[{config_service}]}}"'
-        for key in addon_setting_keys(config, addon):
-            result.deployment_values.append(
-                f'        "{key}|$(config_value_or_default {key} '
-                f"{config_reference} '')\""
-            )
     return result
 
 

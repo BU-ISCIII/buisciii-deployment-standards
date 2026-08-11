@@ -173,7 +173,7 @@ Options:
   --engine docker|podman
   --git_revision <branch|tag|commit|current>
   --install_conf <path>              First application service only.
-  --install_conf_map <service,path>  Repeat for every service override.
+  --install_conf_map <component,path>  Repeat for application and add-on overrides.
   --compose_file <path>
   --script_before <name[,args]>
   --script_after <name[,args]>
@@ -233,7 +233,7 @@ if [ -n "$install_conf" ]; then install_conf_host_by_service["${install_services
 for mapping in "${install_conf_map_entries[@]}"; do
     [[ "$mapping" == *,* ]] || die "Invalid --install_conf_map: $mapping"
     service_name="${mapping%%,*}"; path="${mapping#*,}"
-    array_contains "$service_name" "${configured_services[@]}" || die "Unknown mapped service: $service_name"
+    array_contains "$service_name" "${configured_services[@]}" || die "Unknown mapped component: $service_name"
     install_conf_host_by_service["$service_name"]="$path"
 done
 for service_name in "${configured_services[@]}"; do

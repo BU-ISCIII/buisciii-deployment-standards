@@ -134,26 +134,26 @@ grep -Fq 'ServerName ${SERVER_STATUS_SERVER_NAME}' \
     "$target/conf/apache/02-server-status.conf"
 grep -Fq 'Allow from ${SERVER_STATUS_ALLOW_FROM}' \
     "$target/conf/apache/02-server-status.conf"
-test ! -e "$target/conf/apache_production_settings.txt"
-test ! -e "$target/conf/keycloak_production_settings.txt"
-grep -Fq '# Apache add-on' "$target/conf/docker_production_settings.txt"
-grep -Fq "APACHE_PORT='8080'" "$target/conf/docker_production_settings.txt"
+test -f "$target/conf/apache/apache_production_settings.txt"
+test -f "$target/conf/keycloak/keycloak_production_settings.txt"
+grep -Fq '# Apache add-on' "$target/conf/apache/apache_production_settings.txt"
+grep -Fq "APACHE_PORT='8080'" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "APACHE_SERVER_NAME='CHANGE_ME_DNS_NAME'" \
-    "$target/conf/docker_production_settings.txt"
-grep -Fq "APACHE_CONF_PATH=''" "$target/conf/docker_production_settings.txt"
+    "$target/conf/apache/apache_production_settings.txt"
+grep -Fq "APACHE_CONF_PATH=''" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "SERVER_STATUS_ALLOW_FROM='127.0.0.1 localhost'" \
-    "$target/conf/docker_production_settings.txt"
+    "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "SERVER_STATUS_SERVER_NAME='localhost'" \
-    "$target/conf/docker_production_settings.txt"
-grep -Fq '# Keycloak add-on' "$target/conf/docker_production_settings.txt"
-grep -Fq "KEYCLOAK_DB_PASSWORD='CHANGE_ME'" "$target/conf/docker_production_settings.txt"
-grep -Fq "APACHE_PORT='8081'" "$target/conf/docker_test_settings.txt"
-grep -Fq "APACHE_BIND_HOST='0.0.0.0'" "$target/conf/docker_test_settings.txt"
-grep -Fq "KEYCLOAK_DB_PASSWORD='keycloak_password'" "$target/conf/docker_test_settings.txt"
+    "$target/conf/apache/apache_production_settings.txt"
+grep -Fq '# Keycloak add-on' "$target/conf/keycloak/keycloak_production_settings.txt"
+grep -Fq "KEYCLOAK_DB_PASSWORD='CHANGE_ME'" "$target/conf/keycloak/keycloak_production_settings.txt"
+grep -Fq "APACHE_PORT='8081'" "$target/conf/apache/apache_test_settings.txt"
+grep -Fq "APACHE_BIND_HOST='0.0.0.0'" "$target/conf/apache/apache_test_settings.txt"
+grep -Fq "KEYCLOAK_DB_PASSWORD='keycloak_password'" "$target/conf/keycloak/keycloak_test_settings.txt"
 grep -Fq '### Apache' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq '### Keycloak' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq '`SERVER_STATUS_SERVER_NAME`' "$target/conf/INSTALL_SETTINGS.md"
-grep -Fq 'configured_services=(api web)' "$target/container_install.sh"
+grep -Fq 'configured_services=(api web apache keycloak)' "$target/container_install.sh"
 grep -Fq 'service_environment_value "$1" REPO_PATH' \
     "$target/container_install.sh"
 grep -Fq 'service_environment_value "$1" INSTALL_PATH' \
@@ -164,10 +164,8 @@ grep -Fq 'Alias /static/ "${INSTALL_PATH}/static/"' \
     "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq 'Alias /documents/ "${INSTALL_PATH}/documents/"' \
     "$target/conf/apache/01-reverse-proxy.conf"
-grep -Fq 'config_value_or_default APACHE_PORT "${install_conf_host_by_service[web]}"' \
-    "$target/container_install.sh"
-grep -Fq 'config_value_or_default KEYCLOAK_DB_PASSWORD "${install_conf_host_by_service[web]}"' \
-    "$target/container_install.sh"
+grep -Fq '"|${install_conf_host_by_service[apache]}"' "$target/container_install.sh"
+grep -Fq '"|${install_conf_host_by_service[keycloak]}"' "$target/container_install.sh"
 grep -Fq 'render_environment_config_template' "$target/container_install.sh"
 grep -Fq 'apache_config_service=web' "$target/container_install.sh"
 
@@ -196,14 +194,13 @@ test ! -e "$prod.bu-isciii-update"
 # requiring CONFIG_SERVICE or separate add-on configuration files.
 python3 "$repo_root/scripts/scaffold.py" init "$single_target" \
     --config "$repo_root/tests/fixtures/single_django_apache.json" >/dev/null
-grep -Fq 'configured_services=(app)' "$single_target/container_install.sh"
-grep -Fq 'config_value_or_default APACHE_PORT "${install_conf_host_by_service[app]}"' \
-    "$single_target/container_install.sh"
-grep -Fq '# Apache add-on' "$single_target/conf/docker_production_settings.txt"
+grep -Fq 'configured_services=(app apache samba)' "$single_target/container_install.sh"
+grep -Fq '"|${install_conf_host_by_service[apache]}"' "$single_target/container_install.sh"
+grep -Fq '# Apache add-on' "$single_target/conf/apache/apache_production_settings.txt"
 grep -Fq "REPO_PATH='/srv/example-django'" "$single_target/conf/docker_production_settings.txt"
 grep -Fq "INSTALL_PATH='/opt/example-django'" "$single_target/conf/docker_production_settings.txt"
-test ! -e "$single_target/conf/apache_production_settings.txt"
-test ! -e "$single_target/conf/apache_test_settings.txt"
+test -f "$single_target/conf/apache/apache_production_settings.txt"
+test -f "$single_target/conf/apache/apache_test_settings.txt"
 grep -Fq 'app_test_static:${APP_INSTALL_PATH:?APP_INSTALL_PATH is required}/static:ro,z' \
     "$single_target/docker-compose.test.yml"
 grep -Fq 'app_test_documents:${APP_INSTALL_PATH:?APP_INSTALL_PATH is required}/documents:ro,z' \
@@ -214,6 +211,6 @@ grep -Fq 'samba_test_data:/mnt:z' "$single_target/docker-compose.test.yml"
 ! grep -Fq 'image: docker.io/dperson/samba:latest' \
     "$single_target/docker-compose.prod.yml"
 grep -Fq "SAMBA_USER='samba_user'" \
-    "$single_target/conf/docker_test_settings.txt"
+    "$single_target/conf/samba/samba_test_settings.txt"
 
 echo "Mixed-profile orchestrator scaffold tests passed."

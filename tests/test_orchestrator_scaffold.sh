@@ -104,6 +104,7 @@ grep -Fq 'host.docker.internal:host-gateway' "$prod"
 grep -Fq 'REQUIRED runtime-rendered read-only configuration bind sources' "$prod"
 grep -Fq 'OPTIONAL APP MOUNTS belong in ADDONS.apache.MOUNTS' "$prod"
 grep -Fq '${APACHE_LOG_PATH:?APACHE_LOG_PATH is required}:/var/log/httpd:z' "$prod"
+grep -Fq '"$apache_log_path|1001:0|0775"' "$target/container_install.sh"
 grep -Fq 'apache_test_logs:/var/log/httpd:z' "$test_compose"
 grep -Fq '  apache_test_logs:' "$test_compose"
 if grep -Eq '(API|WEB)_GUNICORN_TIMEOUT:' "$prod"; then

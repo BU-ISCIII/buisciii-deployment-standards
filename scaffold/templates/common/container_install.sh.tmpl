@@ -16,6 +16,7 @@ APPLICATION_NAME="{{APP_NAME}}"
 # lifecycle mechanics below unchanged.
 # ============================================================================
 install_services={{INSTALL_SERVICES_LITERAL}}
+addon_build_services={{ADDON_BUILD_SERVICES_LITERAL}}
 permission_services={{PERMISSION_SERVICES_LITERAL}}
 configured_services={{CONFIGURED_SERVICES_LITERAL}}
 
@@ -299,6 +300,11 @@ for service_name in "${install_services[@]}"; do
             --build-arg VITE_API_BASE_URL="$vite_api_url" \
             --tag "$(service_image_name "$service_name")" "$context"
     fi
+done
+# Build add-on images through Compose so their declared build arguments and
+# add-on-owned Dockerfiles remain the single source of truth.
+for service_name in "${addon_build_services[@]}"; do
+    deployment_compose -f "$compose_file" build --no-cache "$service_name"
 done
 # 7. Recreate and start the complete topology from one Compose invocation so
 # freshly built images and the current configuration are deployed consistently.

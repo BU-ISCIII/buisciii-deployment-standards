@@ -49,6 +49,7 @@ class ContainerInstallerCompilation:
     """Topology fragments merged into the common container installer."""
 
     install_services: list[str] = field(default_factory=list)
+    addon_build_services: list[str] = field(default_factory=list)
     permission_services: list[str] = field(default_factory=list)
     configured_services: list[str] = field(default_factory=list)
     default_conf_cases: list[str] = field(default_factory=list)
@@ -74,6 +75,7 @@ class ContainerInstallerCompilation:
         """Convert collected fragments into tokens used by common templates."""
         return {
             "INSTALL_SERVICES_LITERAL": bash_array(self.install_services),
+            "ADDON_BUILD_SERVICES_LITERAL": bash_array(self.addon_build_services),
             "PERMISSION_SERVICES_LITERAL": bash_array(self.permission_services),
             "CONFIGURED_SERVICES_LITERAL": bash_array(self.configured_services),
             "DEFAULT_CONF_CASES": "\n".join(self.default_conf_cases),
@@ -202,7 +204,8 @@ def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
 
     # Add-on *.conf templates become editable source configuration in the
     # application repository. The container installer renders those sources
-    # into deployment/<addon>/ immediately before Compose validation.
+    # into deployment/<addon>/ immediately before Compose validation. Optional
+    # assets are repository-owned build inputs copied at their relative paths.
     for addon in normalized_addons(config):
         source_root = ADDON_TEMPLATES / addon / "conf"
         for template in sorted(source_root.glob("*.conf.tmpl")):
@@ -211,6 +214,15 @@ def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
                 raise ValueError(f"Template destination {relative} is duplicated")
             destinations.add(relative)
             selected.append((template, relative))
+        asset_root = ADDON_TEMPLATES / addon / "assets"
+        if asset_root.is_dir():
+            for template in sorted(asset_root.rglob("*.tmpl")):
+                relative = template.relative_to(asset_root)
+                relative = relative.with_name(relative.name.removesuffix(".tmpl"))
+                if relative in destinations:
+                    raise ValueError(f"Template destination {relative} is duplicated")
+                destinations.add(relative)
+                selected.append((template, relative))
     return selected
 
 
@@ -992,13 +1004,13 @@ def profile_container_installer_compilation(
     return result
 
 
-def addon_permission_services(addon: str) -> list[str]:
-    """Read permission-repair service names declared by an add-on."""
+def addon_container_services(addon: str, filename: str) -> list[str]:
+    """Read container service names declared by an add-on lifecycle file."""
     template = (
         ADDON_TEMPLATES
         / addon
         / "container_install"
-        / "permission-services.txt.tmpl"
+        / filename
     )
     if not template.is_file():
         return []
@@ -1006,7 +1018,7 @@ def addon_permission_services(addon: str) -> list[str]:
     names = [name for name in names if name and not name.startswith("#")]
     for name in names:
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", name):
-            raise ValueError(f"Invalid permission service {name!r} in {template}")
+            raise ValueError(f"Invalid container service {name!r} in {template}")
     return names
 
 
@@ -1026,7 +1038,12 @@ def addon_container_installer_compilation(
             "CONFIG_SERVICE": config_service,
             "CONFIG_SERVICE_SHELL": shlex.quote(config_service),
         }
-        result.permission_services.extend(addon_permission_services(addon))
+        result.addon_build_services.extend(
+            addon_container_services(addon, "build-services.txt.tmpl")
+        )
+        result.permission_services.extend(
+            addon_container_services(addon, "permission-services.txt.tmpl")
+        )
         for callback, target in callback_targets.items():
             target.extend(rendered_addon_callback(addon, callback, callback_values))
 

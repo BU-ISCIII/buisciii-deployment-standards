@@ -41,8 +41,8 @@ explicit container names. Otherwise container resolution uses Compose labels.
 - `print_prebuild_diagnostics`
 - `print_container_repository_diagnostics`
 - `copy_with_podman_fallback`
-- `chmod_with_podman_fallback`
-- `chown_with_podman_fallback`
+- `chmod_with_engine_fallback`
+- `chown_with_engine_fallback`
 - `apply_host_permission_spec`
 - `apply_container_directory_permission_spec`
 - `stage_container_runtime_config`

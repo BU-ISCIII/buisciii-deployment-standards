@@ -96,8 +96,8 @@ if array_contains app; then fail "empty candidate array must not match"; fi
     permission_missing="$permission_root/not-created"
     printf 'test\n' > "$permission_file"
     permission_calls=()
-    chown_with_podman_fallback() { permission_calls+=("chown|$1|$2"); }
-    chmod_with_podman_fallback() { permission_calls+=("chmod|$1|$2"); }
+    chown_with_engine_fallback() { permission_calls+=("chown|$1|$2"); }
+    chmod_with_engine_fallback() { permission_calls+=("chmod|$1|$2"); }
     host_permission_spec=(
         "$permission_file|1212:3434|0664"
         "$permission_root|-|0755"
@@ -117,6 +117,31 @@ if array_contains app; then fail "empty candidate array must not match"; fi
     fi
     rm -f "$permission_file"
     rmdir "$permission_root"
+)
+
+(
+    docker_permission_root="$(mktemp -d)"
+    docker_permission_calls=()
+    engine=docker
+    chown() { return 1; }
+    chmod() { return 1; }
+    engine_exec() { docker_permission_calls+=("$*"); }
+    chown_with_engine_fallback 1001:0 "$docker_permission_root"
+    chmod_with_engine_fallback 0775 "$docker_permission_root"
+    case "${docker_permission_calls[0]}" in
+        *"run --rm --user 0"*"$docker_permission_root:/target:z"*\
+"--entrypoint /usr/bin/chown"*"-R 1001:0 /target"*) ;;
+        *) fail "Docker ownership fallback must use a scoped root helper container" ;;
+    esac
+    case "${docker_permission_calls[1]}" in
+        *"run --rm --user 0"*"$docker_permission_root:/target:z"*\
+"--entrypoint /usr/bin/chmod"*"-R 0775 /target"*) ;;
+        *) fail "Docker mode fallback must use the shared scoped helper container" ;;
+    esac
+    if chown_with_engine_fallback 1001:0 / 2>/dev/null; then
+        fail "Docker ownership fallback must reject the host root"
+    fi
+    rmdir "$docker_permission_root"
 )
 
 (

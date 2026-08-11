@@ -1,0 +1,9 @@
+
+### Nextstrain visualization
+
+`NEXTSTRAIN_IMAGE` names the locally built image. `NEXTSTRAIN_BUILD_CONTEXT`
+and `NEXTSTRAIN_DOCKERFILE` select its scaffolded build inputs. The public
+`MAPBOX_ACCESS_TOKEN`, `MAPBOX_STYLE_OWNER`, and `MAPBOX_STYLE_ID` are embedded
+in the custom Auspice bundle at build time. `NEXTSTRAIN_PORT` is the internal
+HTTP port, while `NEXTSTRAIN_HOST_PORT` publishes it on host loopback.
+`NEXTSTRAIN_DATA_DIR` is backed by the persistent `nextstrain_data` volume.

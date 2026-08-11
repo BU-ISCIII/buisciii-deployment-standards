@@ -4,7 +4,7 @@ Add-ons contribute marked blocks to the one generated Compose file and append
 their services to `permission_services` when they own writable mounts. They do
 not select or replace an application's framework profile.
 
-The generic assembler discovers Apache and Keycloak from their catalog
+The generic assembler discovers Apache, Keycloak, Nextstrain, and Samba from their catalog
 directories. Each catalog entry owns its Compose, settings, installer,
 permission, and documentation fragments.
 

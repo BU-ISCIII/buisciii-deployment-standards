@@ -70,6 +70,18 @@ to protected ignored files, set mode `0600`, and replace every `CHANGE_ME`. The 
 meaning and security classification of settings is in
 [`conf/INSTALL_SETTINGS.md`](conf/INSTALL_SETTINGS.md).
 
+Create the ignored deployment settings directory and copy every production
+template that this topology consumes:
+
+```bash
+install -d -m 0700 deployment/settings
+{{CONFIG_COPY_COMMANDS}}
+```
+
+Edit only the copies under `deployment/settings/`, replace every `CHANGE_ME`,
+and keep their mode at `0600`. Both installation workflows below point to
+these protected copies.
+
 ## Docker deployment
 
 Both engines use the same lifecycle and Compose files. Do not invoke Compose
@@ -257,7 +269,7 @@ settings files, and backup identifiers.
 
 ```bash
 BACKUP_DIR="/srv/containers/backup/{{APP_SLUG}}/$(date +%Y%m%d_%H%M%S)"
-SETTINGS_FILE='/protected/app_production_settings.txt'
+SETTINGS_FILE='deployment/settings/app_production_settings.txt'
 DOCUMENTS_VOLUME='CHANGE_ME'
 DB_HOST='CHANGE_ME'
 DB_PORT='3306'

@@ -752,9 +752,11 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
     service_rows: list[str] = []
     persistence_rows: list[str] = []
     config_map_examples: list[str] = []
+    config_copy_commands: list[str] = []
     selected_profiles = list(
         dict.fromkeys(service["PROFILE"] for service in services.values())
     )
+    primary_service = next(iter(services))
 
     for name, service in services.items():
         service_rows.append(
@@ -777,6 +779,10 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
                 {"SERVICE_NAME": name},
             )
         )
+        config_copy_commands.append(
+            f"install -m 0600 {shlex.quote(service['INSTALL_CONF'])} "
+            f"deployment/settings/{name}_production_settings.txt"
+        )
         persistence_rows.append(
             rendered_documentation_fragment(
                 "profile",
@@ -794,6 +800,10 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
                 {"SERVICE_NAME": addon},
             )
         )
+        config_copy_commands.append(
+            f"install -m 0600 conf/{addon}/{addon}_production_settings.txt "
+            f"deployment/settings/{addon}_production_settings.txt"
+        )
 
     profile_notes = [
         rendered_documentation_fragment("profile", profile, "profile.md", {})
@@ -801,7 +811,7 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
     ]
     bare_metal_notes = [
         rendered_documentation_fragment(
-            "profile", profile, "bare-metal.md", {}
+            "profile", profile, "bare-metal.md", {"PRIMARY_SERVICE": primary_service}
         )
         for profile in selected_profiles
     ]
@@ -929,6 +939,7 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         "ADDON_DOCUMENTATION": "\n".join(addon_notes),
         "PERSISTENCE_ROWS": "\n".join(persistence_rows),
         "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
+        "CONFIG_COPY_COMMANDS": "\n".join(config_copy_commands),
     }
 
 

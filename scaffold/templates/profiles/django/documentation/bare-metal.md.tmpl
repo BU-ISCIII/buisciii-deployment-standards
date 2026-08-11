@@ -6,11 +6,11 @@ after the application developer documents and tests those integrations.
 ```bash
 # Stage application files and dependencies.
 bash install.sh --stage install --git_revision current \
-  --conf conf/docker_production_settings.txt
+  --conf deployment/settings/{{PRIMARY_SERVICE}}_production_settings.txt
 
 # Bootstrap the prepared runtime (settings, migrations and static files).
 bash install.sh --bootstrap install \
-  --conf conf/docker_production_settings.txt
+  --conf deployment/settings/{{PRIMARY_SERVICE}}_production_settings.txt
 ```
 
 For upgrades, take a backup and replace both `install` actions with `upgrade`.

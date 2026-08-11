@@ -79,6 +79,8 @@ grep -Fq 'INSTALL_CONF: "conf/docker_test_settings.txt"' \
     "$django_target/docker-compose.test.yml"
 grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
     "$django_target/container_install.sh"
+grep -Fq -- '--exclude /static --exclude /tmp --exclude /virtualenv' \
+    "$django_target/install.sh"
 grep -Fq -- '--noreload "0.0.0.0:${APP_PORT}"' \
     "$django_target/scripts/container_start.sh"
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"

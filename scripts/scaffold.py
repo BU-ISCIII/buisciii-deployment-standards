@@ -940,6 +940,7 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         "PERSISTENCE_ROWS": "\n".join(persistence_rows),
         "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
         "CONFIG_COPY_COMMANDS": "\n".join(config_copy_commands),
+        "PRIMARY_SERVICE": primary_service,
     }
 
 

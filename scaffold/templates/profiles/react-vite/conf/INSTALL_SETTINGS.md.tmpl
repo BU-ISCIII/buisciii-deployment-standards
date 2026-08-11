@@ -1,16 +1,28 @@
-# React/Vite installation settings
+# Installation settings for {{APP_NAME}}
 
-| Setting | Required | Purpose |
-|---|---:|---|
-| `REPO_PATH` / `INSTALL_PATH` | yes | Build source and immutable Nginx content paths |
-| `APP_UID` / `APP_GID` | yes | Numeric identity used by the unprivileged Nginx runtime |
-| `APP_PORT` | yes | Loopback and container HTTP port |
-| `VITE_API_BASE_URL` | yes | Public API URL embedded by Vite during image build |
+`docker_test_settings.txt` contains disposable local defaults.
+`docker_production_settings.txt` is a template and MUST NOT contain real
+production secrets. Operators copy it to an ignored, mode-`0600` file.
+
+Project name and baseline paths are rendered from `project.json`. Operators set
+environment URLs. Application developers must declare every additional
+browser-visible setting in both templates and this matrix.
+
+| Setting | Required | Secret | Purpose |
+|---|---:|---:|---|
+| `REPO_PATH`, `INSTALL_PATH` | yes | no | Build source and immutable Nginx content paths |
+| `APP_UID`, `APP_GID` | yes | no | Numeric identity used by the unprivileged Nginx runtime |
+| `APP_PORT` | yes | no | Loopback and container HTTP port |
+| `VITE_API_BASE_URL` | yes | no | Public API URL embedded by Vite during image build |
 
 `VITE_*` values are public build-time configuration and are visible in the
 browser bundle. Never put passwords, client secrets, or private keys in them.
 The outer installer renders all values into the Compose environment before
 build/start; none of these deployment values belong in `project.json`.
+
+Adding or changing a `VITE_*` value requires an image rebuild. For each custom
+value, document its public exposure, validation, API/identity counterpart, and
+the user workflow that verifies it.
 
 ## Selected infrastructure add-ons
 

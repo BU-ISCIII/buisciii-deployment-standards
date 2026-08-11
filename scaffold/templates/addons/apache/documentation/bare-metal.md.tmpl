@@ -1,0 +1,26 @@
+For a host-managed Apache 2.4 deployment, adapt the reviewed virtual host from
+`conf/apache/` to the distribution path. The generated add-on files target the
+container image, so do not copy them blindly without checking module names,
+paths, runtime user, TLS ownership, and log locations.
+
+Ubuntu/Debian baseline:
+
+```bash
+sudo cp <reviewed-apache-vhost.conf> /etc/apache2/sites-available/{{APP_SLUG}}.conf
+sudo a2enmod proxy proxy_http headers
+sudo a2ensite {{APP_SLUG}}.conf
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+CentOS/RHEL baseline:
+
+```bash
+sudo cp <reviewed-apache-vhost.conf> /etc/httpd/conf.d/{{APP_SLUG}}.conf
+sudo httpd -t
+sudo systemctl reload httpd
+```
+
+The reviewed virtual host must define the public `ServerName`, proxy to the
+Django `APP_PORT`, serve the correct static/media paths, preserve forwarded
+scheme/host headers, and use institutionally managed TLS and logs.

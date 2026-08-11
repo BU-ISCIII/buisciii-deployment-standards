@@ -1,3 +1,5 @@
 | `{{SERVICE_NAME}}` database | External production database | Database backup before migration |
 | `{{SERVICE_NAME}}` documents | `{{SERVICE_NAME}}_documents` named volume | Volume backup |
 | `{{SERVICE_NAME}}` static | `{{SERVICE_NAME}}_static` named volume | Replaceable through collectstatic |
+| `{{SERVICE_NAME}}` logs | `/var/log/local/{{APP_SLUG}}/apps` host bind | Retain/rotate per institutional log policy |
+| `{{SERVICE_NAME}}` rendered settings | `/srv/containers/bind/{{APP_SLUG}}/settings/` host bind | Protected configuration backup |

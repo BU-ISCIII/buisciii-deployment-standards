@@ -1,0 +1,35 @@
+#### Apache service
+
+```bash
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  logs --tail 200 apache
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec apache httpd -t
+
+APACHE_PORT='CHANGE_ME'
+SERVER_STATUS_SERVER_NAME='localhost'
+curl --fail --show-error \
+  --header "Host: $SERVER_STATUS_SERVER_NAME" \
+  "http://127.0.0.1:$APACHE_PORT/server-status?auto"
+```
+
+Keep `SERVER_STATUS_ALLOW_FROM` limited to trusted diagnostic hosts. If SELinux
+is enabled, inspect the persistent log bind and confirm a container-compatible
+label before restarting:
+
+```bash
+ls -ldZ /var/log/local/{{APP_SLUG}}/apache
+```
+
+An Apache failure containing `ModSecurity: Failed to open debug log file` often
+means the existing `modsec_debug.log` inode has stale ownership or labeling.
+Preserve it for diagnosis, run `fix-permissions`, and restart Apache. If it must
+be replaced, move it to a timestamped backup instead of deleting evidence:
+
+```bash
+sudo mv /var/log/local/{{APP_SLUG}}/apache/modsec_debug.log \
+  /var/log/local/{{APP_SLUG}}/apache/modsec_debug.log.blocked
+bash container_install.sh --action fix-permissions --engine podman \
+  {{CONFIG_MAP_EXAMPLES}}
+podman compose --env-file .env.production.file -f docker-compose.prod.yml restart apache
+```

@@ -1,0 +1,27 @@
+### Servicio Apache
+
+```bash
+# Logs separados de Apache y validacion de configuracion.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  logs --tail 200 apache
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec apache httpd -t
+
+# Estado restringido; usar valores del fichero protegido.
+APACHE_PORT='CHANGE_ME'
+SERVER_STATUS_SERVER_NAME='localhost'
+curl --fail --show-error \
+  --header "Host: $SERVER_STATUS_SERVER_NAME" \
+  "http://127.0.0.1:$APACHE_PORT/server-status?auto"
+```
+
+Para diagnosticos SELinux y ModSecurity, comprobar el bind de logs antes de
+reiniciar:
+
+```bash
+ls -ldZ /var/log/local/{{APP_SLUG}}/apache
+```
+
+Si aparece `ModSecurity: Failed to open debug log file`, conservar el fichero
+para diagnostico, ejecutar `fix-permissions` y reiniciar. Si hay que sustituir
+el inode, moverlo primero a un backup en vez de borrarlo.

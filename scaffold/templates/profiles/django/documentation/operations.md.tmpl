@@ -1,0 +1,25 @@
+#### Django service `{{SERVICE_NAME}}`
+
+```bash
+# Logs and an interactive shell (replace podman with docker when applicable).
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  logs --tail 200 {{SERVICE_NAME}}
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash
+
+# Rebuild static assets without running migrations.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash -lc \
+  'cd "$INSTALL_PATH" && source virtualenv/bin/activate && python manage.py collectstatic --noinput'
+
+# Inspect Django and migration state before deciding whether to recover.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash -lc \
+  'cd "$INSTALL_PATH" && source virtualenv/bin/activate && python manage.py check --deploy && python manage.py showmigrations --plan'
+```
+
+For bootstrap recovery, fix the cause and rerun `container_install.sh` with the
+same revision, protected configuration, and `--action install` or `upgrade`.
+This safely recreates the temporary runtime configuration and repeats the
+controlled migration/fixture/static lifecycle. Direct `manage.py migrate` is a
+diagnostic last resort and must use the same backup and release procedure.

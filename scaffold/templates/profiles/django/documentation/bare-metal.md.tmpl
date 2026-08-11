@@ -1,0 +1,18 @@
+The Django profile includes `install.sh` for application staging and bootstrap,
+but system package, database, web-server, service-manager, TLS, and backup
+provisioning remain host-specific. Bare-metal installation is supported only
+after the application developer documents and tests those integrations.
+
+```bash
+# Stage application files and dependencies.
+bash install.sh --stage install --git_revision current \
+  --conf conf/docker_production_settings.txt
+
+# Bootstrap the prepared runtime (settings, migrations and static files).
+bash install.sh --bootstrap install \
+  --conf conf/docker_production_settings.txt
+```
+
+For upgrades, take a backup and replace both `install` actions with `upgrade`.
+Do not use container-oriented paths or defaults on a bare-metal host without an
+application-specific review.

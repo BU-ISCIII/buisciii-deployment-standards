@@ -1,0 +1,34 @@
+### Servicio Django `{{SERVICE_NAME}}`
+
+```bash
+# Logs separados del servicio.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  logs --tail 200 {{SERVICE_NAME}}
+
+# Entrar al contenedor.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash
+
+# Regenerar static sin ejecutar migraciones.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash -lc \
+  'cd "$INSTALL_PATH" && source virtualenv/bin/activate && python manage.py collectstatic --noinput'
+
+# Diagnostico previo a una recuperacion de bootstrap.
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash -lc \
+  'cd "$INSTALL_PATH" && source virtualenv/bin/activate && python manage.py check --deploy && python manage.py showmigrations --plan'
+```
+
+La recuperacion preferida es corregir la causa y repetir
+`container_install.sh --action install|upgrade` con la misma revision y
+configuracion protegida. Si el instalador no puede completarse y el responsable
+autoriza un bootstrap manual despues del backup:
+
+```bash
+podman compose --env-file .env.production.file -f docker-compose.prod.yml \
+  exec {{SERVICE_NAME}} bash -lc \
+  'cd "$INSTALL_PATH" && source virtualenv/bin/activate && python manage.py migrate --noinput && python manage.py collectstatic --noinput'
+```
+
+Registrar este procedimiento excepcional y ejecutar despues el smoke test.

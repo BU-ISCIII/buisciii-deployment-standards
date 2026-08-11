@@ -770,7 +770,7 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
                 "profile",
                 service["PROFILE"],
                 "persistence-rows.md",
-                {"SERVICE_NAME": name},
+                {"SERVICE_NAME": name, "APP_SLUG": str(config["APP_SLUG"])},
             )
         )
 
@@ -778,16 +778,115 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         rendered_documentation_fragment("profile", profile, "profile.md", {})
         for profile in selected_profiles
     ]
+    bare_metal_notes = [
+        rendered_documentation_fragment(
+            "profile", profile, "bare-metal.md", {}
+        )
+        for profile in selected_profiles
+    ]
+    local_test_notes = [
+        rendered_documentation_fragment(
+            "profile", profile, "local-test.md", {}
+        )
+        for profile in selected_profiles
+        if (PROFILE_TEMPLATES / profile / "documentation" / "local-test.md.tmpl").is_file()
+    ]
+    migration_notes = [
+        rendered_documentation_fragment(
+            "profile", profile, "migrations.md", {}
+        )
+        for profile in selected_profiles
+        if (PROFILE_TEMPLATES / profile / "documentation" / "migrations.md.tmpl").is_file()
+    ]
+    operational_notes: list[str] = []
+    runbook_operational_notes: list[str] = []
+    for name, service in services.items():
+        operational = (
+            PROFILE_TEMPLATES
+            / service["PROFILE"]
+            / "documentation"
+            / "operations.md.tmpl"
+        )
+        if operational.is_file():
+            operational_notes.append(
+                rendered_documentation_fragment(
+                    "profile",
+                    service["PROFILE"],
+                    "operations.md",
+                    {"SERVICE_NAME": name},
+                )
+            )
+        runbook_operational = (
+            PROFILE_TEMPLATES
+            / service["PROFILE"]
+            / "documentation"
+            / "operations-leame.md.tmpl"
+        )
+        if runbook_operational.is_file():
+            runbook_operational_notes.append(
+                rendered_documentation_fragment(
+                    "profile",
+                    service["PROFILE"],
+                    "operations-leame.md",
+                    {"SERVICE_NAME": name},
+                )
+            )
     addon_notes = [
         rendered_documentation_fragment("addon", addon, "addon.md", {})
         for addon in addons
     ]
     for addon in addons:
+        addon_local_test = ADDON_TEMPLATES / addon / "documentation" / "local-test.md.tmpl"
+        if addon_local_test.is_file():
+            local_test_notes.append(
+                rendered_documentation_fragment("addon", addon, "local-test.md", {})
+            )
+        addon_operations = ADDON_TEMPLATES / addon / "documentation" / "operations.md.tmpl"
+        if addon_operations.is_file():
+            operational_notes.append(
+                rendered_documentation_fragment(
+                    "addon",
+                    addon,
+                    "operations.md",
+                    {
+                        "APP_SLUG": str(config["APP_SLUG"]),
+                        "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
+                    },
+                )
+            )
+        addon_runbook_operations = (
+            ADDON_TEMPLATES / addon / "documentation" / "operations-leame.md.tmpl"
+        )
+        if addon_runbook_operations.is_file():
+            runbook_operational_notes.append(
+                rendered_documentation_fragment(
+                    "addon",
+                    addon,
+                    "operations-leame.md",
+                    {
+                        "APP_SLUG": str(config["APP_SLUG"]),
+                        "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
+                    },
+                )
+            )
+        addon_bare_metal = ADDON_TEMPLATES / addon / "documentation" / "bare-metal.md.tmpl"
+        if addon_bare_metal.is_file():
+            bare_metal_notes.append(
+                rendered_documentation_fragment(
+                    "addon",
+                    addon,
+                    "bare-metal.md",
+                    {"APP_SLUG": str(config["APP_SLUG"])},
+                )
+            )
         persistence = ADDON_TEMPLATES / addon / "documentation" / "persistence-rows.md.tmpl"
         if persistence.is_file():
             persistence_rows.append(
                 rendered_documentation_fragment(
-                    "addon", addon, "persistence-rows.md", {}
+                    "addon",
+                    addon,
+                    "persistence-rows.md",
+                    {"APP_SLUG": str(config["APP_SLUG"])},
                 )
             )
     if not addon_notes:
@@ -796,8 +895,16 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         )
 
     return {
+        "REPOSITORY_URL": str(config.get("REPOSITORY_URL", "<repository-url>")),
         "SERVICE_INVENTORY_ROWS": "\n".join(service_rows),
         "PROFILE_DOCUMENTATION": "\n".join(profile_notes),
+        "LOCAL_TEST_DOCUMENTATION": "\n\n".join(local_test_notes),
+        "BARE_METAL_DOCUMENTATION": "\n\n".join(bare_metal_notes),
+        "MIGRATION_DOCUMENTATION": "\n\n".join(migration_notes),
+        "OPERATIONAL_DOCUMENTATION": "\n\n".join(operational_notes),
+        "RUNBOOK_OPERATIONAL_DOCUMENTATION": "\n\n".join(
+            runbook_operational_notes
+        ),
         "ADDON_DOCUMENTATION": "\n".join(addon_notes),
         "PERSISTENCE_ROWS": "\n".join(persistence_rows),
         "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),

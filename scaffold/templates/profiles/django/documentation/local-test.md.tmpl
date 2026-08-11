@@ -1,0 +1,24 @@
+Django test installation creates the disposable database declared by the test
+Compose profile, waits for it, applies committed migrations, optionally loads
+fixtures, runs selected data scripts, collects static files, and performs the
+generated health checks.
+
+Migration/data scripts are repeatable `django-extensions` runscript names. Use
+`--script_before` for preparation before migrations and `--script` (an alias of
+`--script_after`) for a transformation after migrations:
+
+```bash
+bash container_install.sh --test --action install --engine docker \
+  --script_before prepare_test_data \
+  --script migrate_optional_values
+```
+
+`--demo_data`, `--skip_demo_data`, and `--skip_test_data` are part of the
+standard interface. A project that supplies fixtures or demo files must set
+`application_supports_test_data=true` and implement `load_test_deployment_data`
+in its wrapper; otherwise `--demo_data` is rejected explicitly.
+
+For an automatic first administrator, set `CREATE_INITIAL_SUPERUSER=true` and
+the `DJANGO_SUPERUSER_*` values in the selected test settings before install.
+An existing account is never reset. Open the loopback URL using `APP_PORT` from
+the rendered test environment, or `APACHE_PORT` when the Apache add-on is used.

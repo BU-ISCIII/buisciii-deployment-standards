@@ -2,13 +2,53 @@
 
 {{DESCRIPTION}}
 
-## Architecture and services
+> Application developers: replace this short description with the domain
+> overview, architecture image, user-facing documentation link, and support
+> channel. The installation sections below are rendered by the deployment
+> standard and are ready to use unless explicitly marked for review.
+
+- [Get the code (required)](#get-the-code-required)
+- [Choose your path](#choose-your-path)
+- [Minimum requirements](#minimum-requirements)
+- [Docker deployment](#docker-deployment)
+  - [Local test stack](#local-test-stack)
+  - [Production container](#production-container)
+  - [Manage containers after installation](#manage-containers-after-installation)
+  - [Upgrade docker deployment](#upgrade-docker-deployment)
+- [Bare-metal deployment (Ubuntu/CentOS)](#bare-metal-deployment-ubuntucentos)
+- [Common operations (Docker + bare-metal)](#common-operations-docker--bare-metal)
+- [Final configuration steps](#final-configuration-steps)
+- [Developer notes](#developer-notes)
+- [Application documentation](#application-documentation)
+
+## Get the code (required)
+
+```bash
+git clone {{REPOSITORY_URL}} {{APP_SLUG}}
+cd {{APP_SLUG}}
+```
+
+For an orchestrated deployment, every external build context in the service
+table must exist at the declared path relative to this checkout.
+
+## Choose your path
+
+| Capability | Supported | Owner or command |
+|---|---:|---|
+| Docker local test | Yes | `container_install.sh --test --engine docker` |
+| Podman local test | Yes | `container_install.sh --test --engine podman` |
+| Docker production | Yes | `container_install.sh --engine docker` |
+| Podman production | Yes | `container_install.sh --engine podman` |
+| Bare metal | Profile-specific | See [Bare-metal deployment](#bare-metal-deployment-ubuntucentos) |
+| Upgrade | Yes | `--action upgrade` |
+| Permission repair | Yes | `--action fix-permissions` |
+| Backup and restore | Yes | Operator-owned; follow [LEAME.md](LEAME.md) |
+
+Services:
 
 | Service | Profile | Build context | Internal port |
 |---|---|---|---:|
 {{SERVICE_INVENTORY_ROWS}}
-
-Profile behavior:
 
 {{PROFILE_DOCUMENTATION}}
 
@@ -16,37 +56,64 @@ Selected add-ons:
 
 {{ADDON_DOCUMENTATION}}
 
-All selected services and add-ons are assembled into one
-`docker-compose.prod.yml` and one `docker-compose.test.yml`.
+## Minimum requirements
 
-## Requirements
+- Git and access to every declared build context.
+- Docker Engine with Compose v2, or Podman with a Compose provider.
+- Enough disk and memory for image builds and persistent application data.
+- A protected production settings file for every application service.
+- Production DNS, TLS termination, database, storage, email, identity, backup,
+  and monitoring services required by the selected profiles.
 
-- Docker with Compose v2, or Podman with a Compose provider.
-- Git and access to every declared service build context.
-- One protected production settings file for every application service.
-- Production DNS, TLS termination, databases, storage and backup destinations
-  required by the selected profiles.
+Copy each service's `conf/docker_production_settings.txt` to a protected,
+ignored file, set mode `0600`, and replace every `CHANGE_ME` value. The exact
+meaning and security classification of settings is in
+[`conf/INSTALL_SETTINGS.md`](conf/INSTALL_SETTINGS.md).
 
-## Configuration
+## Docker deployment
 
-Each application repository owns its configuration template. Copy it to a
-protected, ignored file, set mode `0600`, and resolve every `CHANGE_ME` value.
-Browser-visible `VITE_*` values MUST NOT contain secrets.
-Apache and Keycloak settings appear as commented `APACHE_*` and `KEYCLOAK_*`
-sections in the selected application's same settings file.
+Both engines use the same lifecycle and Compose files. Do not invoke Compose
+directly for the first install or an upgrade: the installer also renders
+configuration, prepares permissions, waits for readiness, and runs bootstrap.
 
-The installer generates one protected `.env.production.file` or
-`.env.test.file`. Service prefixes prevent collisions between settings such as
-`APP_PORT`, `DB_HOST`, `APP_UID` and `APP_GID`.
+### Local test stack
 
-## Test installation
+Docker:
 
 ```bash
 bash container_install.sh --test --action install --engine docker \
   --git_revision current
 ```
 
-## Production installation
+Podman:
+
+```bash
+bash container_install.sh --test --action install --engine podman \
+  --git_revision current
+```
+
+Test settings and test services are disposable. Verify either deployment with:
+
+```bash
+bash scripts/smoke_test.sh --test --engine docker
+# or: bash scripts/smoke_test.sh --test --engine podman
+```
+
+{{LOCAL_TEST_DOCUMENTATION}}
+
+### Production container
+
+Prepare the protected settings files and deploy a reviewed tag or commit.
+
+Docker:
+
+```bash
+bash container_install.sh --action install --engine docker \
+  --git_revision <reviewed-tag-or-commit> \
+  {{CONFIG_MAP_EXAMPLES}}
+```
+
+Podman:
 
 ```bash
 bash container_install.sh --action install --engine podman \
@@ -54,58 +121,270 @@ bash container_install.sh --action install --engine podman \
   {{CONFIG_MAP_EXAMPLES}}
 ```
 
-## Upgrade
+The installer creates `.env.production.file`; use it for later direct Compose
+operations. Production secrets stay in the protected settings files and are
+not copied into image layers.
 
-Back up persistent state, review release/configuration changes, and run:
-
-```bash
-bash container_install.sh --action upgrade --engine podman \
-  --git_revision <new-tag-or-commit> \
-  {{CONFIG_MAP_EXAMPLES}}
-```
-
-Django services run controlled bootstrap/migrations. React services rebuild an
-immutable browser bundle and do not run Django bootstrap.
-
-## Persistence and permissions
+#### Persist logs/documents on the host
 
 | Asset | Production location | Backup/rebuild policy |
 |---|---|---|
 {{PERSISTENCE_ROWS}}
 
-Run permission repair without building or migrating:
+The standard fixes application binds below `/srv/containers/bind/{{APP_SLUG}}`
+and logs below `/var/log/local/{{APP_SLUG}}`. The operator must still record the
+backup owner, retention, actual engine volume names, and restore-test evidence
+for every non-rebuildable asset. Never treat a container writable layer as
+persistent storage.
+
+#### Reverse proxy and application server
+
+The selected profiles and add-ons define the internal application server and
+proxy topology. Review public hostnames, TLS ownership, forwarded headers,
+request limits, timeouts, health paths, and static/media routing together.
+
+#### Scheduled jobs
+
+The application developer must list every scheduler/worker, whether a failed
+job blocks a workflow, and how operators inspect and retry it. Do not add an
+untracked host cron job when the application profile owns scheduling.
+
+### Manage containers after installation
+
+Use the engine that performed the installation:
 
 ```bash
+docker compose --env-file .env.production.file -f docker-compose.prod.yml ps
+docker compose --env-file .env.production.file -f docker-compose.prod.yml logs --tail 200
+docker compose --env-file .env.production.file -f docker-compose.prod.yml restart
+```
+
+```bash
+podman compose --env-file .env.production.file -f docker-compose.prod.yml ps
+podman compose --env-file .env.production.file -f docker-compose.prod.yml logs --tail 200
+podman compose --env-file .env.production.file -f docker-compose.prod.yml restart
+```
+
+### Upgrade docker deployment
+
+After taking a consistent backup and reading the version-specific upgrade
+notes:
+
+```bash
+bash container_install.sh --action upgrade --engine podman \
+  --git_revision <new-reviewed-tag-or-commit> \
+  {{CONFIG_MAP_EXAMPLES}}
+```
+
+Replace `podman` with `docker` for a Docker-managed deployment. Stop on build,
+readiness, bootstrap, migration, or smoke-test failure. See [LEAME.md](LEAME.md)
+for the ordered production checklist and rollback decision.
+
+## Bare-metal deployment (Ubuntu/CentOS)
+
+### Install
+
+#### Clone the repository
+
+Use [Get the code (required)](#get-the-code-required) and check out the reviewed
+revision.
+
+#### Prepare the database
+
+Provision the application database and least-privilege account outside the
+installer. Confirm that the host can reach it before bootstrap.
+
+#### Configure install_settings.txt
+
+Start from `conf/docker_production_settings.txt`, but review all paths and
+container-oriented defaults for the target host. Keep the resulting file
+ignored and mode `0600`.
+
+#### Run install.sh
+
+{{BARE_METAL_DOCUMENTATION}}
+
+### Upgrade bare-metal deployment
+
+Follow the same staged lifecycle with `upgrade` only after a consistent backup
+and review of the version-specific guide.
+
+## Common operations (Docker + bare-metal)
+
+### Database creation, users and grants
+
+Production databases are externally managed unless the application documents a
+different supported topology. Create a dedicated schema and least-privilege
+account, verify connectivity from the application container, and keep DBA
+commands and credentials outside this repository.
+
+Connect as an authorized database administrator without putting the password
+on the command line:
+
+```bash
+DB_HOST='CHANGE_ME'
+DB_PORT='3306'
+DB_ADMIN='CHANGE_ME'
+DB_NAME='CHANGE_ME'
+DB_USER='CHANGE_ME'
+mysql --host="$DB_HOST" --port="$DB_PORT" --user="$DB_ADMIN" --password
+```
+
+Create the application database and account. Replace every angle-bracket value;
+restrict the account host further than `%` when the network topology permits.
+
+```sql
+CREATE DATABASE `<db-name>`
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER '<db-user>'@'%' IDENTIFIED BY '<strong-generated-password>';
+GRANT ALL PRIVILEGES ON `<db-name>`.* TO '<db-user>'@'%';
+FLUSH PRIVILEGES;
+```
+
+Verify the same endpoint and least-privilege credentials configured for the
+application:
+
+```bash
+mysql --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" --password \
+  --database="$DB_NAME" --execute='SELECT 1;'
+```
+
+### Backups
+
+Back up every non-rebuildable row in the persistence table from one consistent
+recovery point before installation or upgrade. Record the revision, image IDs,
+settings files, and backup identifiers.
+
+```bash
+BACKUP_DIR="/srv/containers/backup/{{APP_SLUG}}/$(date +%Y%m%d_%H%M%S)"
+SETTINGS_FILE='/protected/app_production_settings.txt'
+DOCUMENTS_VOLUME='CHANGE_ME'
+DB_HOST='CHANGE_ME'
+DB_PORT='3306'
+DB_NAME='CHANGE_ME'
+DB_USER='CHANGE_ME'
+mkdir -p "$BACKUP_DIR"
+git rev-parse HEAD > "$BACKUP_DIR/git-revision.txt"
+cp .env.production.file "$SETTINGS_FILE" "$BACKUP_DIR/"
+chmod -R go-rwx "$BACKUP_DIR"
+
+mysqldump --single-transaction --routines --triggers \
+  --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" --password \
+  "$DB_NAME" > "$BACKUP_DIR/database.sql"
+
+podman volume ls | grep '{{APP_SLUG}}'
+podman volume export "$DOCUMENTS_VOLUME" > "$BACKUP_DIR/documents.tar"
+tar -C /srv/containers/bind -czf "$BACKUP_DIR/bind-mounts.tar.gz" {{APP_SLUG}}
+sha256sum "$BACKUP_DIR"/* > "$BACKUP_DIR/SHA256SUMS"
+```
+
+For Docker, archive a named volume through a temporary container after ensuring
+the application is not writing to it:
+
+```bash
+docker run --rm \
+  --volume "$DOCUMENTS_VOLUME":/data:ro \
+  --volume "$BACKUP_DIR":/backup \
+  alpine tar -C /data -cf /backup/documents.tar .
+```
+
+The full ordered backup checklist, including logs and image metadata, is in
+[LEAME.md](LEAME.md).
+
+### Restore / rollback
+
+An image-only rollback is safe only when the previous application version
+supports the current schema and persistent-file format. Otherwise stop writes,
+restore the database and files from the same recovery point, deploy the recorded
+compatible revision, and rerun all smoke tests.
+
+Compatible application-only rollback:
+
+```bash
+bash container_install.sh --action upgrade --engine podman \
+  --git_revision <previous-reviewed-revision> \
+  {{CONFIG_MAP_EXAMPLES}}
+```
+
+Full restore when schema or persistent-file formats are incompatible:
+
+```bash
+BACKUP_DIR='/srv/containers/backup/{{APP_SLUG}}/CHANGE_ME'
+DOCUMENTS_VOLUME='CHANGE_ME'
+DB_HOST='CHANGE_ME'
+DB_PORT='3306'
+DB_NAME='CHANGE_ME'
+DB_USER='CHANGE_ME'
+podman compose --env-file .env.production.file -f docker-compose.prod.yml down
+mysql --host="$DB_HOST" --port="$DB_PORT" --user="$DB_USER" --password \
+  "$DB_NAME" < "$BACKUP_DIR/database.sql"
+podman volume import "$DOCUMENTS_VOLUME" "$BACKUP_DIR/documents.tar"
+tar -C /srv/containers/bind -xzf "$BACKUP_DIR/bind-mounts.tar.gz"
 bash container_install.sh --action fix-permissions --engine podman \
   {{CONFIG_MAP_EXAMPLES}}
 ```
 
-Each application and add-on has independent host-bind and running-container
-permission specifications in `container_install.sh`.
+Then deploy the revision recorded in `git-revision.txt`, start the deployment,
+and run the smoke test before reopening service. For Docker volume restoration,
+reverse the temporary-container archive command by mounting the empty target
+volume at `/data` and extracting `/backup/documents.tar` there.
 
-## Testing
+### What to do if something fails
+
+1. Preserve installer output, `compose ps`, image IDs, and service logs.
+2. Test the direct application health endpoint and dependencies.
+3. Test proxy routing, public DNS, and TLS after direct health succeeds.
+4. Run permission repair for reviewed ownership or SELinux drift:
+
+   ```bash
+   bash container_install.sh --action fix-permissions --engine podman \
+     {{CONFIG_MAP_EXAMPLES}}
+   ```
+
+5. Do not fake migrations, delete volumes, or rebuild from an unrecorded
+   revision as a first response.
+
+### Service-specific operational commands
+
+{{OPERATIONAL_DOCUMENTATION}}
+
+## Final configuration steps
+
+The application developer must document real post-install workflows here:
+initial administrator ownership, email delivery, identity-provider clients,
+storage credentials, scheduled jobs, and one representative user workflow.
+The generated baseline creates the initial Django administrator only when its
+profile settings explicitly request it.
+
+## Developer notes
+
+### Shared container installer library
+
+`container_install.sh` sources the vendored files under
+`deployment/lib/container/`. Do not edit those copies. Check or update them
+from the standards repository with `scaffold.py check-lib` or `sync-lib`.
+
+### Schema migration workflow
+
+{{MIGRATION_DOCUMENTATION}}
+
+### Persistent host paths
+
+Keep source checkouts, protected configuration, bind mounts, engine-managed
+volumes, logs, and backups separate. For rootless Podman, run the installer as
+the same unprivileged account every time and use `fix-permissions` instead of
+manually changing engine storage.
+
+### Verification of the installation
 
 ```bash
-bash scripts/smoke_test.sh --engine podman \
-  --compose_file docker-compose.prod.yml \
-  --env_file .env.production.file
+bash scripts/smoke_test.sh --engine podman
 ```
 
-The generated smoke dispatcher combines framework checks with direct HTTP
-health checks. Add authenticated application workflows without removing the
-generated baseline checks.
+Application developers must extend the baseline smoke test with authenticated
+and domain-specific read workflows without removing the generated checks.
 
-## Rollback and restore
+## Application documentation
 
-Record the deployed image/revision before every upgrade. An image-only rollback
-is safe only when the previous application version supports the current schema.
-Otherwise restore databases and persistent files from the same recovery point.
-See [LEAME.md](LEAME.md) for the ordered production procedure.
-
-## Troubleshooting
-
-- Inspect `compose ps` and service logs before restarting anything.
-- Use `fix-permissions` for reviewed ownership/mode drift.
-- Test direct service health before debugging Apache or external TLS.
-- Verify Keycloak issuer, public hostname, clients and redirect URIs together.
-- Never fake Django migrations or delete persistent volumes as a first response.
+Application developers: replace this paragraph with links to user,
+administrator, API, upgrade, and support documentation.

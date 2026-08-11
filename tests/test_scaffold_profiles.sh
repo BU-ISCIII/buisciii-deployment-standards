@@ -90,7 +90,7 @@ grep -Fq "DJANGO_ALLOWED_HOSTS='*'" "$django_target/conf/docker_test_settings.tx
 grep -Fq '0.0.0.0:${APP_APP_PORT:?APP_APP_PORT is required}:${APP_APP_PORT:?APP_APP_PORT is required}' \
     "$django_target/docker-compose.test.yml"
 grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
-for setting in REQUIRED_MODULES MIGRATION_MODULES FAKEINITIAL_MODULES APP_SHELL \
+for setting in REQUIRED_MODULES MIGRATION_MODULES APP_SHELL \
     DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH \
     CREATE_INITIAL_SUPERUSER DJANGO_SUPERUSER_USERNAME \
     DJANGO_SUPERUSER_EMAIL DJANGO_SUPERUSER_PASSWORD; do

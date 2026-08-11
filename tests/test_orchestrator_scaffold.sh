@@ -17,7 +17,7 @@ for profile in django react-vite; do
     test -f "$repo_root/scaffold/templates/profiles/$profile/documentation/profile.md.tmpl"
     test -f "$repo_root/scaffold/templates/profiles/$profile/documentation/persistence-rows.md.tmpl"
 done
-for addon in apache keycloak; do
+for addon in apache keycloak samba; do
     test -f "$repo_root/scaffold/templates/addons/$addon/documentation/addon.md.tmpl"
 done
 test -f "$repo_root/scaffold/templates/addons/keycloak/documentation/persistence-rows.md.tmpl"
@@ -145,6 +145,7 @@ grep -Fq "SERVER_STATUS_SERVER_NAME='localhost'" \
 grep -Fq '# Keycloak add-on' "$target/conf/docker_production_settings.txt"
 grep -Fq "KEYCLOAK_DB_PASSWORD='CHANGE_ME'" "$target/conf/docker_production_settings.txt"
 grep -Fq "APACHE_PORT='8081'" "$target/conf/docker_test_settings.txt"
+grep -Fq "APACHE_BIND_HOST='0.0.0.0'" "$target/conf/docker_test_settings.txt"
 grep -Fq "KEYCLOAK_DB_PASSWORD='keycloak_password'" "$target/conf/docker_test_settings.txt"
 grep -Fq '### Apache' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq '### Keycloak' "$target/conf/INSTALL_SETTINGS.md"
@@ -200,5 +201,16 @@ grep -Fq "REPO_PATH='/srv/example-django'" "$single_target/conf/docker_productio
 grep -Fq "INSTALL_PATH='/opt/example-django'" "$single_target/conf/docker_production_settings.txt"
 test ! -e "$single_target/conf/apache_production_settings.txt"
 test ! -e "$single_target/conf/apache_test_settings.txt"
+grep -Fq 'app_test_static:${APP_INSTALL_PATH:?APP_INSTALL_PATH is required}/static:ro,z' \
+    "$single_target/docker-compose.test.yml"
+grep -Fq 'app_test_documents:${APP_INSTALL_PATH:?APP_INSTALL_PATH is required}/documents:ro,z' \
+    "$single_target/docker-compose.test.yml"
+grep -Fq 'image: docker.io/dperson/samba:latest' \
+    "$single_target/docker-compose.test.yml"
+grep -Fq 'samba_test_data:/mnt:z' "$single_target/docker-compose.test.yml"
+! grep -Fq 'image: docker.io/dperson/samba:latest' \
+    "$single_target/docker-compose.prod.yml"
+grep -Fq "SAMBA_USER='samba_user'" \
+    "$single_target/conf/docker_test_settings.txt"
 
 echo "Mixed-profile orchestrator scaffold tests passed."

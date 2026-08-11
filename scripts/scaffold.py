@@ -320,7 +320,7 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
             raise ValueError(f"ADDONS.{name} must be a JSON object")
         normalized_options = dict(options)
         unknown_options = sorted(
-            set(normalized_options) - {"CONFIG_SERVICE", "MOUNTS"}
+            set(normalized_options) - {"CONFIG_SERVICE", "MOUNTS", "MODES"}
         )
         if unknown_options:
             raise ValueError(
@@ -338,6 +338,20 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
         # Every add-on consumes its section from one application settings file;
         # add-ons never introduce another settings source of their own.
         normalized_options["CONFIG_SERVICE"] = config_service
+        raw_modes = normalized_options.get("MODES", ["prod", "test"])
+        if not isinstance(raw_modes, list) or not raw_modes:
+            raise ValueError(f"ADDONS.{name}.MODES must be a non-empty array")
+        mode_aliases = {"prod": "prod", "production": "prod", "test": "test"}
+        requested_modes = [str(mode).lower() for mode in raw_modes]
+        invalid_modes = sorted(set(requested_modes) - set(mode_aliases))
+        if invalid_modes:
+            raise ValueError(
+                f"ADDONS.{name}.MODES contains unsupported modes: "
+                + ", ".join(invalid_modes)
+            )
+        normalized_options["MODES"] = list(
+            dict.fromkeys(mode_aliases[mode] for mode in requested_modes)
+        )
         addons[name] = normalized_options
     return addons
 
@@ -553,9 +567,11 @@ def compile_addon_compose(
 ) -> ComposeCompilation:
     """Compile one add-on entirely from conventional template fragments."""
     options = addons[addon]
+    if mode not in options["MODES"]:
+        return ComposeCompilation([], [], [], [], [])
     dependency_names = list(services)
     for selected_addon in addons:
-        if selected_addon != addon:
+        if selected_addon != addon and mode in addons[selected_addon]["MODES"]:
             dependency_names.extend(addon_dependency_services(selected_addon))
     depends_on = "\n".join(
         f"      {name}:\n        condition: service_healthy"

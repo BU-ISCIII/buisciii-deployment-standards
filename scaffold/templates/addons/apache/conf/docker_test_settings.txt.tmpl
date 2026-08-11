@@ -5,9 +5,9 @@
 # This compatibility value is unused unless application code consumes it.
 APACHE_CONF_PATH=''
 
-# Disposable test logs and a loopback-only public endpoint.
+# Disposable test logs and a public test endpoint.
 APACHE_LOG_PATH='/tmp/{{APP_SLUG}}/apache-logs'
-APACHE_BIND_HOST='127.0.0.1'
+APACHE_BIND_HOST='0.0.0.0'
 APACHE_PORT='8081'
 
 # Host name handled by the local test VirtualHost.

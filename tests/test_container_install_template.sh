@@ -43,14 +43,16 @@ require_text 'prepare_host_bind_source_permissions()' "$template" \
     "common installer must expose host permission policy"
 require_text 'prepare_running_container_mount_permissions()' "$template" \
     "common installer must expose running-mount permission policy"
+require_text 'load_test_deployment_data()' "$template" \
+    "common installer must expose inline application test-data customization"
+require_text 'application_supports_test_data=false' "$template" \
+    "test-data capability must be explicit and disabled by default"
 require_text '--secret "id=install_conf,src=' "$template" \
     "common installer must build Django with an ephemeral secret"
 require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
     "common installer must build React with public Vite configuration"
-require_text 'up -d --force-recreate "${install_services[@]}"' "$template" \
-    "a successful build must replace only rebuilt application containers"
-require_text 'deployment_compose -f "$compose_file" up -d' "$template" \
-    "installer must converge add-ons and support services without forcing restarts"
+require_text 'deployment_compose -f "$compose_file" up -d --force-recreate' "$template" \
+    "a successful build must recreate the complete topology in one invocation"
 
 if grep -Eq '\{\{(ENV_PREFIX|REPO_PATH|INSTALL_PATH|UID|GID)_CASES\}\}' "$template"; then
     fail "generic settings lookups must not use generated service case tables"

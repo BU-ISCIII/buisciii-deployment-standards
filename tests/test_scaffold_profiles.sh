@@ -79,8 +79,14 @@ grep -Fq 'INSTALL_CONF: "conf/docker_test_settings.txt"' \
     "$django_target/docker-compose.test.yml"
 grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
     "$django_target/container_install.sh"
+grep -Fq -- '--noreload "0.0.0.0:${APP_PORT}"' \
+    "$django_target/scripts/container_start.sh"
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
 grep -Fq "DB_HOST='app_db'" "$django_target/conf/docker_test_settings.txt"
+grep -Fq "DJANGO_DEBUG='true'" "$django_target/conf/docker_test_settings.txt"
+grep -Fq "DJANGO_ALLOWED_HOSTS='*'" "$django_target/conf/docker_test_settings.txt"
+grep -Fq '0.0.0.0:${APP_APP_PORT:?APP_APP_PORT is required}:${APP_APP_PORT:?APP_APP_PORT is required}' \
+    "$django_target/docker-compose.test.yml"
 grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
 for setting in REQUIRED_MODULES MIGRATION_MODULES FAKEINITIAL_MODULES APP_SHELL \
     DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH \
@@ -107,6 +113,7 @@ grep -Fq "EMAIL_PORT='25'" "$django_target/conf/docker_production_settings.txt"
 grep -Fq "EMAIL_USE_TLS='False'" "$django_target/conf/docker_production_settings.txt"
 bash -n "$django_target/container_install.sh"
 bash -n "$django_target/install.sh"
+bash -n "$django_target/scripts/container_start.sh"
 test ! -e "$django_target/compose"
 test ! -e "$django_target/container_install"
 test ! -e "$django_target/documentation"

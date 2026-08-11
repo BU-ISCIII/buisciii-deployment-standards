@@ -29,9 +29,9 @@ A standalone application can select both current add-ons as follows:
 }
 ```
 
-`CONFIG_SERVICE` identifies which application's normal production/test
-settings own the add-on variables. It may be omitted when the first declared
-service is the correct owner. `MOUNTS` is optional and contains complete
+`CONFIG_SERVICE` identifies the application used for add-on relationships and
+derived defaults. Add-on values remain in `conf/<addon>/` and are mapped with
+the same repeatable `--install_conf_map` option as applications. `MOUNTS` is optional and contains complete
 Compose mount strings contributed to an add-on that provides an
 `application-mount` fragment; Apache currently supports it. For example:
 
@@ -42,7 +42,7 @@ Compose mount strings contributed to an add-on that provides an
 ```
 
 Do not add separate `INSTALL_CONF`, `TEST_INSTALL_CONF`, `ROUTES`, or
-`VIRTUAL_HOSTS` keys. Add-ons reuse their selected application's settings, and
+`VIRTUAL_HOSTS` descriptor keys. Add-on settings follow the catalog convention, and
 Apache routes are maintained directly in `conf/apache/01-reverse-proxy.conf`.
 
 See `scaffold/project.addons.json.example` for a complete valid descriptor.

@@ -10,18 +10,14 @@ The assembler follows the PathoCore identity stack and generates both
 - a bounded TCP health check with Keycloak's longer startup allowance;
 - a reproducible realm-import directory mounted read-only.
 
-Keycloak does not introduce another installation-settings file. Its
-`KEYCLOAK_*` section lives in one selected application's production/test
-settings. A standalone project selects its only service automatically; a
-multi-app project uses `ADDONS.keycloak.CONFIG_SERVICE` when the first service
-is not the desired owner. The section documents database/admin secrets, public
-URL, diagnostic ports and realm-import path together.
+Keycloak owns production and test settings under `conf/keycloak/`. Map a
+protected production copy with `--install_conf_map keycloak,<path>`.
+`CONFIG_SERVICE` still identifies the related application for derived defaults.
 
 The source fragments are
 `addons/keycloak/conf/docker_production_settings.txt.tmpl` and
-`docker_test_settings.txt.tmpl`. The scaffold renders and appends the selected
-fragment; Python discovers its environment keys instead of duplicating the
-configuration or defaults in `scaffold.py`.
+`docker_test_settings.txt.tmpl`. The scaffold renders each as an independent
+add-on settings file.
 
 The realm import bind is required but is not the persistent identity store.
 Keycloak imports a realm only when it does not already exist, normally on a

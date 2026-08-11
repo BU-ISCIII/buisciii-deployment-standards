@@ -61,12 +61,12 @@ Selected add-ons:
 - Git and access to every declared build context.
 - Docker Engine with Compose v2, or Podman with a Compose provider.
 - Enough disk and memory for image builds and persistent application data.
-- A protected production settings file for every application service.
+- A protected production settings file for every application and selected add-on.
 - Production DNS, TLS termination, database, storage, email, identity, backup,
   and monitoring services required by the selected profiles.
 
-Copy each service's `conf/docker_production_settings.txt` to a protected,
-ignored file, set mode `0600`, and replace every `CHANGE_ME` value. The exact
+Copy each application's settings and each `conf/<addon>/*_production_settings.txt`
+to protected ignored files, set mode `0600`, and replace every `CHANGE_ME`. The exact
 meaning and security classification of settings is in
 [`conf/INSTALL_SETTINGS.md`](conf/INSTALL_SETTINGS.md).
 

@@ -73,10 +73,9 @@ completed bind sources under `deployment/apache/`. Compose mounts only the
 completed files. Rerunning the installer regenerates them from the editable
 sources, so configuration changes are repeatable.
 
-Apache does not own another installation-settings file. Its `APACHE_*` and
-`SERVER_STATUS_*` section is appended to one selected application service's
-normal production/test settings. For a standalone project the only service is
-selected automatically. A multi-app project selects the owner explicitly:
+Apache owns production and test settings under `conf/apache/`. Map a protected
+production copy with `--install_conf_map apache,<path>`. `CONFIG_SERVICE`
+selects the application used for default upstream and installation-path values:
 
 ```json
 "apache": {

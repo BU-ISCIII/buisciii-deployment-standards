@@ -23,7 +23,7 @@
       APP_INSTALL_PATH: ${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}
       APP_PORT: ${{{ENV_PREFIX}}_APP_PORT:?{{ENV_PREFIX}}_APP_PORT is required}
       PROJECT_MODULE: "{{PROJECT_MODULE}}"
-      DB_HOST: {{SERVICE_NAME}}_db
+      DB_HOST: {{PROJECT_MODULE}}_app_db
       DB_PORT: ${{{ENV_PREFIX}}_DB_PORT:?{{ENV_PREFIX}}_DB_PORT is required}
       DB_NAME: ${{{ENV_PREFIX}}_DB_NAME:?{{ENV_PREFIX}}_DB_NAME is required}
       DB_USER: ${{{ENV_PREFIX}}_DB_USER:?{{ENV_PREFIX}}_DB_USER is required}
@@ -31,7 +31,7 @@
       DJANGO_SECRET_KEY: ${{{ENV_PREFIX}}_DJANGO_SECRET_KEY:?{{ENV_PREFIX}}_DJANGO_SECRET_KEY is required}
       DJANGO_ALLOWED_HOSTS: ${{{ENV_PREFIX}}_DJANGO_ALLOWED_HOSTS:?{{ENV_PREFIX}}_DJANGO_ALLOWED_HOSTS is required}
     depends_on:
-      {{SERVICE_NAME}}_db:
+      {{PROJECT_MODULE}}_app_db:
         condition: service_healthy
     volumes:
       - {{SERVICE_NAME}}_test_documents:${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}/documents:z

@@ -64,6 +64,8 @@ grep -Fq 'path("", health_check, name="deployment-health")' \
     "$django_target/deployment_health/urls.py"
 grep -Fq 'path("health/", include("deployment_health.urls"))' \
     "$django_target/deployment_health/README.md"
+grep -Fq 'conf/urls.py must include deployment_health.urls for the /health/ endpoint' \
+    "$django_target/install.sh"
 for setting_example in APPS_NAMES CRONJOBS DATA_UPLOAD_MAX_MEMORY_SIZE \
     SECURE_PROXY_SSL_HEADER CSRF_TRUSTED_ORIGINS CONN_MAX_AGE; do
     grep -Fq "$setting_example" "$django_target/conf/template_settings.py"

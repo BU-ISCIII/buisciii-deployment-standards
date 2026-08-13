@@ -91,14 +91,6 @@ sudo chown -R <usuario-podman>:<usuario-podman> \
   /var/log/local/{{APP_SLUG}}
 ```
 
-Aplicar despues UID/GID internos, modos y etiquetas SELinux mediante el
-instalador. No modificar el arbol `/srv/containers/storage/` manualmente.
-
-```bash
-bash container_install.sh --action fix-permissions --engine podman \
-  {{CONFIG_MAP_EXAMPLES}}
-```
-
 ## Actualizar codigo
 
 Para un checkout nuevo:
@@ -136,6 +128,16 @@ Valores que requieren decision del responsable de la aplicacion:
 - rutas persistentes, UID/GID, SELinux y politica de backup;
 - correo, identidad, almacenamiento y ajustes propios de la aplicacion;
 - administrador inicial y transferencia segura de sus credenciales.
+
+Solo despues de crear y completar todos los ficheros bajo
+`deployment/settings/`, aplicar UID/GID internos, modos y etiquetas SELinux
+mediante el instalador. No modificar el arbol `/srv/containers/storage/`
+manualmente.
+
+```bash
+bash container_install.sh --action fix-permissions --engine podman \
+  {{CONFIG_MAP_EXAMPLES}}
+```
 
 ## Backup antes de actualizar
 

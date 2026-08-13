@@ -192,6 +192,7 @@ def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
                 "compose",
                 "container_install",
                 "documentation",
+                "settings_fragments",
             }:
                 continue
             relative = destination_for(template, source_root)
@@ -275,6 +276,7 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         "INSTALL_CONF",
         "TEST_INSTALL_CONF",
         "PROJECT_MODULE",
+        "API",
     }
     services: dict[str, dict[str, str]] = {}
     for raw_name, raw_service in raw.items():
@@ -283,7 +285,14 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
             raise ValueError(f"Invalid service name: {name!r}")
         if not isinstance(raw_service, dict):
             raise ValueError(f"SERVICES.{name} must be a JSON object")
-        service = {str(key): str(value) for key, value in raw_service.items()}
+        raw_api = raw_service.get("API", False)
+        if not isinstance(raw_api, bool):
+            raise ValueError(f"SERVICES.{name}.API must be true or false")
+        service = {
+            str(key): str(value)
+            for key, value in raw_service.items()
+            if key != "API"
+        }
         unknown_keys = sorted(service.keys() - allowed_keys)
         if unknown_keys:
             raise ValueError(
@@ -305,6 +314,9 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
             raise ValueError(
                 f"SERVICES.{name}.PROJECT_MODULE is valid only for Django services"
             )
+        if raw_api and profile != "django":
+            raise ValueError(f"SERVICES.{name}.API is supported only for Django services")
+        service["API"] = "true" if raw_api else "false"
         service["PROFILE"] = profile
         service.setdefault("IMAGE", f"{name.replace('_', '-')}:local")
         service.setdefault("DOCKERFILE", "Dockerfile")
@@ -509,8 +521,92 @@ def compose_variable(prefix: str, key: str, default: str | None = None) -> str:
 # by the profile's conventional Compose fragments.
 
 
+def optional_django_install_settings(
+    service: dict[str, str], mode: str, has_oidc: bool
+) -> str:
+    """Render optional API/OIDC installation values for one Django service."""
+    if service["PROFILE"] != "django":
+        return ""
+    fragments: list[str] = []
+    if service.get("API") == "true":
+        fragments.append(
+            (
+                PROFILE_TEMPLATES
+                / "django"
+                / "settings_fragments"
+                / f"api_{mode}_settings.txt.tmpl"
+            ).read_text(encoding="utf-8").rstrip()
+        )
+    if has_oidc:
+        fragments.append(
+            (
+                ADDON_TEMPLATES
+                / "keycloak"
+                / "conf"
+                / f"application_{mode}_settings.txt.tmpl"
+            ).read_text(encoding="utf-8").rstrip()
+        )
+    return "\n\n".join(fragments)
+
+
+def optional_django_python_settings(
+    service: dict[str, str], has_oidc: bool
+) -> str:
+    """Render optional environment readers into the Django settings template."""
+    if service["PROFILE"] != "django":
+        return ""
+    fragments: list[str] = []
+    if service.get("API") == "true":
+        fragments.append(
+            (PROFILE_TEMPLATES / "django" / "settings_fragments" / "api_settings.py.tmpl")
+            .read_text(encoding="utf-8")
+            .rstrip()
+        )
+    if has_oidc:
+        fragments.append(
+            (ADDON_TEMPLATES / "keycloak" / "conf" / "application_settings.py.tmpl")
+            .read_text(encoding="utf-8")
+            .rstrip()
+        )
+    return "\n\n".join(fragments)
+
+
+def optional_django_compose_environment(
+    service: dict[str, str], mode: str, has_oidc: bool
+) -> str:
+    """Render optional API/OIDC variables into a Django Compose service."""
+    if service["PROFILE"] != "django":
+        return ""
+    fragments: list[str] = []
+    values = {"ENV_PREFIX": "{{ENV_PREFIX}}"}
+    if service.get("API") == "true":
+        fragments.append(
+            render(
+                PROFILE_TEMPLATES
+                / "django"
+                / "compose"
+                / "api-service-environment.yml.tmpl",
+                values,
+            ).decode().rstrip()
+        )
+    if has_oidc:
+        fragments.append(
+            render(
+                ADDON_TEMPLATES
+                / "keycloak"
+                / "compose"
+                / f"application-{mode}-environment.yml.tmpl",
+                values,
+            ).decode().rstrip()
+        )
+    return ("\n" + "\n".join(fragments)) if fragments else ""
+
+
 def compose_service_block(
-    name: str, service: dict[str, str], mode: str
+    name: str,
+    service: dict[str, str],
+    mode: str,
+    oidc_service: str | None,
 ) -> ComposeCompilation:
     """Compile one service and optional profile-owned Compose fragments."""
     prefix = env_prefix(name)
@@ -528,6 +624,9 @@ def compose_service_block(
         "BUILD_CONTEXT_JSON": json.dumps(service["BUILD_CONTEXT"]),
         "DOCKERFILE_JSON": json.dumps(service["DOCKERFILE"]),
         "PROJECT_MODULE": service.get("PROJECT_MODULE", ""),
+        "OPTIONAL_SERVICE_ENVIRONMENT": optional_django_compose_environment(
+            service, mode, name == oidc_service
+        ).replace("{{ENV_PREFIX}}", prefix),
     }
 
     def optional_fragment(kind: str) -> list[str]:
@@ -661,8 +760,13 @@ def compile_addon_compose(
 def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tuple[Path, bytes]]]:
     services = normalized_services(config)
     addons = normalized_addons(config)
+    oidc_service = (
+        str(addons["keycloak"]["CONFIG_SERVICE"])
+        if "keycloak" in addons
+        else None
+    )
     compilations = [
-        compose_service_block(name, service, mode)
+        compose_service_block(name, service, mode, oidc_service)
         for name, service in services.items()
     ]
     compilations += [
@@ -948,6 +1052,12 @@ def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
     services = normalized_services(config)
     owned = owned_profile_service(config)
     settings_owner = owned[0] if owned else next(iter(services))
+    owner_service = services[settings_owner]
+    addons = normalized_addons(config)
+    has_oidc = (
+        "keycloak" in addons
+        and addons["keycloak"]["CONFIG_SERVICE"] == settings_owner
+    )
     return {
         "PRODUCTION_ADDON_SETTINGS": addon_settings_section(
             config, settings_owner, "production"
@@ -955,6 +1065,15 @@ def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
         "TEST_ADDON_SETTINGS": addon_settings_section(config, settings_owner, "test"),
         "ADDON_SETTINGS_DOCUMENTATION": addon_settings_documentation(
             config, settings_owner
+        ),
+        "PRODUCTION_OPTIONAL_APP_SETTINGS": optional_django_install_settings(
+            owner_service, "production", has_oidc
+        ),
+        "TEST_OPTIONAL_APP_SETTINGS": optional_django_install_settings(
+            owner_service, "test", has_oidc
+        ),
+        "DJANGO_OPTIONAL_SETTINGS": optional_django_python_settings(
+            owner_service, has_oidc
         ),
     }
 

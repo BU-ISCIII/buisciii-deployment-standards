@@ -19,6 +19,13 @@ grep -Fq 'node_modules/' "$target/.dockerignore"
 
 python3 "$repo_root/scripts/scaffold.py" init "$addons_target" \
     --config "$repo_root/scaffold/project.addons.json.example" >/dev/null
+
+grep -Fq "API_CORS_ALLOWED_ORIGINS='https://CHANGE_ME'" \
+    "$addons_target/conf/docker_production_settings.txt"
+grep -Fq "OIDC_ISSUER='https://CHANGE_ME/realms/CHANGE_ME'" \
+    "$addons_target/conf/docker_production_settings.txt"
+grep -Fq 'API_CORS_ALLOWED_ORIGINS:' "$addons_target/docker-compose.prod.yml"
+grep -Fq 'OIDC_ISSUER:' "$addons_target/docker-compose.prod.yml"
 grep -Fq '# BEGIN BU-ISCIII ADDON: apache' \
     "$addons_target/docker-compose.prod.yml"
 grep -Fq '# BEGIN BU-ISCIII ADDON: keycloak' \

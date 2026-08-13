@@ -37,6 +37,8 @@ DJANGO_ALLOWED_HOSTS='*'
 DJANGO_CSRF_TRUSTED_ORIGINS='http://localhost:8001,http://127.0.0.1:8001'
 DB_CONN_MAX_AGE='60'
 
+{{TEST_OPTIONAL_APP_SETTINGS}}
+
 ### Local email defaults
 EMAIL_HOST='host.docker.internal'
 EMAIL_PORT='25'

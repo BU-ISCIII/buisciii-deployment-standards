@@ -1,0 +1,11 @@
+# Generic relying-party values generated for the application selected by the
+# Keycloak add-on. Application authentication code consumes these OIDC values.
+OIDC_AUTH_REQUIRED = env_bool("OIDC_AUTH_REQUIRED", False)
+OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "")
+OIDC_JWKS_URL = os.environ.get("OIDC_JWKS_URL", "")
+OIDC_AUDIENCE = os.environ.get("OIDC_AUDIENCE", "")
+OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "")
+OIDC_JWKS_CACHE_TTL_SECONDS = int(
+    os.environ.get("OIDC_JWKS_CACHE_TTL_SECONDS", "300")
+)
+OIDC_JWKS_TIMEOUT_SECONDS = int(os.environ.get("OIDC_JWKS_TIMEOUT_SECONDS", "5"))

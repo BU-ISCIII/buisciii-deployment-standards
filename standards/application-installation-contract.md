@@ -22,7 +22,11 @@ cp scaffold/project.json.example /tmp/my-application.json
 The descriptor always contains `SERVICES` and `ADDONS`. A standalone project
 has one service; an orchestrator has several. Each service independently
 selects `PROFILE` as `django` or `react-vite`; Django also declares its stable
-`PROJECT_MODULE`. Runtime paths, ports and numeric identities belong only to
+`PROJECT_MODULE`. A Django service may declare `API: true` to receive the
+optional API configuration contract. When `ADDONS.keycloak.CONFIG_SERVICE`
+selects a Django service, that service also receives generic application-side
+`OIDC_*` settings; the Keycloak server retains its separate add-on settings.
+Runtime paths, ports and numeric identities belong only to
 the service's production/test settings. `container_install.sh` renders those
 settings into the protected Compose environment before either build or start,
 so Dockerfiles and Compose do not need duplicate descriptor values. Generate

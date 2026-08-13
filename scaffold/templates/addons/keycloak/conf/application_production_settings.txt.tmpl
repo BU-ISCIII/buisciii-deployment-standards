@@ -1,0 +1,11 @@
+### OIDC token validation for this application
+# Generated because ADDONS.keycloak.CONFIG_SERVICE selects this service.
+OIDC_AUTH_REQUIRED='true'
+# Issuer must exactly match the token's iss claim. JWKS exposes public signing keys.
+OIDC_ISSUER='https://CHANGE_ME/realms/CHANGE_ME'
+OIDC_JWKS_URL='https://CHANGE_ME/realms/CHANGE_ME/protocol/openid-connect/certs'
+# Audience identifies the protected API; client ID identifies the calling application.
+OIDC_AUDIENCE='CHANGE_ME'
+OIDC_CLIENT_ID='CHANGE_ME'
+OIDC_JWKS_CACHE_TTL_SECONDS='300'
+OIDC_JWKS_TIMEOUT_SECONDS='5'

@@ -14,7 +14,8 @@
       "IMAGE": "example-app:local",
       "INSTALL_CONF": "conf/docker_production_settings.txt",
       "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
-      "PROJECT_MODULE": "example_app"
+      "PROJECT_MODULE": "example_app",
+      "API": true
     }
   },
   "ADDONS": {

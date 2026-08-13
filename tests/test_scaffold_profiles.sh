@@ -46,6 +46,14 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+
+# Optional API/OIDC settings must not leak into ordinary Django projects.
+if grep -Eq 'API_(CORS|THROTTLE|DOCS)|OIDC_' \
+    "$django_target/conf/docker_production_settings.txt" \
+    "$django_target/docker-compose.prod.yml"; then
+    echo "FAIL: optional API/OIDC settings leaked into a plain Django service" >&2
+    exit 1
+fi
 for compose_template in prod.service.yml test.service.yml \
     prod.volumes.yml test.volumes.yml test.support-services.yml; do
     test -f "$repo_root/scaffold/templates/profiles/django/compose/${compose_template}.tmpl"

@@ -1,0 +1,8 @@
+### Optional Django API behavior
+# Generated because this Django service declares "API": true.
+# Complete browser origins use scheme and host; never use '*' with credentials.
+API_CORS_ALLOWED_ORIGINS='https://CHANGE_ME'
+# DRF-compatible request rate: number/second, number/minute, number/hour or number/day.
+API_THROTTLE_RATE='500/hour'
+# Applications may use this policy to restrict interactive API documentation.
+API_DOCS_REQUIRE_STAFF='true'

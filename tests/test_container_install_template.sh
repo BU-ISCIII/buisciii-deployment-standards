@@ -63,6 +63,10 @@ require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
     "common installer must build React with public Vite configuration"
 require_text 'deployment_compose -f "$compose_file" up -d --force-recreate' "$template" \
     "a successful build must recreate the complete topology in one invocation"
+require_text 'echo "Running services and published ports:"' "$template" \
+    "common installer must label the final service summary"
+require_text 'deployment_compose -f "$compose_file" ps' "$template" \
+    "common installer must print running services and resolved published ports"
 
 if grep -Eq '\{\{(ENV_PREFIX|REPO_PATH|INSTALL_PATH|UID|GID)_CASES\}\}' "$template"; then
     fail "generic settings lookups must not use generated service case tables"
@@ -72,6 +76,8 @@ python3 "$repo_root/scripts/scaffold.py" init "$target" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
 generated="$target/container_install.sh"
 bash -n "$generated"
+require_text 'print_service_summary' "$generated" \
+    "generated installer must print the final Compose service summary"
 require_text 'install_services=(api web)' "$generated" \
     "mixed installer must preserve application order"
 require_text 'permission_services=(api web apache keycloak_db keycloak)' "$generated" \

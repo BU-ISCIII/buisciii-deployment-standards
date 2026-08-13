@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Print a final Compose service summary after successful container installation
+  so operators can see the running services and copy their published host ports.
 - Reduced configuration to one production/test settings pair per application:
   internal build/bootstrap paths are no longer descriptor inputs, and Apache
   or Keycloak reuse namespaced sections in a selected application settings

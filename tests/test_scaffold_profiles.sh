@@ -91,6 +91,9 @@ grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
     "$django_target/container_install.sh"
 grep -Fq -- '--exclude /static --exclude /cron --exclude /tmp --exclude /virtualenv' \
     "$django_target/install.sh"
+grep -Fq 'PYTHONPATH= "$INSTALL_PATH/virtualenv/bin/python" -m django startproject' \
+    "$django_target/install.sh"
+grep -Fq '            "$PROJECT_MODULE" .' "$django_target/install.sh"
 grep -Fq -- '--noreload "0.0.0.0:${APP_PORT}"' \
     "$django_target/scripts/container_start.sh"
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"

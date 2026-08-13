@@ -47,6 +47,16 @@ require_text 'load_test_deployment_data()' "$template" \
     "common installer must expose inline application test-data customization"
 require_text 'application_supports_test_data=false' "$template" \
     "test-data capability must be explicit and disabled by default"
+require_text '[ -f "$demo_data" ] || die "Demo-data file not found: $demo_data"' "$template" \
+    "demo-data paths must fail before deployment work starts"
+require_text '[ "$mode" = test ] || [ -n "$demo_data" ]' "$template" \
+    "production demo data must require an explicit path"
+require_text 'elif [ "$action" = install ] && [ -n "$demo_data" ]' "$template" \
+    "production demo data must use a separate opt-in branch"
+require_text 'skip_test_data=true' "$template" \
+    "production demo imports must not enable test fixtures"
+require_text 'production --demo_data request' "$template" \
+    "production data loading must remain explicit and documented"
 require_text '--secret "id=install_conf,src=' "$template" \
     "common installer must build Django with an ephemeral secret"
 require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \

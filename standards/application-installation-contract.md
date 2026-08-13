@@ -233,6 +233,13 @@ If the capability is not implemented, the script MUST fail before modifying
 state and explain that it is not applicable. Options MUST never be silently
 ignored.
 
+Test installations MAY load application defaults when the capability is
+enabled. Production MUST never load demo data implicitly: it may invoke the
+same application callback only for `--action install` when the operator
+explicitly supplies an existing `--demo_data` file. The installer MUST validate
+and resolve that path before building or starting containers. An explicit
+production demo import MUST keep application test fixtures disabled.
+
 Canonical examples:
 
 ```bash

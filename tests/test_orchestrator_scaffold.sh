@@ -132,6 +132,10 @@ grep -Fq 'ProxyPass / http://${APACHE_UPSTREAM_SERVICE}:${APACHE_UPSTREAM_PORT}/
     "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq 'LimitRequestBody ${APACHE_LIMIT_REQUEST_BODY}' \
     "$target/conf/apache/01-reverse-proxy.conf"
+grep -Fq '# OPTIONAL SECOND DNS VIRTUAL HOST' \
+    "$target/conf/apache/01-reverse-proxy.conf"
+grep -Fq 'CustomLog logs/<LOG_STEM>-apache.access.log proxy env=forwarded' \
+    "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq 'ServerName ${SERVER_STATUS_SERVER_NAME}' \
     "$target/conf/apache/02-server-status.conf"
 grep -Fq 'Allow from ${SERVER_STATUS_ALLOW_FROM}' \
@@ -142,6 +146,10 @@ grep -Fq '# Apache add-on' "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "APACHE_PORT='8080'" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "APACHE_SERVER_NAME='CHANGE_ME_DNS_NAME'" \
     "$target/conf/apache/apache_production_settings.txt"
+grep -Fq "# APACHE_SECOND_SERVER_NAME='CHANGE_ME_SECOND_DNS_NAME'" \
+    "$target/conf/apache/apache_production_settings.txt"
+grep -Fq "# APACHE_SECOND_LOG_STEM='CHANGE_ME_LOG_STEM'" \
+    "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "APACHE_CONF_PATH=''" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "SERVER_STATUS_ALLOW_FROM='127.0.0.1 localhost'" \
     "$target/conf/apache/apache_production_settings.txt"
@@ -151,6 +159,8 @@ grep -Fq '# Keycloak add-on' "$target/conf/keycloak/keycloak_production_settings
 grep -Fq "KEYCLOAK_DB_PASSWORD='CHANGE_ME'" "$target/conf/keycloak/keycloak_production_settings.txt"
 grep -Fq "APACHE_PORT='8081'" "$target/conf/apache/apache_test_settings.txt"
 grep -Fq "APACHE_BIND_HOST='0.0.0.0'" "$target/conf/apache/apache_test_settings.txt"
+grep -Fq "# APACHE_SECOND_SERVER_NAME='second.localhost'" \
+    "$target/conf/apache/apache_test_settings.txt"
 grep -Fq "KEYCLOAK_DB_PASSWORD='keycloak_password'" "$target/conf/keycloak/keycloak_test_settings.txt"
 grep -Fq '### Apache' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq '### Keycloak' "$target/conf/INSTALL_SETTINGS.md"

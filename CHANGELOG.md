@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Document a complete optional second-DNS Apache virtual host and its matching
+  per-vhost settings set, with the same forwarded headers, limits, timeouts,
+  and per-host logging as the default.
 - Stage repository-owned Keycloak realm JSON into the deployment bind tree and
   assign the staged files to Keycloak instead of modifying repository sources.
 - Print a final Compose service summary after successful container installation

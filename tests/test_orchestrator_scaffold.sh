@@ -164,6 +164,12 @@ grep -Fq "# APACHE_SECOND_SERVER_NAME='second.localhost'" \
 grep -Fq "KEYCLOAK_DB_PASSWORD='keycloak_password'" "$target/conf/keycloak/keycloak_test_settings.txt"
 grep -Fq '### Apache' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq '### Keycloak' "$target/conf/INSTALL_SETTINGS.md"
+grep -Fq '/srv/containers/bind/example-orchestrator/keycloak/realm-import/' \
+    "$target/README.md"
+grep -Fq 'staging directory when' "$target/README.md"
+grep -Fq '/srv/containers/bind/example-orchestrator/keycloak/realm-import' \
+    "$target/LEAME.md"
+grep -Fq 'crea automaticamente esta ruta' "$target/LEAME.md"
 grep -Fq '`SERVER_STATUS_SERVER_NAME`' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq 'configured_services=(api web apache keycloak)' "$target/container_install.sh"
 grep -Fq 'service_environment_value "$1" REPO_PATH' \

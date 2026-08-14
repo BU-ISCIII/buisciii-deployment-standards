@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Document and inventory the automatically staged Keycloak realm bind whenever
+  the add-on is selected, including optional hardened-host pre-creation steps.
 - Document a complete optional second-DNS Apache virtual host and its matching
   per-vhost settings set, with the same forwarded headers, limits, timeouts,
   and per-host logging as the default.

@@ -1,0 +1,23 @@
+### Bind de importacion de Keycloak
+
+El instalador copia los JSON versionados desde `KEYCLOAK_REALM_SOURCE_PATH` a
+`KEYCLOAK_IMPORT_PATH` antes de iniciar Compose. Con la configuracion generada,
+crea automaticamente esta ruta si el usuario del despliegue puede escribir en
+`/srv/containers/bind/{{APP_SLUG}}`:
+
+```text
+/srv/containers/bind/{{APP_SLUG}}/keycloak/realm-import/
+```
+
+En hosts donde la politica exija crear previamente cada directorio, ejecutar:
+
+```bash
+sudo mkdir -p /srv/containers/bind/{{APP_SLUG}}/keycloak/realm-import
+sudo chown -R <usuario-podman>:<usuario-podman> \
+  /srv/containers/bind/{{APP_SLUG}}/keycloak
+```
+
+No modificar permisos ni propietarios de los JSON dentro del repositorio. El
+instalador asigna solo las copias staged a `1000:0` con modo `0640`. Incluir el
+directorio staged en el backup de binds; `keycloak_db_data` sigue siendo la
+fuente autoritativa de identidades.

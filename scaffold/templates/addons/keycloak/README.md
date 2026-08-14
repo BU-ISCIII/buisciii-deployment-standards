@@ -21,6 +21,9 @@ add-on settings file.
 
 The repository-owned realm source is copied into a deployment-owned bind under
 `/srv/containers/bind/<application>/keycloak/realm-import` for production.
+The installer creates this child directory automatically when the application
+bind root is writable by the deployment user; hardened hosts may pre-create it
+with the same deployment ownership.
 Keycloak imports a realm only when it does not already exist, normally on a
 fresh database. Normal backup/restore therefore protects `keycloak_db_data` and
 the staged realm configuration together. Optional provider/theme binds are

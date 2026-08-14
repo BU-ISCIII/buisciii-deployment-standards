@@ -1,0 +1,15 @@
+#### Keycloak realm bind
+
+The installer copies repository-owned JSON from `KEYCLOAK_REALM_SOURCE_PATH`
+into the deployment-owned `KEYCLOAK_IMPORT_PATH` before Compose starts. With
+the generated production default, the read-only bind source is:
+
+```text
+/srv/containers/bind/{{APP_SLUG}}/keycloak/realm-import/
+```
+
+Do not change permissions on the repository source. The installer creates the
+staging directory when `/srv/containers/bind/{{APP_SLUG}}` is writable by the
+deployment user and assigns staged files to Keycloak as `1000:0` with mode
+`0640`. Back up this directory with the other protected deployment binds, but
+use `keycloak_db_data` as the authoritative identity backup.

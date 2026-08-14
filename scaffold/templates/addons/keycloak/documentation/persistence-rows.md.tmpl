@@ -1,1 +1,2 @@
 | Keycloak database | `keycloak_db_data` MySQL named volume | Database and identity backup |
+| Keycloak staged realm | `/srv/containers/bind/{{APP_SLUG}}/keycloak/realm-import/` read-only host bind | Back up with deployment configuration; reproducible bootstrap input, not authoritative identity state |

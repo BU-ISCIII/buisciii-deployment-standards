@@ -108,6 +108,12 @@ require_text 'keycloak_running_mount_permission_spec=(' "$generated" \
     "Keycloak must declare a separate running-mount spec"
 require_text 'keycloak_db_running_mount_permission_spec=(' "$generated" \
     "Keycloak database must declare its own volume permission spec"
+require_text 'KEYCLOAK_REALM_SOURCE_PATH' "$generated" \
+    "Keycloak must stage repository-owned realm JSON"
+require_text 'copy_with_podman_fallback "$realm_source" "$realm_target"' "$generated" \
+    "Keycloak realm staging must use the protected bind-copy helper"
+require_text '"$realm_file|1000:0|0640"' "$generated" \
+    "staged realm JSON must be readable only by Keycloak's runtime identity"
 require_text 'keycloak_db' \
     "$repo_root/scaffold/templates/addons/keycloak/container_install/permission-services.txt.tmpl" \
     "Keycloak must own its permission-service declaration"

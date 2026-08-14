@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Stage repository-owned Keycloak realm JSON into the deployment bind tree and
+  assign the staged files to Keycloak instead of modifying repository sources.
 - Print a final Compose service summary after successful container installation
   so operators can see the running services and copy their published host ports.
 - Reduced configuration to one production/test settings pair per application:

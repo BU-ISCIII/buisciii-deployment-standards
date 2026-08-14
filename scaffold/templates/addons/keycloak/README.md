@@ -19,12 +19,13 @@ The source fragments are
 `docker_test_settings.txt.tmpl`. The scaffold renders each as an independent
 add-on settings file.
 
-The realm import bind is required but is not the persistent identity store.
+The repository-owned realm source is copied into a deployment-owned bind under
+`/srv/containers/bind/<application>/keycloak/realm-import` for production.
 Keycloak imports a realm only when it does not already exist, normally on a
 fresh database. Normal backup/restore therefore protects `keycloak_db_data` and
-the realm source configuration together. Optional provider/theme binds are
+the staged realm configuration together. Optional provider/theme binds are
 shown as commented examples in the Compose fragment.
 
-Permissions remain separate: the realm-import host bind has the Keycloak host
-spec, the Keycloak container has an explicit empty writable-mount spec, and the
-database volume is repaired by `keycloak_db_running_mount_permission_spec`.
+Permissions remain separate: staged realm files are owned by Keycloak UID/GID
+`1000:0` with mode `0640`, the Keycloak container has an explicit empty
+writable-mount spec, and the database volume is repaired separately.

@@ -13,5 +13,6 @@ KEYCLOAK_PORT='8081'
 KEYCLOAK_ADMIN='admin'
 KEYCLOAK_ADMIN_PASSWORD='admin'
 
-# Generated or application-owned test realm JSON directory.
-KEYCLOAK_IMPORT_PATH='./keycloak/tmp-import'
+# Repository source is staged into a disposable test bind directory.
+KEYCLOAK_REALM_SOURCE_PATH='./conf/keycloak/realm-import'
+KEYCLOAK_IMPORT_PATH='/tmp/{{APP_SLUG}}/data/keycloak/realm-import'

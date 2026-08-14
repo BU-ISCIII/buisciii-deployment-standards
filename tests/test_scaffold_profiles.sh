@@ -220,6 +220,9 @@ test ! -e "$repo_root/scaffold/templates/profiles/react-vite/container_install.s
 test ! -e "$repo_root/scaffold/templates/profiles/django/README.md.tmpl"
 test ! -e "$repo_root/scaffold/templates/profiles/react-vite/README.md.tmpl"
 
+grep -Fq 'local deadline=$((SECONDS + 60))' "$django_target/install.sh"
+grep -Fq 'after 60 seconds' "$django_target/install.sh"
+
 if python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     --config "$react_config" >/dev/null 2>&1; then
     echo "FAIL: sync must reject changing an initialized framework profile" >&2

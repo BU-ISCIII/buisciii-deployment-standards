@@ -63,6 +63,9 @@ require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
     "common installer must build React with public Vite configuration"
 require_text 'deployment_compose -f "$compose_file" up -d --force-recreate' "$template" \
     "a successful build must recreate the complete topology in one invocation"
+if grep -Fq '[ "$mode" = production ] || return 0' "$template"; then
+    fail "host permission repair must run through the same workflow in test and production"
+fi
 require_text 'echo "Running services and published ports:"' "$template" \
     "common installer must label the final service summary"
 require_text 'deployment_compose -f "$compose_file" ps' "$template" \

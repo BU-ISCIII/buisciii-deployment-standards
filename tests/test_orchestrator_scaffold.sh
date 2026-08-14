@@ -143,6 +143,7 @@ grep -Fq 'Allow from ${SERVER_STATUS_ALLOW_FROM}' \
 test -f "$target/conf/apache/apache_production_settings.txt"
 test -f "$target/conf/keycloak/keycloak_production_settings.txt"
 grep -Fq '# Apache add-on' "$target/conf/apache/apache_production_settings.txt"
+grep -Fq "# Example: api.example.org" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "APACHE_PORT='8080'" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "APACHE_SERVER_NAME='CHANGE_ME_DNS_NAME'" \
     "$target/conf/apache/apache_production_settings.txt"
@@ -156,7 +157,21 @@ grep -Fq "SERVER_STATUS_ALLOW_FROM='127.0.0.1 localhost'" \
 grep -Fq "SERVER_STATUS_SERVER_NAME='localhost'" \
     "$target/conf/apache/apache_production_settings.txt"
 grep -Fq '# Keycloak add-on' "$target/conf/keycloak/keycloak_production_settings.txt"
+grep -Fq "# Exact browser-facing URL routed by Apache. Example: https://auth.example.org" "$target/conf/keycloak/keycloak_production_settings.txt"
 grep -Fq "KEYCLOAK_DB_PASSWORD='CHANGE_ME'" "$target/conf/keycloak/keycloak_production_settings.txt"
+# The documented production copy operation must preserve template comments and
+# examples verbatim; operators edit only values in these protected copies.
+install -d -m 0700 "$target/deployment/settings"
+for component in apache keycloak; do
+    install -m 0600 "$target/conf/$component/${component}_production_settings.txt" \
+        "$target/deployment/settings/${component}_production_settings.txt"
+    cmp -s "$target/conf/$component/${component}_production_settings.txt" \
+        "$target/deployment/settings/${component}_production_settings.txt"
+done
+install -m 0600 "$target/conf/docker_production_settings.txt" \
+    "$target/deployment/settings/app_production_settings.txt"
+cmp -s "$target/conf/docker_production_settings.txt" \
+    "$target/deployment/settings/app_production_settings.txt"
 grep -Fq "APACHE_PORT='8081'" "$target/conf/apache/apache_test_settings.txt"
 grep -Fq "APACHE_BIND_HOST='0.0.0.0'" "$target/conf/apache/apache_test_settings.txt"
 grep -Fq "# APACHE_SECOND_SERVER_NAME='second.localhost'" \

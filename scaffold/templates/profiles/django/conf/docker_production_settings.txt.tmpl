@@ -4,94 +4,118 @@
 # Compose environment and temporary bootstrap copy.
 
 ### Application layout and Django project
-# Source repository staged in the image and final application installation.
+# Source repository staged in the image. Example: /srv/{{APP_SLUG}}
 REPO_PATH='/srv/{{APP_SLUG}}'
+# Final application runtime path. Example: /opt/{{APP_SLUG}}
 INSTALL_PATH='/opt/{{APP_SLUG}}'
 # Python package containing settings.py, urls.py and wsgi.py. This is generated
 # from project.json and normally should not be changed in this file.
 PROJECT_MODULE='{{PROJECT_MODULE}}'
 # Python executable used to create the application virtual environment.
+# Example: python3.12
 PYTHON_BIN_PATH='python{{PYTHON_VERSION}}'
 
 ### Application-specific installation modules
 # Optional space-separated Django applications consumed by installers that
 # support dependency and migration module lists. Leave empty when
 # the application install.sh does not implement the corresponding behavior.
-# iSkyLIMS example: REQUIRED_MODULES='core drylab wetlab clinic django_utils'
+# Example: REQUIRED_MODULES='core drylab wetlab clinic django_utils'
 REQUIRED_MODULES=''
+# Example: MIGRATION_MODULES='core drylab wetlab clinic django_utils'
 MIGRATION_MODULES=''
 
 ### Container runtime identity
-# UID/GID must own every writable bind mount and named volume.
+# UID/GID must own every writable bind mount and named volume. Example: 1212.
 APP_UID='1212'
 APP_GID='1212'
-# Production services should normally use a non-login shell.
+# Production services should normally use a non-login shell. Example: /sbin/nologin
 APP_SHELL='/sbin/nologin'
-# Internal application port used by Gunicorn and the reverse proxy.
+# Internal application port used by Gunicorn and the reverse proxy. Example: 8001
 APP_PORT='8001'
 
 ### Persistent host sources
 # Documents use the Compose-managed {{SERVICE_NAME}}_documents named volume.
 # Application logs remain on the host and must be creatable by the installer.
+# Example: /var/log/local/{{APP_SLUG}}/apps
 HOST_LOG_PATH='/var/log/local/{{APP_SLUG}}/apps'
 # Host bind source rendered before Compose starts. It must be a file path, not
 # a directory; the parent directory is created and protected by the installer.
+# Example: /srv/containers/bind/{{APP_SLUG}}/settings/{{PROJECT_MODULE}}/settings.py
 DJANGO_SETTINGS_PATH='/srv/containers/bind/{{APP_SLUG}}/settings/{{PROJECT_MODULE}}/settings.py'
 
 ### External production database
 # Use a host name or IP reachable from inside the application container.
 # For a database running on the container host with either Docker or Podman,
 # use host.docker.internal; the production Compose profile maps that alias.
+# Examples: DB_HOST='host.docker.internal', DB_PORT='3306'.
 DB_HOST='CHANGE_ME'
 DB_PORT='3306'
+# Example: DB_NAME='application_db'.
 DB_NAME='CHANGE_ME'
+# Example: DB_USER='application_user'.
 DB_USER='CHANGE_ME'
+# Secret. Example: a long value from the institutional password manager.
 DB_PASSWORD='CHANGE_ME'
 
 ### Django security and public URLs
 # Production debug must remain disabled.
 DJANGO_DEBUG='false'
 # Preserve this value across upgrades; changing it invalidates signed data.
+# Example: a randomly generated value of at least 50 characters.
 DJANGO_SECRET_KEY='CHANGE_ME'
 # Comma-separated host names accepted by Django, without URL schemes.
+# Example: api.example.org,localhost
 DJANGO_ALLOWED_HOSTS='CHANGE_ME'
 # Comma-separated complete HTTPS origins, including their schemes.
+# Example: https://api.example.org
 DJANGO_CSRF_TRUSTED_ORIGINS='https://CHANGE_ME'
-# Persistent database connection lifetime in seconds.
+# Persistent database connection lifetime in seconds. Example: 60
 DB_CONN_MAX_AGE='60'
 
 {{PRODUCTION_OPTIONAL_APP_SETTINGS}}
 
 ### Email
-# SMTP endpoint reachable from the application container.
+# SMTP endpoint reachable from the application container. Example: smtp.example.org
 EMAIL_HOST='CHANGE_ME'
+# SMTP port. Examples: 25 or 587.
 EMAIL_PORT='25'
+# SMTP login. Example: application@example.org; leave empty if unused.
 EMAIL_HOST_USER='CHANGE_ME'
+# Secret. Example: a value from the institutional password manager.
 EMAIL_HOST_PASSWORD='CHANGE_ME'
 # Python boolean spelling is used because settings rendering writes this value
-# directly into settings.py.
+# directly into settings.py. Example: True for STARTTLS on port 587.
 EMAIL_USE_TLS='False'
 
 ### Initial administrator (bootstrap install only)
 # Opt in only when a fresh installation should create its first Django
 # administrator. Keep the protected production settings file mode at 0600.
 CREATE_INITIAL_SUPERUSER='false'
+# Example: admin
 DJANGO_SUPERUSER_USERNAME='admin'
+# Example: application-admin@example.org; empty is allowed.
 DJANGO_SUPERUSER_EMAIL=''
+# Secret. Example: a one-time random bootstrap password; empty when creation is disabled.
 DJANGO_SUPERUSER_PASSWORD=''
 
 ### Gunicorn and startup tuning
+# Worker processes. Example: 2
 WEB_CONCURRENCY='2'
+# Threads per worker. Example: 2
 GUNICORN_THREADS='2'
+# Maximum request duration in seconds. Example: 300
 GUNICORN_TIMEOUT='300'
+# HTTP keep-alive duration in seconds. Example: 5
 GUNICORN_KEEPALIVE='5'
-# Maximum time container_start.sh waits for staged application files.
+# Maximum time container_start.sh waits for staged application files. Example: 100
 APP_START_WAIT_TIMEOUT_SECONDS='100'
 
 ### Application log policy compatibility
 # regular_folder stores logs below INSTALL_PATH. symbolic_link links that
 # directory to LOG_PATH, which must already exist and be writable.
+# Example: LOG_TYPE='regular_folder'.
 LOG_TYPE='regular_folder'
+# Example for symbolic_link: /var/log/local/{{APP_SLUG}}/apps; otherwise empty.
 LOG_PATH=''
 
 ### Selected infrastructure add-ons

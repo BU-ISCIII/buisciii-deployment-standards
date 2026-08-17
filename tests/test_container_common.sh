@@ -302,11 +302,13 @@ printf '%s\n' \
     'DEBUG = djangodebug' \
     'CSRF_TRUSTED_ORIGINS = "djangocsrftrustedorigins"' \
     'CONN_MAX_AGE = dbconnmaxage' \
+    'EMAIL_USE_TLS = emailhosttls' \
     'DB_USER = "djangouser"' \
     'DB_HOST = "djangohost"' \
     'OIDC_ISSUER = settingsconf_OIDC_ISSUER' > "$settings_template"
 printf '%s\n' 'DB_USER=test_user' 'DB_HOST=db.internal' \
     'DJANGO_DEBUG=true' 'DJANGO_CSRF_TRUSTED_ORIGINS=https://app.example.test' \
+    'EMAIL_USE_TLS=true' \
     'DB_CONN_MAX_AGE=60' "OIDC_ISSUER='https://auth.example.test/realms/a\"b'" \
     > "$test_conf"
 engine=docker
@@ -314,6 +316,8 @@ render_django_settings_file "$settings_template" "$settings_file" "$test_conf"
 grep -Fq 'DB_USER = "test_user"' "$settings_file" || fail "Django DB user rendering"
 grep -Fq 'DB_HOST = "db.internal"' "$settings_file" || fail "Django DB host rendering"
 grep -Fq 'DEBUG = True' "$settings_file" || fail "Django debug rendering"
+grep -Fq 'EMAIL_USE_TLS = True' "$settings_file" \
+    || fail "Django email TLS boolean rendering"
 grep -Fq 'CSRF_TRUSTED_ORIGINS = "https://app.example.test"' "$settings_file" \
     || fail "Django CSRF origins rendering"
 grep -Fq 'CONN_MAX_AGE = 60' "$settings_file" || fail "Django connection age rendering"
@@ -323,11 +327,21 @@ grep -Eq "^SECRET_KEY = '[^']+'$" "$settings_file" || fail "Django secret render
 first_secret="$(grep -E '^SECRET_KEY[[:space:]]*=' "$settings_file")"
 printf '%s\n' 'DB_USER=updated_user' 'DB_HOST=db.internal' \
     'DJANGO_DEBUG=false' 'OIDC_ISSUER=https://auth.example.test/realms/updated' \
+    'EMAIL_USE_TLS=False' \
     > "$test_conf"
 render_django_settings_file "$settings_template" "$settings_file" "$test_conf"
 assert_equal "$first_secret" "$(grep -E '^SECRET_KEY[[:space:]]*=' "$settings_file")" \
     "preserve Django secret during rerender"
 grep -Fq 'DB_USER = "updated_user"' "$settings_file" || fail "Django settings rerender"
+grep -Fq 'EMAIL_USE_TLS = False' "$settings_file" \
+    || fail "Django false email TLS boolean rendering"
+
+printf '%s\n' 'DB_USER=test_user' 'DB_HOST=db.internal' \
+    'DJANGO_DEBUG=false' 'EMAIL_USE_TLS=not-a-boolean' > "$test_conf"
+if render_django_settings_file \
+    "$settings_template" "$settings_file" "$test_conf" 2>/dev/null; then
+    fail "Django renderer must reject an invalid email TLS boolean"
+fi
 
 service_container_name() { [ "$1" = "app" ] && echo "known_app"; }
 django_permission_call=""

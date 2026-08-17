@@ -214,9 +214,43 @@ install_application_system_packages() {
 prepare_application_directories() {
     # Argument: final INSTALL_PATH. Create application-specific persistent
     # directories here. Generic logs/documents/static/cron/tmp already exist.
-    # Example:
-    #   mkdir -p "$1/documents/genomic_files" "$1/logs/audit"
-    :
+    local application_path="$1"
+    local logs_path="$application_path/logs"
+
+    # Container deployments bind-mount the log directory and do not need the
+    # legacy bare-metal symlink policy.
+    [[ "$WORKFLOW" == "standard" ]] || return 0
+
+    case "${LOG_TYPE:-regular_folder}" in
+        regular_folder)
+            [[ ! -L "$logs_path" ]] \
+                || die "$logs_path is a symbolic link but LOG_TYPE is regular_folder"
+            mkdir -p "$logs_path"
+            ;;
+        symbolic_link)
+            : "${LOG_PATH:?LOG_PATH is required when LOG_TYPE is symbolic_link}"
+            [[ "$LOG_PATH" == /* ]] \
+                || die "LOG_PATH must be an absolute path when LOG_TYPE is symbolic_link"
+            [[ -d "$LOG_PATH" ]] \
+                || die "Log directory does not exist: $LOG_PATH"
+
+            if [[ -L "$logs_path" ]]; then
+                [[ "$(readlink "$logs_path")" == "$LOG_PATH" ]] && return 0
+                rm "$logs_path"
+            elif [[ -d "$logs_path" ]]; then
+                # The standard creates this directory before invoking the hook.
+                # Refuse to replace it if it already contains application data.
+                rmdir "$logs_path" \
+                    || die "Cannot replace non-empty log directory with a symbolic link: $logs_path"
+            elif [[ -e "$logs_path" ]]; then
+                die "Cannot replace non-directory log path: $logs_path"
+            fi
+            ln -s "$LOG_PATH" "$logs_path"
+            ;;
+        *)
+            die "LOG_TYPE must be regular_folder or symbolic_link"
+            ;;
+    esac
 }
 
 stage_application_custom_files() {
@@ -292,8 +326,18 @@ PY
 set_application_permissions() {
     # Argument: final INSTALL_PATH. Direct/bare-metal installs can customize
     # owner/group here; container orchestration owns container mount permissions.
-    # Example: chown -R "${APP_UID}:${APP_GID}" "$1/logs" "$1/documents"
-    :
+    [[ "$WORKFLOW" == "standard" ]] || return 0
+    local logs_path="$1/logs"
+    local writable_logs_path="$logs_path"
+
+    [[ "${LOG_TYPE:-regular_folder}" != "symbolic_link" ]] \
+        || writable_logs_path="${LOG_PATH:?LOG_PATH is required when LOG_TYPE is symbolic_link}"
+    chmod 0775 "$writable_logs_path"
+    if [[ $(id -u) -eq 0 ]]; then
+        : "${APP_UID:?APP_UID is required for bare-metal permissions}"
+        : "${APP_GID:?APP_GID is required for bare-metal permissions}"
+        chown "$APP_UID:$APP_GID" "$writable_logs_path"
+    fi
 }
 
 restart_application_server() {

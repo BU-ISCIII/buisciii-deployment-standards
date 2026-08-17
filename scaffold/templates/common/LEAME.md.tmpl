@@ -47,9 +47,10 @@ completo. La libreria compartida detecta ambos proveedores automaticamente.
 
 ## Estructura de directorios en los servidores
 
-Todos los despliegues usan esta estructura institucional. El nombre de la
-aplicacion separa sus fuentes bind, logs y backups; Podman administra su propio
-storage y no debe modificarse manualmente.
+Todos los despliegues usan esta estructura institucional. El despliegue separa
+sus fuentes, binds, logs y backups; un servicio externo puede conservar un
+namespace distinto, definido por sus rutas protegidas. Podman administra su
+propio storage y no debe modificarse manualmente.
 
 ```text
 /opt/containers_apps/
@@ -61,14 +62,14 @@ storage y no debe modificarse manualmente.
 ├── backup/
 │   └── {{APP_SLUG}}/               # Backup central recomendado
 ├── bind/
-│   └── {{APP_SLUG}}/
+│   └── <namespace-configurado>/
 │       └── settings/                   # settings.py renderizado por servicio
 ├── shared/                             # Datos compartidos entre aplicaciones
 └── storage/
     └── <usuario-podman>/               # Storage rootless gestionado por Podman
 
 /var/log/local/
-└── {{APP_SLUG}}/
+└── <namespace-configurado>/
     ├── apache/
     └── apps/
 ```
@@ -81,21 +82,32 @@ Persistencia declarada por el despliegue:
 
 ## Preparar directorios del host
 
-Crear la estructura comun antes de la primera instalacion. Sustituir
-`<usuario-podman>` por la cuenta que ejecutara siempre Podman y el instalador. Es decir, normalmente la cuenta con la que estás conectado a la máquina virtual.
+Crear primero la estructura comun. Sustituir `<usuario-podman>` por la cuenta
+que ejecutara siempre Podman y el instalador; normalmente es la cuenta de la
+sesion actual.
 
 ```bash
 sudo mkdir -p /opt/containers_apps/{{APP_SLUG}}
 sudo mkdir -p /srv/containers/backup/{{APP_SLUG}}
-sudo mkdir -p /srv/containers/bind/{{APP_SLUG}}/settings
-sudo mkdir -p /var/log/local/{{APP_SLUG}}/apps
-sudo mkdir -p /var/log/local/{{APP_SLUG}}/apache
 sudo chown -R <usuario-podman>:<usuario-podman> \
   /opt/containers_apps/{{APP_SLUG}} \
-  /srv/containers/backup/{{APP_SLUG}} \
-  /srv/containers/bind/{{APP_SLUG}} \
-  /var/log/local/{{APP_SLUG}}
+  /srv/containers/backup/{{APP_SLUG}}
 ```
+
+Despues de copiar y completar todos los ficheros protegidos en
+`deployment/settings/`, crear los binds exactamente donde indica cada
+servicio. Los ficheros se cargan como el usuario actual dentro de subshells;
+solo `install -d` usa privilegios. Esto incluye servicios con un namespace de
+host distinto al despliegue principal.
+
+```bash
+PODMAN_USER='<usuario-podman>'
+{{HOST_PATH_PREPARATION_COMMANDS}}
+```
+
+Revisar las rutas resueltas en los ficheros protegidos antes de ejecutar. No
+usar valores procedentes de una configuracion no revisada y no ejecutar los
+ficheros completos con `sudo`.
 
 ## Actualizar codigo
 

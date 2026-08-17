@@ -894,6 +894,7 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
     config_copy_commands: list[str] = []
     protected_settings_paths: list[str] = []
     post_install_checks: list[str] = []
+    host_path_preparation_commands: list[str] = []
     selected_profiles = list(
         dict.fromkeys(service["PROFILE"] for service in services.values())
     )
@@ -927,6 +928,21 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         protected_settings_paths.append(
             f"deployment/settings/{name}_production_settings.txt"
         )
+        if service["PROFILE"] == "django":
+            protected_settings = (
+                f"deployment/settings/{name}_production_settings.txt"
+            )
+            host_path_preparation_commands.extend(
+                [
+                    "(",
+                    f"  source {shlex.quote(protected_settings)}",
+                    f'  : "${{HOST_LOG_PATH:?HOST_LOG_PATH is required for {name}}}"',
+                    f'  : "${{DJANGO_SETTINGS_PATH:?DJANGO_SETTINGS_PATH is required for {name}}}"',
+                    '  sudo install -d -o "$PODMAN_USER" -g "$PODMAN_USER" \\',
+                    '    "$HOST_LOG_PATH" "$(dirname "$DJANGO_SETTINGS_PATH")"',
+                    ")",
+                ]
+            )
         post_install_checks.append(
             f"- `{name}`: confirmar su endpoint `/health/` y un flujo "
             "representativo de lectura."
@@ -961,6 +977,29 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         protected_settings_paths.append(
             f"deployment/settings/{addon}_production_settings.txt"
         )
+        addon_host_paths = {
+            "apache": ("APACHE_LOG_PATH",),
+            "keycloak": ("KEYCLOAK_IMPORT_PATH",),
+        }.get(addon, ())
+        if addon_host_paths:
+            protected_settings = (
+                f"deployment/settings/{addon}_production_settings.txt"
+            )
+            host_path_preparation_commands.extend(
+                ["(", f"  source {shlex.quote(protected_settings)}"]
+            )
+            for variable in addon_host_paths:
+                host_path_preparation_commands.append(
+                    f'  : "${{{variable}:?{variable} is required for {addon}}}"'
+                )
+            quoted_paths = " ".join(f'"${variable}"' for variable in addon_host_paths)
+            host_path_preparation_commands.extend(
+                [
+                    '  sudo install -d -o "$PODMAN_USER" -g "$PODMAN_USER" \\',
+                    f"    {quoted_paths}",
+                    ")",
+                ]
+            )
 
     addon_post_install_checks = {
         "apache": (
@@ -1135,6 +1174,9 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         "CONFIG_BACKUP_COMMANDS": "\n".join(config_backup_commands),
         "CONFIG_RESTORE_COMMANDS": "\n".join(config_restore_commands),
         "POST_INSTALL_CHECKS": "\n".join(post_install_checks),
+        "HOST_PATH_PREPARATION_COMMANDS": "\n".join(
+            host_path_preparation_commands
+        ),
     }
 
 

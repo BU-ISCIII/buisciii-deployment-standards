@@ -57,6 +57,11 @@ for document in README.md LEAME.md; do
 done
 grep -Fq '| Revision aprobada | Tag o commit inmutable y aprobacion asociada |' \
     "$django_target/LEAME.md"
+grep -Fq 'source deployment/settings/app_production_settings.txt' \
+    "$django_target/LEAME.md"
+grep -Fq 'HOST_LOG_PATH is required for app' "$django_target/LEAME.md"
+grep -Fq '"$HOST_LOG_PATH" "$(dirname "$DJANGO_SETTINGS_PATH")"' \
+    "$django_target/LEAME.md"
 grep -Fq -- '- `app`: confirmar su endpoint `/health/`' "$django_target/LEAME.md"
 ! grep -Fq -- '- API de `app`:' "$django_target/LEAME.md"
 ! grep -Fq '<fichero-ajustes-protegido>' "$django_target/LEAME.md"

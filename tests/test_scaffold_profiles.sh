@@ -71,6 +71,11 @@ settings_copy_line="$(grep -n 'install -m 0600 conf/docker_production_settings.t
 host_source_line="$(grep -n 'source deployment/settings/app_production_settings.txt' \
     "$django_target/LEAME.md" | cut -d: -f1)"
 test "$settings_copy_line" -lt "$host_source_line"
+settings_heading_line="$(grep -n '^## Configurar los ajustes de produccion$' \
+    "$django_target/LEAME.md" | cut -d: -f1)"
+host_heading_line="$(grep -n '^## Preparar directorios persistentes del host$' \
+    "$django_target/LEAME.md" | cut -d: -f1)"
+test "$settings_heading_line" -lt "$host_heading_line"
 grep -Fq -- '- `app`: confirmar su endpoint `/health/`' "$django_target/LEAME.md"
 ! grep -Fq -- '- API de `app`:' "$django_target/LEAME.md"
 ! grep -Fq '<fichero-ajustes-protegido>' "$django_target/LEAME.md"

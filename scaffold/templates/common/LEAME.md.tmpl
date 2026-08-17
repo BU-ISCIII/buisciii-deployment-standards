@@ -9,9 +9,10 @@ abajo con valores o referencias institucionales verificadas.
 
 - [Requisitos](#requisitos)
 - [Estructura de directorios en los servidores](#estructura-de-directorios-en-los-servidores)
-- [Preparar directorios del host](#preparar-directorios-del-host)
+- [Preparar checkout y backup](#preparar-checkout-y-backup)
 - [Actualizar codigo](#actualizar-codigo)
 - [Configurar los ajustes de produccion](#configurar-los-ajustes-de-produccion)
+- [Preparar directorios persistentes del host](#preparar-directorios-persistentes-del-host)
 - [Backup antes de actualizar](#backup-antes-de-actualizar)
 - [Ejecutar la actualizacion](#ejecutar-la-actualizacion)
 - [Comprobaciones posteriores](#comprobaciones-posteriores)
@@ -80,11 +81,12 @@ Persistencia declarada por el despliegue:
 |---|---|---|
 {{PERSISTENCE_ROWS}}
 
-## Preparar directorios del host
+## Preparar checkout y backup
 
-Crear primero la estructura comun. Sustituir `<usuario-podman>` por la cuenta
-que ejecutara siempre Podman y el instalador; normalmente es la cuenta de la
-sesion actual.
+Crear solo las ubicaciones necesarias para obtener el codigo y guardar backups.
+Sustituir `<usuario-podman>` por la cuenta que ejecutara siempre Podman y el
+instalador; normalmente es la cuenta de la sesion actual. Los binds y logs se
+crean mas adelante, despues de completar los ajustes protegidos.
 
 ```bash
 sudo mkdir -p /opt/containers_apps/{{APP_SLUG}}
@@ -124,22 +126,6 @@ install -d -m 0700 deployment/settings
 {{CONFIG_COPY_COMMANDS}}
 ```
 
-Editar unicamente las copias bajo `deployment/settings/`. Los comandos de
-instalacion y actualizacion usan estas rutas protegidas.
-
-Despues de completar y revisar esos ficheros, crear los binds exactamente donde
-indica cada servicio. Los ficheros se cargan como el usuario actual dentro de
-subshells; solo `install -d` usa privilegios. Esto incluye servicios con un
-namespace de host distinto al despliegue principal.
-
-```bash
-PODMAN_USER='<usuario-podman>'
-{{HOST_PATH_PREPARATION_COMMANDS}}
-```
-
-Revisar las rutas resueltas antes de ejecutar. No usar valores procedentes de
-una configuracion no revisada y no ejecutar los ficheros completos con `sudo`.
-
 Valores que requieren decision del responsable de la aplicacion:
 
 - hostnames publicos, TLS y proxy;
@@ -148,10 +134,26 @@ Valores que requieren decision del responsable de la aplicacion:
 - correo, identidad, almacenamiento y ajustes propios de la aplicacion;
 - administrador inicial y transferencia segura de sus credenciales.
 
-Solo despues de crear y completar todos los ficheros bajo
-`deployment/settings/`, aplicar UID/GID internos, modos y etiquetas SELinux
-mediante el instalador. No modificar el arbol `/srv/containers/storage/`
-manualmente.
+Editar unicamente las copias bajo `deployment/settings/`, completar todas esas
+decisiones y resolver cada `CHANGE_ME` antes de continuar. Los comandos de
+instalacion y actualizacion usan estas rutas protegidas.
+
+## Preparar directorios persistentes del host
+
+Solo despues de completar y revisar todos los ajustes, crear los binds
+exactamente donde indica cada servicio. Los ficheros se cargan como el usuario
+actual dentro de subshells; solo `install -d` usa privilegios. Esto incluye
+servicios con un namespace de host distinto al despliegue principal.
+
+```bash
+PODMAN_USER='<usuario-podman>'
+{{HOST_PATH_PREPARATION_COMMANDS}}
+```
+
+Revisar las rutas resueltas antes de ejecutar. No usar valores procedentes de
+una configuracion no revisada y no ejecutar los ficheros completos con `sudo`.
+Aplicar despues UID/GID internos, modos y etiquetas SELinux mediante el
+instalador. No modificar `/srv/containers/storage/` manualmente.
 
 ```bash
 bash container_install.sh --action fix-permissions --engine podman \

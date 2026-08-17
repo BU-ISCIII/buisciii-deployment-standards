@@ -65,6 +65,7 @@ for callback in readiness-path.case container-install-conf.case \
 done
 test -f "$django_target/install.sh"
 test -f "$django_target/conf/template_settings.py"
+grep -Fq '"django_extensions"' "$django_target/conf/template_settings.py"
 for health_file in __init__.py views.py urls.py README.md; do
     test -f "$django_target/deployment_health/$health_file"
 done

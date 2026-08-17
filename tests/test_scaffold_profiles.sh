@@ -47,6 +47,21 @@ fi
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
 
+# Documentation must enumerate topology-owned protected files and must present
+# operator decisions as deployment inputs instead of unfinished review markers.
+for document in README.md LEAME.md; do
+    grep -Fq 'cp deployment/settings/app_production_settings.txt "$BACKUP_DIR/"' \
+        "$django_target/$document"
+    grep -Fq 'install -m 0600 "$BACKUP_DIR/app_production_settings.txt" deployment/settings/app_production_settings.txt' \
+        "$django_target/$document"
+done
+grep -Fq '| Revision aprobada | Tag o commit inmutable y aprobacion asociada |' \
+    "$django_target/LEAME.md"
+grep -Fq -- '- `app`: confirmar su endpoint `/health/`' "$django_target/LEAME.md"
+! grep -Fq -- '- API de `app`:' "$django_target/LEAME.md"
+! grep -Fq '<fichero-ajustes-protegido>' "$django_target/LEAME.md"
+! grep -Fq '<REVISAR' "$django_target/LEAME.md"
+
 # Optional API/OIDC settings must not leak into ordinary Django projects.
 if grep -Eq 'API_(CORS|THROTTLE|DOCS)|OIDC_' \
     "$django_target/conf/docker_production_settings.txt" \

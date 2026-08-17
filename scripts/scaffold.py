@@ -892,6 +892,8 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
     persistence_rows: list[str] = []
     config_map_examples: list[str] = []
     config_copy_commands: list[str] = []
+    protected_settings_paths: list[str] = []
+    post_install_checks: list[str] = []
     selected_profiles = list(
         dict.fromkeys(service["PROFILE"] for service in services.values())
     )
@@ -922,6 +924,19 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
             f"install -m 0600 {shlex.quote(service['INSTALL_CONF'])} "
             f"deployment/settings/{name}_production_settings.txt"
         )
+        protected_settings_paths.append(
+            f"deployment/settings/{name}_production_settings.txt"
+        )
+        post_install_checks.append(
+            f"- `{name}`: confirmar su endpoint `/health/` y un flujo "
+            "representativo de lectura."
+        )
+        if service.get("API") == "true":
+            post_install_checks.append(
+                f"- API de `{name}`: confirmar la ruta documentada con "
+                "autenticacion valida y el rechazo de credenciales ausentes o "
+                "invalidas."
+            )
         persistence_rows.append(
             rendered_documentation_fragment(
                 "profile",
@@ -943,6 +958,44 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
             f"install -m 0600 conf/{addon}/{addon}_production_settings.txt "
             f"deployment/settings/{addon}_production_settings.txt"
         )
+        protected_settings_paths.append(
+            f"deployment/settings/{addon}_production_settings.txt"
+        )
+
+    addon_post_install_checks = {
+        "apache": (
+            "- Apache: confirmar la URL publica registrada, DNS/TLS, proxy, "
+            "cabeceras reenviadas y el endpoint restringido de server-status."
+        ),
+        "keycloak": (
+            "- Keycloak: confirmar discovery del realm, validacion de tokens "
+            "OIDC y login/logout; probar acceso administrativo solo cuando el "
+            "add-on lo habilite."
+        ),
+        "nextstrain": (
+            "- Nextstrain: confirmar la ruta publica y cada dataset o narrativa "
+            "esperados tras cargar los datos Auspice revisados."
+        ),
+        "samba": (
+            "- Samba: en cada modo habilitado, confirmar acceso autenticado y un "
+            "flujo representativo de lectura/escritura desde un cliente aprobado."
+        ),
+    }
+    post_install_checks.extend(
+        addon_post_install_checks[addon]
+        for addon in addons
+        if addon in addon_post_install_checks
+    )
+
+    config_backup_commands = ['cp .env.production.file "$BACKUP_DIR/"']
+    config_backup_commands.extend(
+        f"cp {shlex.quote(path)} \"$BACKUP_DIR/\""
+        for path in protected_settings_paths
+    )
+    config_restore_commands = [
+        f"install -m 0600 \"$BACKUP_DIR/{Path(path).name}\" {shlex.quote(path)}"
+        for path in protected_settings_paths
+    ]
 
     profile_notes = [
         rendered_documentation_fragment("profile", profile, "profile.md", {})
@@ -1079,6 +1132,9 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         "PERSISTENCE_ROWS": "\n".join(persistence_rows),
         "CONFIG_MAP_EXAMPLES": " ".join(config_map_examples),
         "CONFIG_COPY_COMMANDS": "\n".join(config_copy_commands),
+        "CONFIG_BACKUP_COMMANDS": "\n".join(config_backup_commands),
+        "CONFIG_RESTORE_COMMANDS": "\n".join(config_restore_commands),
+        "POST_INSTALL_CHECKS": "\n".join(post_install_checks),
     }
 
 

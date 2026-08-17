@@ -1062,6 +1062,8 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
     ]
     operational_notes: list[str] = []
     runbook_operational_notes: list[str] = []
+    addon_backup_commands: list[str] = []
+    addon_restore_commands: list[str] = []
     for name, service in services.items():
         operational = (
             PROFILE_TEMPLATES
@@ -1098,6 +1100,16 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         for addon in addons
     ]
     for addon in addons:
+        addon_backup = ADDON_TEMPLATES / addon / "documentation" / "backup.md.tmpl"
+        if addon_backup.is_file():
+            addon_backup_commands.append(
+                rendered_documentation_fragment("addon", addon, "backup.md", {})
+            )
+        addon_restore = ADDON_TEMPLATES / addon / "documentation" / "restore.md.tmpl"
+        if addon_restore.is_file():
+            addon_restore_commands.append(
+                rendered_documentation_fragment("addon", addon, "restore.md", {})
+            )
         addon_local_test = ADDON_TEMPLATES / addon / "documentation" / "local-test.md.tmpl"
         if addon_local_test.is_file():
             local_test_notes.append(
@@ -1177,6 +1189,8 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         "HOST_PATH_PREPARATION_COMMANDS": "\n".join(
             host_path_preparation_commands
         ),
+        "ADDON_BACKUP_COMMANDS": "\n".join(addon_backup_commands),
+        "ADDON_RESTORE_COMMANDS": "\n".join(addon_restore_commands),
     }
 
 

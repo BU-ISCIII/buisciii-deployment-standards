@@ -94,21 +94,6 @@ sudo chown -R <usuario-podman>:<usuario-podman> \
   /srv/containers/backup/{{APP_SLUG}}
 ```
 
-Despues de copiar y completar todos los ficheros protegidos en
-`deployment/settings/`, crear los binds exactamente donde indica cada
-servicio. Los ficheros se cargan como el usuario actual dentro de subshells;
-solo `install -d` usa privilegios. Esto incluye servicios con un namespace de
-host distinto al despliegue principal.
-
-```bash
-PODMAN_USER='<usuario-podman>'
-{{HOST_PATH_PREPARATION_COMMANDS}}
-```
-
-Revisar las rutas resueltas en los ficheros protegidos antes de ejecutar. No
-usar valores procedentes de una configuracion no revisada y no ejecutar los
-ficheros completos con `sudo`.
-
 ## Actualizar codigo
 
 Para un checkout nuevo:
@@ -141,6 +126,19 @@ install -d -m 0700 deployment/settings
 
 Editar unicamente las copias bajo `deployment/settings/`. Los comandos de
 instalacion y actualizacion usan estas rutas protegidas.
+
+Despues de completar y revisar esos ficheros, crear los binds exactamente donde
+indica cada servicio. Los ficheros se cargan como el usuario actual dentro de
+subshells; solo `install -d` usa privilegios. Esto incluye servicios con un
+namespace de host distinto al despliegue principal.
+
+```bash
+PODMAN_USER='<usuario-podman>'
+{{HOST_PATH_PREPARATION_COMMANDS}}
+```
+
+Revisar las rutas resueltas antes de ejecutar. No usar valores procedentes de
+una configuracion no revisada y no ejecutar los ficheros completos con `sudo`.
 
 Valores que requieren decision del responsable de la aplicacion:
 
@@ -188,6 +186,7 @@ Localizar y exportar cada volumen no reconstruible declarado en la tabla:
 podman volume ls | grep '{{APP_SLUG}}'
 podman volume export <volumen-documents> > "$BACKUP_DIR/documents.tar"
 podman volume export <volumen-static> > "$BACKUP_DIR/static.tar"
+{{ADDON_BACKUP_COMMANDS}}
 ```
 
 Exportar `documents` y `static` por cada servicio Django que los declare;
@@ -270,13 +269,17 @@ podman volume import <volumen-static> "$BACKUP_DIR/static.tar"
 tar -C /srv/containers/bind -xzf "$BACKUP_DIR/bind-mounts.tar.gz"
 install -d -m 0700 deployment/settings
 {{CONFIG_RESTORE_COMMANDS}}
+bash container_install.sh --action fix-permissions --engine podman \
+  {{CONFIG_MAP_EXAMPLES}}
+{{ADDON_RESTORE_COMMANDS}}
 ```
 
-Restaurar el fichero de ajustes protegido, desplegar la revision anotada en
-`git-revision.txt` y dejar que el instalador regenere `.env.production.file`.
-Ejecutar `fix-permissions`, arrancar y validar antes de
-reabrir el servicio. Los volumenes deben existir y estar vacios antes de
-`podman volume import`; recrearlos con Compose cuando sea necesario.
+Restaurar todos los ficheros de ajustes protegidos y desplegar la revision
+anotada en `git-revision.txt`. `fix-permissions` regenera
+`.env.production.file` antes de cualquier restauracion gestionada por un
+add-on. Arrancar y validar antes de reabrir el servicio. Los volumenes deben
+existir y estar vacios antes de `podman volume import`; recrearlos con Compose
+cuando sea necesario.
 
 ## Reparar permisos
 

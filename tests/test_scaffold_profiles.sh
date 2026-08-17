@@ -22,9 +22,13 @@ django_target="$work_dir/django-app"
 react_target="$work_dir/react-app"
 django_config="$work_dir/django.json"
 react_config="$work_dir/react.json"
+keycloak_config="$work_dir/keycloak.json"
+keycloak_target="$work_dir/keycloak-app"
 legacy_config="$work_dir/legacy.json"
 legacy_service_config="$work_dir/legacy-service.json"
 cp "$repo_root/scaffold/project.json.example" "$django_config"
+sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "app"}}/' \
+    "$django_config" > "$keycloak_config"
 sed -e 's/"PROFILE": "django"/"PROFILE": "react-vite"/' \
     -e 's#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt",#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt"#' \
     -e '/"PROJECT_MODULE":/d' \
@@ -62,6 +66,11 @@ grep -Fq 'source deployment/settings/app_production_settings.txt' \
 grep -Fq 'HOST_LOG_PATH is required for app' "$django_target/LEAME.md"
 grep -Fq '"$HOST_LOG_PATH" "$(dirname "$DJANGO_SETTINGS_PATH")"' \
     "$django_target/LEAME.md"
+settings_copy_line="$(grep -n 'install -m 0600 conf/docker_production_settings.txt' \
+    "$django_target/LEAME.md" | cut -d: -f1)"
+host_source_line="$(grep -n 'source deployment/settings/app_production_settings.txt' \
+    "$django_target/LEAME.md" | cut -d: -f1)"
+test "$settings_copy_line" -lt "$host_source_line"
 grep -Fq -- '- `app`: confirmar su endpoint `/health/`' "$django_target/LEAME.md"
 ! grep -Fq -- '- API de `app`:' "$django_target/LEAME.md"
 ! grep -Fq '<fichero-ajustes-protegido>' "$django_target/LEAME.md"
@@ -201,6 +210,14 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     docker compose --env-file "$react_env" \
         -f "$react_target/docker-compose.test.yml" config --quiet
 fi
+
+python3 "$repo_root/scripts/scaffold.py" init "$keycloak_target" \
+    --config "$keycloak_config" >/dev/null
+for document in README.md LEAME.md; do
+    grep -Fq '> "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
+    grep -Fq '< "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
+    grep -Fq 'up -d keycloak_db' "$keycloak_target/$document"
+done
 
 # Outer deployment structure is common regardless of the selected framework.
 diff <(grep '^## ' "$django_target/README.md") \

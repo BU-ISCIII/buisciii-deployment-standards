@@ -287,6 +287,7 @@ mysqldump --single-transaction --routines --triggers \
 
 podman volume ls | grep '{{APP_SLUG}}'
 podman volume export "$DOCUMENTS_VOLUME" > "$BACKUP_DIR/documents.tar"
+{{ADDON_BACKUP_COMMANDS}}
 tar -C /srv/containers/bind -czf "$BACKUP_DIR/bind-mounts.tar.gz" {{APP_SLUG}}
 sha256sum "$BACKUP_DIR"/* > "$BACKUP_DIR/SHA256SUMS"
 ```
@@ -337,6 +338,7 @@ install -d -m 0700 deployment/settings
 {{CONFIG_RESTORE_COMMANDS}}
 bash container_install.sh --action fix-permissions --engine podman \
   {{CONFIG_MAP_EXAMPLES}}
+{{ADDON_RESTORE_COMMANDS}}
 ```
 
 Then deploy the revision recorded in `git-revision.txt`, start the deployment,

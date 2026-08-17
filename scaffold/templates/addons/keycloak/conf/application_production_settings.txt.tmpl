@@ -1,11 +1,18 @@
 ### OIDC token validation for this application
 # Generated because ADDONS.keycloak.CONFIG_SERVICE selects this service.
+# Require valid OIDC authentication for protected production APIs. Example: true
 OIDC_AUTH_REQUIRED='true'
-# Issuer must exactly match the token's iss claim. JWKS exposes public signing keys.
+# Issuer must exactly match the token's iss claim.
+# Example: https://auth.example.org/realms/institutional
 OIDC_ISSUER='https://CHANGE_ME/realms/CHANGE_ME'
+# Public signing-key endpoint for the issuer realm.
+# Example: https://auth.example.org/realms/institutional/protocol/openid-connect/certs
 OIDC_JWKS_URL='https://CHANGE_ME/realms/CHANGE_ME/protocol/openid-connect/certs'
-# Audience identifies the protected API; client ID identifies the calling application.
+# Audience accepted in access tokens. Example: pathocore-api
 OIDC_AUDIENCE='CHANGE_ME'
+# Calling OAuth client accepted by the application. Example: pathocore-web
 OIDC_CLIENT_ID='CHANGE_ME'
+# Public signing-key cache lifetime in seconds. Example: 300
 OIDC_JWKS_CACHE_TTL_SECONDS='300'
+# Maximum JWKS HTTP request duration in seconds. Example: 5
 OIDC_JWKS_TIMEOUT_SECONDS='5'

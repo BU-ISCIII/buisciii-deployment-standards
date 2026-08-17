@@ -13,6 +13,13 @@ The assembler follows the PathoCore identity stack and generates both
 Keycloak owns production and test settings under `conf/keycloak/`. Map a
 protected production copy with `--install_conf_map keycloak,<path>`.
 `CONFIG_SERVICE` still identifies the related application for derived defaults.
+The selected application's settings also expose a generic
+`KEYCLOAK_ADMIN_API_*` contract for optional realm/user administration. Those
+credentials are application runtime inputs and are intentionally distinct from
+the add-on's `KEYCLOAK_ADMIN` server-bootstrap account.
+Set `ADDONS.keycloak.ADMIN_ACCESS` to `true` to generate that application-side
+contract. It defaults to `false`, so OIDC-only applications do not receive
+unused administration settings or Compose variables.
 
 The source fragments are
 `addons/keycloak/conf/docker_production_settings.txt.tmpl` and

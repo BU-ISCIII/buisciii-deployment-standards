@@ -1,10 +1,18 @@
 ### OIDC token validation for this application
 # Generated because ADDONS.keycloak.CONFIG_SERVICE selects this service.
 # Disabled by default so disposable tests do not require identity bootstrap.
+# Require OIDC authentication in the disposable stack. Example: false
 OIDC_AUTH_REQUIRED='false'
+# Issuer expected in test tokens. Example: http://127.0.0.1:8081/realms/test
 OIDC_ISSUER='http://127.0.0.1:8081/realms/test'
+# Public signing-key endpoint for the disposable realm.
+# Example: http://127.0.0.1:8081/realms/test/protocol/openid-connect/certs
 OIDC_JWKS_URL='http://127.0.0.1:8081/realms/test/protocol/openid-connect/certs'
+# Audience accepted in disposable test tokens. Example: test-api
 OIDC_AUDIENCE='test-api'
+# Calling OAuth client accepted in tests. Example: test-client
 OIDC_CLIENT_ID='test-client'
+# Public signing-key cache lifetime in seconds. Example: 300
 OIDC_JWKS_CACHE_TTL_SECONDS='300'
+# Maximum JWKS HTTP request duration in seconds. Example: 5
 OIDC_JWKS_TIMEOUT_SECONDS='5'

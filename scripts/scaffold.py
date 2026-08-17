@@ -350,9 +350,10 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
         if not isinstance(options, dict):
             raise ValueError(f"ADDONS.{name} must be a JSON object")
         normalized_options = dict(options)
-        unknown_options = sorted(
-            set(normalized_options) - {"CONFIG_SERVICE", "MOUNTS", "MODES"}
-        )
+        supported_options = {"CONFIG_SERVICE", "MOUNTS", "MODES"}
+        if name == "keycloak":
+            supported_options.add("ADMIN_ACCESS")
+        unknown_options = sorted(set(normalized_options) - supported_options)
         if unknown_options:
             raise ValueError(
                 f"ADDONS.{name} contains unsupported options: "
@@ -367,6 +368,11 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 f"service {config_service!r}"
             )
         normalized_options["CONFIG_SERVICE"] = config_service
+        if name == "keycloak":
+            admin_access = normalized_options.get("ADMIN_ACCESS", False)
+            if not isinstance(admin_access, bool):
+                raise ValueError("ADDONS.keycloak.ADMIN_ACCESS must be a boolean")
+            normalized_options["ADMIN_ACCESS"] = admin_access
         raw_modes = normalized_options.get("MODES", ["prod", "test"])
         if not isinstance(raw_modes, list) or not raw_modes:
             raise ValueError(f"ADDONS.{name}.MODES must be a non-empty array")
@@ -522,7 +528,7 @@ def compose_variable(prefix: str, key: str, default: str | None = None) -> str:
 
 
 def optional_django_install_settings(
-    service: dict[str, str], mode: str, has_oidc: bool
+    service: dict[str, str], mode: str, has_oidc: bool, has_keycloak_admin: bool
 ) -> str:
     """Render optional API/OIDC installation values for one Django service."""
     if service["PROFILE"] != "django":
@@ -546,11 +552,20 @@ def optional_django_install_settings(
                 / f"application_{mode}_settings.txt.tmpl"
             ).read_text(encoding="utf-8").rstrip()
         )
+    if has_keycloak_admin:
+        fragments.append(
+            (
+                ADDON_TEMPLATES
+                / "keycloak"
+                / "conf"
+                / f"admin_application_{mode}_settings.txt.tmpl"
+            ).read_text(encoding="utf-8").rstrip()
+        )
     return "\n\n".join(fragments)
 
 
 def optional_django_python_settings(
-    service: dict[str, str], has_oidc: bool
+    service: dict[str, str], has_oidc: bool, has_keycloak_admin: bool
 ) -> str:
     """Render optional environment readers into the Django settings template."""
     if service["PROFILE"] != "django":
@@ -568,11 +583,17 @@ def optional_django_python_settings(
             .read_text(encoding="utf-8")
             .rstrip()
         )
+    if has_keycloak_admin:
+        fragments.append(
+            (ADDON_TEMPLATES / "keycloak" / "conf" / "admin_application_settings.py.tmpl")
+            .read_text(encoding="utf-8")
+            .rstrip()
+        )
     return "\n\n".join(fragments)
 
 
 def optional_django_compose_environment(
-    service: dict[str, str], mode: str, has_oidc: bool
+    service: dict[str, str], mode: str, has_oidc: bool, has_keycloak_admin: bool
 ) -> str:
     """Render optional API/OIDC variables into a Django Compose service."""
     if service["PROFILE"] != "django":
@@ -599,6 +620,16 @@ def optional_django_compose_environment(
                 values,
             ).decode().rstrip()
         )
+    if has_keycloak_admin:
+        fragments.append(
+            render(
+                ADDON_TEMPLATES
+                / "keycloak"
+                / "compose"
+                / f"admin-application-{mode}-environment.yml.tmpl",
+                values,
+            ).decode().rstrip()
+        )
     return ("\n" + "\n".join(fragments)) if fragments else ""
 
 
@@ -607,6 +638,7 @@ def compose_service_block(
     service: dict[str, str],
     mode: str,
     oidc_service: str | None,
+    keycloak_admin_access: bool,
 ) -> ComposeCompilation:
     """Compile one service and optional profile-owned Compose fragments."""
     prefix = env_prefix(name)
@@ -625,7 +657,7 @@ def compose_service_block(
         "DOCKERFILE_JSON": json.dumps(service["DOCKERFILE"]),
         "PROJECT_MODULE": service.get("PROJECT_MODULE", ""),
         "OPTIONAL_SERVICE_ENVIRONMENT": optional_django_compose_environment(
-            service, mode, name == oidc_service
+            service, mode, name == oidc_service, name == oidc_service and keycloak_admin_access
         ).replace("{{ENV_PREFIX}}", prefix),
     }
 
@@ -765,8 +797,11 @@ def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tup
         if "keycloak" in addons
         else None
     )
+    keycloak_admin_access = bool(
+        "keycloak" in addons and addons["keycloak"].get("ADMIN_ACCESS", False)
+    )
     compilations = [
-        compose_service_block(name, service, mode, oidc_service)
+        compose_service_block(name, service, mode, oidc_service, keycloak_admin_access)
         for name, service in services.items()
     ]
     compilations += [
@@ -1058,6 +1093,9 @@ def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
         "keycloak" in addons
         and addons["keycloak"]["CONFIG_SERVICE"] == settings_owner
     )
+    has_keycloak_admin = bool(
+        has_oidc and addons["keycloak"].get("ADMIN_ACCESS", False)
+    )
     return {
         "PRODUCTION_ADDON_SETTINGS": addon_settings_section(
             config, settings_owner, "production"
@@ -1067,13 +1105,13 @@ def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
             config, settings_owner
         ),
         "PRODUCTION_OPTIONAL_APP_SETTINGS": optional_django_install_settings(
-            owner_service, "production", has_oidc
+            owner_service, "production", has_oidc, has_keycloak_admin
         ),
         "TEST_OPTIONAL_APP_SETTINGS": optional_django_install_settings(
-            owner_service, "test", has_oidc
+            owner_service, "test", has_oidc, has_keycloak_admin
         ),
         "DJANGO_OPTIONAL_SETTINGS": optional_django_python_settings(
-            owner_service, has_oidc
+            owner_service, has_oidc, has_keycloak_admin
         ),
     }
 

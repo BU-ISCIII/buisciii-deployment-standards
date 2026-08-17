@@ -32,6 +32,8 @@ Set optional `API: true` only on Django services that need the standard API
 configuration contract. When the Keycloak add-on selects a Django service with
 `CONFIG_SERVICE`, the scaffold also adds the application-side OIDC validation
 settings to that service; these are distinct from the Keycloak server settings.
+Set `ADDONS.keycloak.ADMIN_ACCESS` to `true` only when the application also
+calls the Keycloak Admin REST API; it defaults to `false`.
 The one service using `BUILD_CONTEXT: "."` owns this repository's profile
 artifacts such as its Dockerfile and inner installer. Other services reference
 their own application repositories through external build contexts.

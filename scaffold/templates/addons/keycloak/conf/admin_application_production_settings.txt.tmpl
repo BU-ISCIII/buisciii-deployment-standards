@@ -1,0 +1,23 @@
+### Application-side Keycloak Admin REST API client
+# Generated only when ADDONS.keycloak.ADMIN_ACCESS is true.
+# Base Keycloak URL without /realms/<realm>. Example: https://auth.example.org
+KEYCLOAK_ADMIN_API_BASE_URL='https://CHANGE_ME'
+# Realm managed by the application. Example: institutional-realm
+KEYCLOAK_ADMIN_API_REALM='CHANGE_ME'
+# Realm used to obtain the admin access token. Example: master
+KEYCLOAK_ADMIN_API_TOKEN_REALM='master'
+# OAuth client used for admin-token requests. Example: admin-cli
+KEYCLOAK_ADMIN_API_CLIENT_ID='admin-cli'
+# Optional confidential-client secret; leave empty for password authentication.
+KEYCLOAK_ADMIN_API_CLIENT_SECRET=''
+# Optional service administrator username. Example: pathocore-admin
+KEYCLOAK_ADMIN_API_USERNAME=''
+# Secret for KEYCLOAK_ADMIN_API_USERNAME; leave empty when client-secret auth is used.
+KEYCLOAK_ADMIN_API_PASSWORD=''
+# Timeout in seconds for Keycloak Admin REST API requests. Example: 10
+KEYCLOAK_ADMIN_API_TIMEOUT_SECONDS='10'
+# Send Keycloak required-action emails after account changes. Example: true
+KEYCLOAK_ADMIN_API_SEND_ACTION_EMAILS='true'
+# Optional absolute redirect URI included in required-action emails.
+# Example: https://app.example.org/account/ready
+KEYCLOAK_ADMIN_API_ACTION_EMAIL_REDIRECT_URI=''

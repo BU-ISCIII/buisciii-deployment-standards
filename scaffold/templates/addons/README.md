@@ -24,14 +24,20 @@ A standalone application can select both current add-ons as follows:
     "MOUNTS": []
   },
   "keycloak": {
-    "CONFIG_SERVICE": "app"
+    "CONFIG_SERVICE": "app",
+    "ADMIN_ACCESS": false
   }
 }
 ```
 
 `CONFIG_SERVICE` identifies the application used for add-on relationships and
 derived defaults. Add-on values remain in `conf/<addon>/` and are mapped with
-the same repeatable `--install_conf_map` option as applications. `MOUNTS` is optional and contains complete
+the same repeatable `--install_conf_map` option as applications.
+
+For Keycloak, `ADMIN_ACCESS` defaults to `false`; enable it only for an
+application that needs the generated `KEYCLOAK_ADMIN_API_*` client contract.
+
+`MOUNTS` is optional and contains complete
 Compose mount strings contributed to an add-on that provides an
 `application-mount` fragment; Apache currently supports it. For example:
 

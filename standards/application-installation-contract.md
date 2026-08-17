@@ -26,6 +26,8 @@ selects `PROFILE` as `django` or `react-vite`; Django also declares its stable
 optional API configuration contract. When `ADDONS.keycloak.CONFIG_SERVICE`
 selects a Django service, that service also receives generic application-side
 `OIDC_*` settings; the Keycloak server retains its separate add-on settings.
+`ADDONS.keycloak.ADMIN_ACCESS` defaults to `false` and MUST be enabled only when
+the selected application needs the Keycloak Admin REST API client contract.
 Runtime paths, ports and numeric identities belong only to
 the service's production/test settings. `container_install.sh` renders those
 settings into the protected Compose environment before either build or start,

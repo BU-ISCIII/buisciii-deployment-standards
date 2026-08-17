@@ -6,6 +6,8 @@
             uid="$(service_uid "$service_name")"; gid="$(service_gid "$service_name")"
             stage_container_runtime_config "$container_id" "${install_conf_host_by_service[$service_name]}" "$runtime_conf" "$uid" "$gid"
             args=(--bootstrap "$deployment_action" --git_revision "$git_revision" --conf "$runtime_conf" --skip_apache_restart)
+            [ "$load_tables" = false ] || args+=(--tables)
+            [ "$skip_tables" = false ] || args+=(--skip_tables)
             for hook in "${migration_script_before[@]}"; do args+=(--script_before "$hook"); done
             for hook in "${migration_script_after[@]}"; do args+=(--script_after "$hook"); done
             status=0; engine_exec exec "$container_id" bash "$repo_path/install.sh" "${args[@]}" || status=$?

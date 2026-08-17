@@ -89,6 +89,12 @@ grep -Fq 'INSTALL_CONF: "conf/docker_test_settings.txt"' \
     "$django_target/docker-compose.test.yml"
 grep -Fq 'runtime_conf=conf/.runtime_install_settings.txt' \
     "$django_target/container_install.sh"
+grep -Fq -- '--tables                          Load initial tables; opt-in on upgrades.' \
+    "$django_target/container_install.sh"
+grep -Fq '[ "$load_tables" = false ] || args+=(--tables)' \
+    "$django_target/container_install.sh"
+grep -Fq -- '&& -f "$install_script_dir/conf/first_install_tables.json"' \
+    "$django_target/install.sh"
 grep -Fq -- '--exclude /static --exclude /cron --exclude /tmp --exclude /virtualenv' \
     "$django_target/install.sh"
 grep -Fq 'PYTHONPATH= "$INSTALL_PATH/virtualenv/bin/python" -m django startproject' \

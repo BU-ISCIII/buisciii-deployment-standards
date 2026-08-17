@@ -11,10 +11,10 @@ from pathlib import Path
 
 def env_bool(name, default=False):
     """Read a conventional boolean environment variable."""
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    value = os.environ.get(name, default)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def env_list(name, default=""):

@@ -303,10 +303,12 @@ printf '%s\n' \
     'CSRF_TRUSTED_ORIGINS = "djangocsrftrustedorigins"' \
     'CONN_MAX_AGE = dbconnmaxage' \
     'DB_USER = "djangouser"' \
-    'DB_HOST = "djangohost"' > "$settings_template"
+    'DB_HOST = "djangohost"' \
+    'OIDC_ISSUER = settingsconf_OIDC_ISSUER' > "$settings_template"
 printf '%s\n' 'DB_USER=test_user' 'DB_HOST=db.internal' \
     'DJANGO_DEBUG=true' 'DJANGO_CSRF_TRUSTED_ORIGINS=https://app.example.test' \
-    'DB_CONN_MAX_AGE=60' > "$test_conf"
+    'DB_CONN_MAX_AGE=60' "OIDC_ISSUER='https://auth.example.test/realms/a\"b'" \
+    > "$test_conf"
 engine=docker
 render_django_settings_file "$settings_template" "$settings_file" "$test_conf"
 grep -Fq 'DB_USER = "test_user"' "$settings_file" || fail "Django DB user rendering"
@@ -315,10 +317,13 @@ grep -Fq 'DEBUG = True' "$settings_file" || fail "Django debug rendering"
 grep -Fq 'CSRF_TRUSTED_ORIGINS = "https://app.example.test"' "$settings_file" \
     || fail "Django CSRF origins rendering"
 grep -Fq 'CONN_MAX_AGE = 60' "$settings_file" || fail "Django connection age rendering"
+grep -Fq 'OIDC_ISSUER = "https://auth.example.test/realms/a\"b"' "$settings_file" \
+    || fail "Django application setting rendering and Python quoting"
 grep -Eq "^SECRET_KEY = '[^']+'$" "$settings_file" || fail "Django secret rendering"
 first_secret="$(grep -E '^SECRET_KEY[[:space:]]*=' "$settings_file")"
 printf '%s\n' 'DB_USER=updated_user' 'DB_HOST=db.internal' \
-    'DJANGO_DEBUG=false' > "$test_conf"
+    'DJANGO_DEBUG=false' 'OIDC_ISSUER=https://auth.example.test/realms/updated' \
+    > "$test_conf"
 render_django_settings_file "$settings_template" "$settings_file" "$test_conf"
 assert_equal "$first_secret" "$(grep -E '^SECRET_KEY[[:space:]]*=' "$settings_file")" \
     "preserve Django secret during rerender"

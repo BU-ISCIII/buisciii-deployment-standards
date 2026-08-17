@@ -1,6 +1,12 @@
 # Generic values generated for Django services that declare "API": true.
 # Application code decides which CORS, throttling and documentation packages
 # consume them; the deployment standard does not force a specific API library.
-API_CORS_ALLOWED_ORIGINS = env_list("API_CORS_ALLOWED_ORIGINS")
-API_THROTTLE_RATE = os.environ.get("API_THROTTLE_RATE", "500/hour")
-API_DOCS_REQUIRE_STAFF = env_bool("API_DOCS_REQUIRE_STAFF", True)
+API_CORS_ALLOWED_ORIGINS = env_list(
+    "API_CORS_ALLOWED_ORIGINS", settingsconf_API_CORS_ALLOWED_ORIGINS
+)
+API_THROTTLE_RATE = os.environ.get(
+    "API_THROTTLE_RATE", settingsconf_API_THROTTLE_RATE
+)
+API_DOCS_REQUIRE_STAFF = env_bool(
+    "API_DOCS_REQUIRE_STAFF", settingsconf_API_DOCS_REQUIRE_STAFF
+)

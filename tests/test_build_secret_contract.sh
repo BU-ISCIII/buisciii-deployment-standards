@@ -18,6 +18,8 @@ grep -Fq 'RENDER_DJANGO_SETTINGS: "true"' "$target/docker-compose.test.yml"
 grep -Fq 'conf/*settings*.txt' "$target/.dockerignore"
 grep -Fq '!conf/docker_test_settings.txt' "$target/.dockerignore"
 grep -Fq 'node_modules/' "$target/.dockerignore"
+grep -Fq 'node_modules/' "$target/.gitignore"
+grep -Fq '.next/' "$target/.gitignore"
 
 python3 "$repo_root/scripts/scaffold.py" init "$addons_target" \
     --config "$repo_root/scaffold/project.addons.json.example" >/dev/null

@@ -213,6 +213,7 @@ compatibility option; new internal calls SHOULD use `--skip_apache_restart`.
 
 ```text
 --demo_data <path>
+--demo_data_map <service,path>
 --git_revision <branch|tag|commit|current>
 --compose_file <path>
 --install_conf <path>
@@ -223,6 +224,7 @@ compatibility option; new internal calls SHOULD use `--skip_apache_restart`.
 --script <script[,args]>
 --skip_demo_data
 --skip_test_data
+--skip_test_data_service <service>
 --engine docker|podman
 --test
 --help
@@ -230,7 +232,8 @@ compatibility option; new internal calls SHOULD use `--skip_apache_restart`.
 ```
 
 Single-service and non-demo applications MUST still recognize
-`--install_conf_map`, `--demo_data`, `--skip_demo_data`, and `--skip_test_data`.
+`--install_conf_map`, `--demo_data`, `--demo_data_map`, `--skip_demo_data`,
+`--skip_test_data`, and `--skip_test_data_service`.
 If the capability is not implemented, the script MUST fail before modifying
 state and explain that it is not applicable. Options MUST never be silently
 ignored.
@@ -238,9 +241,12 @@ ignored.
 Test installations MAY load application defaults when the capability is
 enabled. Production MUST never load demo data implicitly: it may invoke the
 same application callback only for `--action install` when the operator
-explicitly supplies an existing `--demo_data` file. The installer MUST validate
-and resolve that path before building or starting containers. An explicit
-production demo import MUST keep application test fixtures disabled.
+explicitly supplies an existing data file. Multi-service deployments MUST use
+repeatable `--demo_data_map <service,path>` entries; `--demo_data <path>` is a
+single-service compatibility option. The installer MUST reject unknown or
+duplicate services and validate and resolve every path before building or
+starting containers. An explicit production demo import MUST keep application
+test fixtures disabled.
 
 Canonical examples:
 

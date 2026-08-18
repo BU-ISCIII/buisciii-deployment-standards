@@ -47,15 +47,25 @@ require_text 'load_test_deployment_data()' "$template" \
     "common installer must expose inline application test-data customization"
 require_text 'application_supports_test_data=false' "$template" \
     "test-data capability must be explicit and disabled by default"
-require_text '[ -f "$demo_data" ] || die "Demo-data file not found: $demo_data"' "$template" \
+require_text '[ -f "$path" ] || die "Demo-data file not found for $service_name: $path"' "$template" \
     "demo-data paths must fail before deployment work starts"
-require_text '[ "$mode" = test ] || [ -n "$demo_data" ]' "$template" \
+require_text '[ "$mode" = test ] || [ "${#demo_data_by_service[@]}" -gt 0 ]' "$template" \
     "production demo data must require an explicit path"
-require_text 'elif [ "$action" = install ] && [ -n "$demo_data" ]' "$template" \
+require_text 'elif [ "$action" = install ] && [ "${#demo_data_by_service[@]}" -gt 0 ]' "$template" \
     "production demo data must use a separate opt-in branch"
+require_text '--demo_data_map <service,path>' "$template" \
+    "installer must document repeatable service-specific demo data"
+require_text 'demo_data_by_service["$service_name"]=' "$template" \
+    "validated demo data must be keyed by service"
+require_text 'Duplicate --demo_data_map service' "$template" \
+    "duplicate service mappings must be rejected"
+require_text 'load_test_deployment_data "$demo_data_service" "$demo_data"' "$template" \
+    "data loaders must receive the selected service and normalized path"
+require_text '--skip_test_data_service <service>' "$template" \
+    "installer must support selective fixture skipping"
 require_text 'skip_test_data=true' "$template" \
     "production demo imports must not enable test fixtures"
-require_text 'production --demo_data request' "$template" \
+require_text 'production --demo_data_map request' "$template" \
     "production data loading must remain explicit and documented"
 require_text 'build_production_service "$service_name" "$context" "$dockerfile"' "$template" \
     "common installer must dispatch profile-owned production builds"

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Derive each Django test database service from its deployment service name,
+  not `PROJECT_MODULE`, so multiple projects may safely use modules such as
+  `conf` without producing duplicate Compose keys or sharing a database.
 - Render generic and application-owned Django runtime defaults safely from the
   selected installation settings while retaining environment overrides, and
   standardize the optional application-side `KEYCLOAK_ADMIN_API_*` contract.

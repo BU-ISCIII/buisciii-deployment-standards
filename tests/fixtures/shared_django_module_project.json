@@ -1,0 +1,27 @@
+{
+  "APP_NAME": "Shared Django Module Orchestrator",
+  "APP_SLUG": "shared-module-orchestrator",
+  "DESCRIPTION": "Regression fixture for services sharing a Django project module.",
+  "REPOSITORY_URL": "https://example.invalid/shared-module-orchestrator.git",
+  "DEFAULT_BRANCH": "main",
+  "PYTHON_VERSION": "3.12",
+  "TIMEZONE": "Europe/Madrid",
+  "SERVICES": {
+    "pathocore_api": {
+      "PROFILE": "django",
+      "BUILD_CONTEXT": "../pathocore-api",
+      "DOCKERFILE": "Dockerfile",
+      "INSTALL_CONF": "../pathocore-api/conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "../pathocore-api/conf/docker_test_settings.txt",
+      "PROJECT_MODULE": "conf"
+    },
+    "mepram_omop_api": {
+      "PROFILE": "django",
+      "BUILD_CONTEXT": "../mepram-omop-api",
+      "DOCKERFILE": "Dockerfile",
+      "INSTALL_CONF": "../mepram-omop-api/conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "../mepram-omop-api/conf/docker_test_settings.txt",
+      "PROJECT_MODULE": "conf"
+    }
+  }
+}

@@ -4,10 +4,23 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="$(mktemp -d)"
 single_target="$(mktemp -d)"
-trap 'rm -rf "$target" "$single_target"' EXIT
+shared_module_target="$(mktemp -d)"
+trap 'rm -rf "$target" "$single_target" "$shared_module_target"' EXIT
 
 python3 "$repo_root/scripts/scaffold.py" init "$target" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
+python3 "$repo_root/scripts/scaffold.py" init "$shared_module_target" \
+    --config "$repo_root/tests/fixtures/shared_django_module_project.json" >/dev/null
+
+shared_module_compose="$shared_module_target/docker-compose.test.yml"
+grep -Fq 'DB_HOST: pathocore_api_db' "$shared_module_compose"
+grep -Fq 'DB_HOST: mepram_omop_api_db' "$shared_module_compose"
+test "$(grep -Fc '  pathocore_api_db:' "$shared_module_compose")" -eq 2
+test "$(grep -Fc '  mepram_omop_api_db:' "$shared_module_compose")" -eq 2
+if grep -Fq 'conf_app_db' "$shared_module_compose"; then
+    echo "FAIL: PROJECT_MODULE must not determine Compose database identity" >&2
+    exit 1
+fi
 
 grep -Fq 'def documentation_template_values(' "$repo_root/scripts/scaffold.py"
 for fragment in service-inventory-row.md config-map-example.txt no-addons.md; do

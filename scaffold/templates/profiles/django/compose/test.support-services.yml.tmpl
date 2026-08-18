@@ -1,4 +1,4 @@
-  {{PROJECT_MODULE}}_app_db:
+  {{SERVICE_NAME}}_db:
     image: docker.io/library/mysql:8.0
     environment:
       MYSQL_DATABASE: ${{{ENV_PREFIX}}_DB_NAME:?{{ENV_PREFIX}}_DB_NAME is required}

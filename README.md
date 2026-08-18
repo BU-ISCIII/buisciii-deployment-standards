@@ -2,7 +2,7 @@
 
 This repository defines a shared standard and a working deployment baseline for
 BU-ISCIII applications. It is intentionally independent of any particular
-application. The scaffold currently provides complete `django` and
+application. The scaffold currently provides complete `django`, `nextjs`, and
 `react-vite` profiles; framework-specific files are never mixed.
 
 The standard is meant to answer one practical question:
@@ -27,7 +27,7 @@ cp scaffold/project.addons.json.example /tmp/my-application.json
 
 Every project uses the same schema. Keep one `SERVICES` entry for a standalone
 application, or add entries for an orchestrator. Each service independently
-selects `PROFILE` as `django` or `react-vite`; `ADDONS` may be empty.
+selects `PROFILE` as `django`, `nextjs`, or `react-vite`; `ADDONS` may be empty.
 Set optional `API: true` only on Django services that need the standard API
 configuration contract. When the Keycloak add-on selects a Django service with
 `CONFIG_SERVICE`, the scaffold also adds the application-side OIDC validation

@@ -1,0 +1,26 @@
+### Unprivileged Node.js test runtime
+REPO_PATH='/app'
+INSTALL_PATH='/app'
+APP_UID='1000'
+APP_GID='1000'
+APP_PORT='3000'
+
+### Public browser build configuration
+NEXT_PUBLIC_API_BASE_URL='/api/v1'
+NEXT_PUBLIC_MEPRAM_API_BASE_URL='/api/omop/v1'
+NEXT_PUBLIC_KEYCLOAK_URL='http://127.0.0.1:8080'
+NEXT_PUBLIC_KEYCLOAK_REALM='test'
+NEXT_PUBLIC_KEYCLOAK_CLIENT_ID='web'
+NEXT_PUBLIC_USE_CASE_DATA_MODE='live'
+NEXT_PUBLIC_USE_CASE_ALERTS_CONTACT_EMAIL=''
+
+### Server-only runtime configuration
+PATHOCORE_API_PROXY_TARGET='http://pathocore_api:8000'
+MEPRAM_OMOP_API_PROXY_TARGET='http://mepram_omop_api:8000'
+AUTH_SECRET='test-only-change-me'
+AUTH_URL='http://127.0.0.1:3000'
+AUTH_TRUST_HOST='true'
+NEXTAUTH_URL='http://127.0.0.1:3000'
+
+### Selected infrastructure add-ons
+{{TEST_ADDON_SETTINGS}}

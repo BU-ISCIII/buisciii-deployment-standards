@@ -13,7 +13,7 @@ grep -Fq 'def documentation_template_values(' "$repo_root/scripts/scaffold.py"
 for fragment in service-inventory-row.md config-map-example.txt no-addons.md; do
     test -f "$repo_root/scaffold/templates/common/documentation/${fragment}.tmpl"
 done
-for profile in django react-vite; do
+for profile in django nextjs react-vite; do
     test -f "$repo_root/scaffold/templates/profiles/$profile/documentation/profile.md.tmpl"
     test -f "$repo_root/scaffold/templates/profiles/$profile/documentation/persistence-rows.md.tmpl"
 done

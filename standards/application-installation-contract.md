@@ -21,7 +21,7 @@ cp scaffold/project.json.example /tmp/my-application.json
 
 The descriptor always contains `SERVICES` and `ADDONS`. A standalone project
 has one service; an orchestrator has several. Each service independently
-selects `PROFILE` as `django` or `react-vite`; Django also declares its stable
+selects `PROFILE` as `django`, `nextjs`, or `react-vite`; Django also declares its stable
 `PROJECT_MODULE`. A Django service may declare `API: true` to receive the
 optional API configuration contract. When `ADDONS.keycloak.CONFIG_SERVICE`
 selects a Django service, that service also receives generic application-side

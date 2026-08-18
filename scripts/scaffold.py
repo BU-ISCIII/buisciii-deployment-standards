@@ -300,9 +300,9 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
                 + ", ".join(unknown_keys)
             )
         profile = service.get("PROFILE", "").lower()
-        if profile not in {"django", "react-vite"}:
+        if profile not in {"django", "nextjs", "react-vite"}:
             raise ValueError(
-                f"SERVICES.{name}.PROFILE must be django or react-vite"
+                f"SERVICES.{name}.PROFILE must be django, nextjs, or react-vite"
             )
         for required in ("BUILD_CONTEXT", "INSTALL_CONF", "TEST_INSTALL_CONF"):
             if not service.get(required):

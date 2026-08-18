@@ -20,8 +20,10 @@ compose_env_from_settings() {
 
 django_target="$work_dir/django-app"
 react_target="$work_dir/react-app"
+nextjs_target="$work_dir/nextjs-app"
 django_config="$work_dir/django.json"
 react_config="$work_dir/react.json"
+nextjs_config="$work_dir/nextjs.json"
 keycloak_config="$work_dir/keycloak.json"
 keycloak_target="$work_dir/keycloak-app"
 legacy_config="$work_dir/legacy.json"
@@ -33,6 +35,10 @@ sed -e 's/"PROFILE": "django"/"PROFILE": "react-vite"/' \
     -e 's#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt",#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt"#' \
     -e '/"PROJECT_MODULE":/d' \
     "$django_config" > "$react_config"
+sed -e 's/"PROFILE": "django"/"PROFILE": "nextjs"/' \
+    -e 's#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt",#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt"#' \
+    -e '/"PROJECT_MODULE":/d' \
+    "$django_config" > "$nextjs_config"
 printf '%s\n' '{"PROFILE":"django"}' > "$legacy_config"
 printf '%s\n' '{"SERVICES":{"app":{"PROFILE":"django","BUILD_CONTEXT":".","INSTALL_CONF":"conf/prod","TEST_INSTALL_CONF":"conf/test","PROJECT_MODULE":"app","APP_PORT":"8001"}}}' \
     > "$legacy_service_config"
@@ -218,6 +224,37 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$keycloak_target" \
     --config "$keycloak_config" >/dev/null
+
+python3 "$repo_root/scripts/scaffold.py" init "$nextjs_target" \
+    --config "$nextjs_config" >/dev/null
+for compose_template in prod.service.yml test.service.yml; do
+    test -f "$repo_root/scaffold/templates/profiles/nextjs/compose/${compose_template}.tmpl"
+done
+for callback in readiness-path.case running-permissions.case bootstrap.case \
+    smoke-profile-checks; do
+    test -f "$repo_root/scaffold/templates/profiles/nextjs/container_install/${callback}.sh.tmpl"
+done
+test ! -e "$nextjs_target/install.sh"
+test ! -e "$nextjs_target/nginx.conf"
+grep -Fq 'FROM docker.io/library/node:22-bookworm-slim AS deps' \
+    "$nextjs_target/Dockerfile"
+grep -Fq 'USER node:node' "$nextjs_target/Dockerfile"
+grep -Fq 'npm run start -- --hostname' "$nextjs_target/scripts/container_start.sh"
+grep -Fq "APP_PORT='3000'" "$nextjs_target/conf/docker_production_settings.txt"
+grep -Fq "AUTH_SECRET='CHANGE_ME'" "$nextjs_target/conf/docker_production_settings.txt"
+grep -Fq 'PATHOCORE_API_PROXY_TARGET:' "$nextjs_target/docker-compose.prod.yml"
+grep -Fq 'MEPRAM_OMOP_API_PROXY_TARGET:' "$nextjs_target/docker-compose.prod.yml"
+grep -Fq '/app/.next/cache:size=64m' "$nextjs_target/docker-compose.prod.yml"
+bash -n "$nextjs_target/container_install.sh"
+sh -n "$nextjs_target/scripts/container_start.sh"
+bash -n "$nextjs_target/scripts/smoke_test.sh"
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    nextjs_env="$work_dir/nextjs.compose.env"
+    compose_env_from_settings \
+        "$nextjs_target/conf/docker_test_settings.txt" APP "$nextjs_env"
+    docker compose --env-file "$nextjs_env" \
+        -f "$nextjs_target/docker-compose.test.yml" config --quiet
+fi
 for document in README.md LEAME.md; do
     grep -Fq '> "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
     grep -Fq '< "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
@@ -266,8 +303,10 @@ fi
 
 test ! -e "$repo_root/scaffold/templates/profiles/django/container_install.sh.tmpl"
 test ! -e "$repo_root/scaffold/templates/profiles/react-vite/container_install.sh.tmpl"
+test ! -e "$repo_root/scaffold/templates/profiles/nextjs/container_install.sh.tmpl"
 test ! -e "$repo_root/scaffold/templates/profiles/django/README.md.tmpl"
 test ! -e "$repo_root/scaffold/templates/profiles/react-vite/README.md.tmpl"
+test ! -e "$repo_root/scaffold/templates/profiles/nextjs/README.md.tmpl"
 
 grep -Fq 'local deadline=$((SECONDS + 60))' "$django_target/install.sh"
 grep -Fq 'after 60 seconds' "$django_target/install.sh"

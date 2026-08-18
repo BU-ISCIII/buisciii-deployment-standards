@@ -65,6 +65,7 @@ class ContainerInstallerCompilation:
     host_permissions: list[str] = field(default_factory=list)
     running_cases: list[str] = field(default_factory=list)
     bootstrap_cases: list[str] = field(default_factory=list)
+    production_build_cases: list[str] = field(default_factory=list)
 
     def extend(self, other: ContainerInstallerCompilation) -> None:
         """Append another compiler result while preserving declaration order."""
@@ -91,6 +92,7 @@ class ContainerInstallerCompilation:
             "HOST_PERMISSION_SPECS": "\n".join(self.host_permissions) or "    return 0",
             "RUNNING_PERMISSION_CASES": "\n".join(self.running_cases),
             "BOOTSTRAP_CASES": "\n".join(self.bootstrap_cases),
+            "PRODUCTION_BUILD_CASES": "\n".join(self.production_build_cases),
         }
 
 
@@ -1275,6 +1277,7 @@ def profile_container_installer_compilation(
         "set-host-bind-permissions": result.host_permissions,
         "running-permissions.case": result.running_cases,
         "bootstrap.case": result.bootstrap_cases,
+        "production-build.case": result.production_build_cases,
     }
     for name, service in services.items():
         callback_values = {

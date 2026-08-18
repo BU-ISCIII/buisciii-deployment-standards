@@ -100,7 +100,7 @@ for compose_template in prod.service.yml test.service.yml \
 done
 for callback in readiness-path.case container-install-conf.case \
     create-host-bind-sources set-host-bind-permissions \
-    running-permissions.case bootstrap.case smoke-profile-checks; do
+    running-permissions.case bootstrap.case production-build.case smoke-profile-checks; do
     test -f "$repo_root/scaffold/templates/profiles/django/container_install/${callback}.sh.tmpl"
 done
 test -f "$django_target/install.sh"
@@ -195,7 +195,7 @@ for compose_template in prod.service.yml test.service.yml; do
     test -f "$repo_root/scaffold/templates/profiles/react-vite/compose/${compose_template}.tmpl"
 done
 for callback in readiness-path.case running-permissions.case bootstrap.case \
-    smoke-profile-checks; do
+    production-build.case smoke-profile-checks; do
     test -f "$repo_root/scaffold/templates/profiles/react-vite/container_install/${callback}.sh.tmpl"
 done
 test ! -e "$react_target/install.sh"
@@ -231,7 +231,7 @@ for compose_template in prod.service.yml test.service.yml; do
     test -f "$repo_root/scaffold/templates/profiles/nextjs/compose/${compose_template}.tmpl"
 done
 for callback in readiness-path.case running-permissions.case bootstrap.case \
-    smoke-profile-checks; do
+    production-build.case smoke-profile-checks; do
     test -f "$repo_root/scaffold/templates/profiles/nextjs/container_install/${callback}.sh.tmpl"
 done
 test ! -e "$nextjs_target/install.sh"
@@ -245,6 +245,8 @@ grep -Fq "AUTH_SECRET='CHANGE_ME'" "$nextjs_target/conf/docker_production_settin
 grep -Fq 'PATHOCORE_API_PROXY_TARGET:' "$nextjs_target/docker-compose.prod.yml"
 grep -Fq 'MEPRAM_OMOP_API_PROXY_TARGET:' "$nextjs_target/docker-compose.prod.yml"
 grep -Fq '/app/.next/cache:size=64m' "$nextjs_target/docker-compose.prod.yml"
+grep -Fq -- '--build-arg NEXT_PUBLIC_API_BASE_URL=' "$nextjs_target/container_install.sh"
+! grep -Fq -- '--build-arg VITE_API_BASE_URL=' "$nextjs_target/container_install.sh"
 bash -n "$nextjs_target/container_install.sh"
 sh -n "$nextjs_target/scripts/container_start.sh"
 bash -n "$nextjs_target/scripts/smoke_test.sh"

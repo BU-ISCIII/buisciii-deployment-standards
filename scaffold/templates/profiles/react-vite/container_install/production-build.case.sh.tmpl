@@ -1,0 +1,6 @@
+        {{SERVICE_NAME}})
+            engine_build --no-cache --file "$context/$dockerfile" \
+                --build-arg GIT_REVISION="$git_revision" \
+                --build-arg VITE_API_BASE_URL="$(service_environment_value "$service_name" VITE_API_BASE_URL)" \
+                --tag "$(service_image_name "$service_name")" "$context"
+            ;;

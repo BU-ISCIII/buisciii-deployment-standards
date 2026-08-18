@@ -1,0 +1,12 @@
+        {{SERVICE_NAME}})
+            engine_build --no-cache --file "$context/$dockerfile" \
+                --build-arg GIT_REVISION="$git_revision" \
+                --build-arg NEXT_PUBLIC_API_BASE_URL="$(service_environment_value "$service_name" NEXT_PUBLIC_API_BASE_URL)" \
+                --build-arg NEXT_PUBLIC_MEPRAM_API_BASE_URL="$(service_environment_value "$service_name" NEXT_PUBLIC_MEPRAM_API_BASE_URL)" \
+                --build-arg NEXT_PUBLIC_KEYCLOAK_URL="$(service_environment_value "$service_name" NEXT_PUBLIC_KEYCLOAK_URL)" \
+                --build-arg NEXT_PUBLIC_KEYCLOAK_REALM="$(service_environment_value "$service_name" NEXT_PUBLIC_KEYCLOAK_REALM)" \
+                --build-arg NEXT_PUBLIC_KEYCLOAK_CLIENT_ID="$(service_environment_value "$service_name" NEXT_PUBLIC_KEYCLOAK_CLIENT_ID)" \
+                --build-arg NEXT_PUBLIC_USE_CASE_DATA_MODE="$(service_environment_value "$service_name" NEXT_PUBLIC_USE_CASE_DATA_MODE)" \
+                --build-arg NEXT_PUBLIC_USE_CASE_ALERTS_CONTACT_EMAIL="$(service_environment_value "$service_name" NEXT_PUBLIC_USE_CASE_ALERTS_CONTACT_EMAIL '')" \
+                --tag "$(service_image_name "$service_name")" "$context"
+            ;;

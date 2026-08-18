@@ -57,10 +57,11 @@ require_text 'skip_test_data=true' "$template" \
     "production demo imports must not enable test fixtures"
 require_text 'production --demo_data request' "$template" \
     "production data loading must remain explicit and documented"
-require_text '--secret "id=install_conf,src=' "$template" \
-    "common installer must build Django with an ephemeral secret"
-require_text 'VITE_API_BASE_URL="$vite_api_url"' "$template" \
-    "common installer must build React with public Vite configuration"
+require_text 'build_production_service "$service_name" "$context" "$dockerfile"' "$template" \
+    "common installer must dispatch profile-owned production builds"
+if grep -Eq 'VITE_API_BASE_URL|NEXT_PUBLIC_|id=install_conf' "$template"; then
+    fail "common installer must not contain framework-specific build arguments"
+fi
 require_text 'deployment_compose -f "$compose_file" up -d --force-recreate' "$template" \
     "a successful build must recreate the complete topology in one invocation"
 if grep -Fq '[ "$mode" = production ] || return 0' "$template"; then
@@ -103,8 +104,10 @@ require_text '--build-arg APP_REPO_PATH="$(service_repo_path' "$generated" \
     "Django builds must receive the settings-owned repository path"
 require_text 'load_compose_environment_file "$compose_env_file"' "$generated" \
     "installer must load the generated values before host preparation and direct builds"
-require_text 'vite_api_url="$(service_environment_value "$service_name" VITE_API_BASE_URL)"' "$generated" \
+require_text '--build-arg VITE_API_BASE_URL="$(service_environment_value "$service_name" VITE_API_BASE_URL)"' "$generated" \
     "React builds must consume the value rendered into the shared environment"
+require_text '--secret "id=install_conf,src=' "$generated" \
+    "Django builds must use an ephemeral settings secret"
 require_text 'apache_running_mount_permission_spec=()' "$generated" \
     "Apache must declare an explicit running-mount spec"
 require_text 'keycloak_running_mount_permission_spec=(' "$generated" \

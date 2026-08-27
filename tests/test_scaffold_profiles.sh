@@ -144,9 +144,9 @@ grep -Fq '            "$PROJECT_MODULE" .' "$django_target/install.sh"
 grep -Fq -- '--noreload "0.0.0.0:${APP_PORT}"' \
     "$django_target/scripts/container_start.sh"
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
-grep -Fq "DB_HOST='app_db'" "$django_target/conf/docker_test_settings.txt"
-grep -Fq 'DB_HOST: app_db' "$django_target/docker-compose.test.yml"
-grep -Fq 'app_db:' "$django_target/docker-compose.test.yml"
+grep -Fq "DB_HOST='app-db'" "$django_target/conf/docker_test_settings.txt"
+grep -Fq 'DB_HOST: app-db' "$django_target/docker-compose.test.yml"
+grep -Fq 'app-db:' "$django_target/docker-compose.test.yml"
 grep -Fq "DJANGO_DEBUG='true'" "$django_target/conf/docker_test_settings.txt"
 grep -Fq "DJANGO_ALLOWED_HOSTS='*'" "$django_target/conf/docker_test_settings.txt"
 grep -Fq '0.0.0.0:${APP_APP_PORT:?APP_APP_PORT is required}:${APP_APP_PORT:?APP_APP_PORT is required}' \
@@ -268,7 +268,7 @@ fi
 for document in README.md LEAME.md; do
     grep -Fq '> "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
     grep -Fq '< "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
-    grep -Fq 'up -d example-app_keycloak_db' "$keycloak_target/$document"
+    grep -Fq 'up -d example-app-keycloak-db' "$keycloak_target/$document"
 done
 
 # Outer deployment structure is common regardless of the selected framework.

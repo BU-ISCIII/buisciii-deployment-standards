@@ -2,9 +2,9 @@
 
 ```bash
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  logs --tail 200 {{APP_SLUG}}_apache
+  logs --tail 200 {{APP_SLUG}}-apache
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec {{APP_SLUG}}_apache httpd -t
+  exec {{APP_SLUG}}-apache httpd -t
 
 APACHE_PORT='CHANGE_ME'
 SERVER_STATUS_SERVER_NAME='localhost'
@@ -31,5 +31,5 @@ sudo mv /var/log/local/{{APP_SLUG}}/apache/modsec_debug.log \
   /var/log/local/{{APP_SLUG}}/apache/modsec_debug.log.blocked
 bash container_install.sh --action fix-permissions --engine podman \
   {{CONFIG_MAP_EXAMPLES}}
-podman compose --env-file .env.production.file -f docker-compose.prod.yml restart {{APP_SLUG}}_apache
+podman compose --env-file .env.production.file -f docker-compose.prod.yml restart {{APP_SLUG}}-apache
 ```

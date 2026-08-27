@@ -13,10 +13,10 @@ python3 "$repo_root/scripts/scaffold.py" init "$shared_module_target" \
     --config "$repo_root/tests/fixtures/shared_django_module_project.json" >/dev/null
 
 shared_module_compose="$shared_module_target/docker-compose.test.yml"
-grep -Fq 'DB_HOST: pathocore_api_db' "$shared_module_compose"
-grep -Fq 'DB_HOST: mepram_omop_api_db' "$shared_module_compose"
-test "$(grep -Fc '  pathocore_api_db:' "$shared_module_compose")" -eq 2
-test "$(grep -Fc '  mepram_omop_api_db:' "$shared_module_compose")" -eq 2
+grep -Fq 'DB_HOST: pathocore_api-db' "$shared_module_compose"
+grep -Fq 'DB_HOST: mepram_omop_api-db' "$shared_module_compose"
+test "$(grep -Fc '  pathocore_api-db:' "$shared_module_compose")" -eq 2
+test "$(grep -Fc '  mepram_omop_api-db:' "$shared_module_compose")" -eq 2
 if grep -Fq 'conf_app_db' "$shared_module_compose"; then
     echo "FAIL: PROJECT_MODULE must not determine Compose database identity" >&2
     exit 1
@@ -100,10 +100,10 @@ grep -Fq '# BEGIN BU-ISCIII SERVICE: api (django)' "$prod"
 grep -Fq '# BEGIN BU-ISCIII SERVICE: web (react-vite)' "$prod"
 grep -Fq '# BEGIN BU-ISCIII ADDON: apache' "$prod"
 grep -Fq '# BEGIN BU-ISCIII ADDON: keycloak' "$prod"
-grep -Fq '  example-orchestrator_apache:' "$prod"
-grep -Fq '  example-orchestrator_keycloak:' "$prod"
-grep -Fq '  example-orchestrator_keycloak_db:' "$prod"
-grep -Fq 'jdbc:mysql://example-orchestrator_keycloak_db:3306/' "$prod"
+grep -Fq '  example-orchestrator-apache:' "$prod"
+grep -Fq '  example-orchestrator-keycloak:' "$prod"
+grep -Fq '  example-orchestrator-keycloak-db:' "$prod"
+grep -Fq 'jdbc:mysql://example-orchestrator-keycloak-db:3306/' "$prod"
 ! grep -Eq '^  (apache|keycloak|keycloak_db):' "$prod"
 if grep -Fq 'build:' "$prod" && grep -Fq 'secrets:' "$prod"; then
     echo "FAIL: orchestrator Compose must not require build.secrets support" >&2
@@ -205,7 +205,7 @@ grep -Fq '/srv/containers/bind/example-orchestrator/keycloak/realm-import' \
 grep -Fq 'crea automaticamente esta ruta' "$target/LEAME.md"
 grep -Fq '`SERVER_STATUS_SERVER_NAME`' "$target/conf/INSTALL_SETTINGS.md"
 grep -Fq 'configured_services=(api web apache keycloak)' "$target/container_install.sh"
-grep -Fq 'permission_services=(api web example-orchestrator_apache example-orchestrator_keycloak_db example-orchestrator_keycloak)' \
+grep -Fq 'permission_services=(api web example-orchestrator-apache example-orchestrator-keycloak-db example-orchestrator-keycloak)' \
     "$target/container_install.sh"
 grep -Fq 'service_environment_value "$1" REPO_PATH' \
     "$target/container_install.sh"
@@ -248,8 +248,8 @@ test ! -e "$prod.bu-isciii-update"
 python3 "$repo_root/scripts/scaffold.py" init "$single_target" \
     --config "$repo_root/tests/fixtures/single_django_apache.json" >/dev/null
 grep -Fq 'configured_services=(app apache samba)' "$single_target/container_install.sh"
-grep -Fq '  example-django_apache:' "$single_target/docker-compose.prod.yml"
-grep -Fq '  example-django_samba:' "$single_target/docker-compose.test.yml"
+grep -Fq '  example-django-apache:' "$single_target/docker-compose.prod.yml"
+grep -Fq '  example-django-samba:' "$single_target/docker-compose.test.yml"
 grep -Fq '"|${install_conf_host_by_service[apache]}"' "$single_target/container_install.sh"
 grep -Fq '# Apache add-on' "$single_target/conf/apache/apache_production_settings.txt"
 grep -Fq "REPO_PATH='/srv/example-django'" "$single_target/conf/docker_production_settings.txt"

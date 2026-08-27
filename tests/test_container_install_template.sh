@@ -94,7 +94,7 @@ require_text 'print_service_summary' "$generated" \
     "generated installer must print the final Compose service summary"
 require_text 'install_services=(api web)' "$generated" \
     "mixed installer must preserve application order"
-require_text 'permission_services=(api web example-orchestrator_apache example-orchestrator_keycloak_db example-orchestrator_keycloak)' "$generated" \
+require_text 'permission_services=(api web example-orchestrator-apache example-orchestrator-keycloak-db example-orchestrator-keycloak)' "$generated" \
     "mixed installer must include add-ons in permission repair"
 require_text 'configured_services=(api web apache keycloak)' "$generated" \
     "application and add-on configurations must share one mapping interface"
@@ -130,7 +130,7 @@ require_text 'copy_with_podman_fallback "$realm_source" "$realm_target"' "$gener
     "Keycloak realm staging must use the protected bind-copy helper"
 require_text '"$realm_file|1000:0|0640"' "$generated" \
     "staged realm JSON must be readable only by Keycloak's runtime identity"
-require_text 'keycloak_db' \
+require_text 'keycloak-db' \
     "$repo_root/scaffold/templates/addons/keycloak/container_install/permission-services.txt.tmpl" \
     "Keycloak must own its permission-service declaration"
 require_text 'apache' \

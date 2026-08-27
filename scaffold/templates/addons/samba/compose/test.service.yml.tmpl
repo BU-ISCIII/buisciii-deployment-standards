@@ -1,5 +1,5 @@
   # BEGIN BU-ISCIII ADDON: samba (test only)
-  {{APP_SLUG}}_samba:
+  {{APP_SLUG}}-samba:
     image: docker.io/dperson/samba:latest
     restart: unless-stopped
     command: '-S -s "ngs_data;/mnt/test_ngs_data;yes;yes;no;${SAMBA_USER:?SAMBA_USER is required};none;none;ngs data samba share" -u "${SAMBA_USER:?SAMBA_USER is required};${SAMBA_PASSWORD:?SAMBA_PASSWORD is required}" -p'

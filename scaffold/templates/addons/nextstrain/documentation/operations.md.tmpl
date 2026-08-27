@@ -9,9 +9,9 @@ NEXTSTRAIN_SOURCE='/srv/relecov-nextstrain-data'
 NEXTSTRAIN_DATA_DIR='/data' # Must match the protected Nextstrain settings.
 test -d "$NEXTSTRAIN_SOURCE"
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  cp "$NEXTSTRAIN_SOURCE/." "{{APP_SLUG}}_nextstrain:$NEXTSTRAIN_DATA_DIR/"
+  cp "$NEXTSTRAIN_SOURCE/." "{{APP_SLUG}}-nextstrain:$NEXTSTRAIN_DATA_DIR/"
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec {{APP_SLUG}}_nextstrain find "$NEXTSTRAIN_DATA_DIR" -maxdepth 2 -type f
+  exec {{APP_SLUG}}-nextstrain find "$NEXTSTRAIN_DATA_DIR" -maxdepth 2 -type f
 ```
 
 Replace `podman` with `docker` when applicable. `compose cp` updates matching
@@ -23,7 +23,7 @@ Create a portable backup through the mounted service:
 
 ```bash
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec -T {{APP_SLUG}}_nextstrain tar -C /data -czf - . > nextstrain-data.tar.gz
+  exec -T {{APP_SLUG}}-nextstrain tar -C /data -czf - . > nextstrain-data.tar.gz
 ```
 
 Finally, open the public Nextstrain URL and verify every expected dataset or

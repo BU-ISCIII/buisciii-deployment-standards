@@ -268,7 +268,7 @@ fi
 for document in README.md LEAME.md; do
     grep -Fq '> "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
     grep -Fq '< "$BACKUP_DIR/keycloak-database.sql"' "$keycloak_target/$document"
-    grep -Fq 'up -d keycloak_db' "$keycloak_target/$document"
+    grep -Fq 'up -d example-app_keycloak_db' "$keycloak_target/$document"
 done
 
 # Outer deployment structure is common regardless of the selected framework.

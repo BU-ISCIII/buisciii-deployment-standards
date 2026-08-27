@@ -94,7 +94,7 @@ require_text 'print_service_summary' "$generated" \
     "generated installer must print the final Compose service summary"
 require_text 'install_services=(api web)' "$generated" \
     "mixed installer must preserve application order"
-require_text 'permission_services=(api web apache keycloak_db keycloak)' "$generated" \
+require_text 'permission_services=(api web example-orchestrator_apache example-orchestrator_keycloak_db example-orchestrator_keycloak)' "$generated" \
     "mixed installer must include add-ons in permission repair"
 require_text 'configured_services=(api web apache keycloak)' "$generated" \
     "application and add-on configurations must share one mapping interface"

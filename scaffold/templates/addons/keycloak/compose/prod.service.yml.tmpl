@@ -1,5 +1,5 @@
   # BEGIN BU-ISCIII ADDON: keycloak
-  keycloak_db:
+  {{APP_SLUG}}_keycloak_db:
     image: docker.io/library/mysql:8.0
     command: --default-authentication-plugin=mysql_native_password
     restart: unless-stopped
@@ -21,18 +21,18 @@
       - keycloak_db_data:/var/lib/mysql
     networks: [deployment_net]
 
-  keycloak:
+  {{APP_SLUG}}_keycloak:
     image: quay.io/keycloak/keycloak:26.6.1
     command: ["start", "--import-realm"]
     restart: unless-stopped
     depends_on:
-      keycloak_db:
+      {{APP_SLUG}}_keycloak_db:
         condition: service_healthy
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
       KC_DB: mysql
-      KC_DB_URL: jdbc:mysql://keycloak_db:3306/${KEYCLOAK_DB_NAME:-keycloak}?useSSL=false&allowPublicKeyRetrieval=true
+      KC_DB_URL: jdbc:mysql://{{APP_SLUG}}_keycloak_db:3306/${KEYCLOAK_DB_NAME:-keycloak}?useSSL=false&allowPublicKeyRetrieval=true
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
       KC_HEALTH_ENABLED: "true"

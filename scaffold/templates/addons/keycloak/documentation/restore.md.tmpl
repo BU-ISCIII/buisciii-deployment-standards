@@ -1,9 +1,9 @@
 # Arrancar solo la base de datos, esperar readiness y restaurar su dump logico.
-podman compose --env-file .env.production.file -f docker-compose.prod.yml up -d keycloak_db
+podman compose --env-file .env.production.file -f docker-compose.prod.yml up -d {{APP_SLUG}}_keycloak_db
 until podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec -T keycloak_db sh -c \
+  exec -T {{APP_SLUG}}_keycloak_db sh -c \
   'mysqladmin ping -h 127.0.0.1 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent'; do sleep 2; done
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec -T keycloak_db sh -c \
+  exec -T {{APP_SLUG}}_keycloak_db sh -c \
   'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
   < "$BACKUP_DIR/keycloak-database.sql"

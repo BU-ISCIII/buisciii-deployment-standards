@@ -3,9 +3,9 @@
 ```bash
 # Logs separados de Apache y validacion de configuracion.
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  logs --tail 200 apache
+  logs --tail 200 {{APP_SLUG}}_apache
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec apache httpd -t
+  exec {{APP_SLUG}}_apache httpd -t
 
 # Estado restringido; usar valores del fichero protegido.
 APACHE_PORT='CHANGE_ME'

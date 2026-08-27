@@ -595,13 +595,17 @@ def optional_django_python_settings(
 
 
 def optional_django_compose_environment(
-    service: dict[str, str], mode: str, has_oidc: bool, has_keycloak_admin: bool
+    service: dict[str, str],
+    mode: str,
+    has_oidc: bool,
+    has_keycloak_admin: bool,
+    app_slug: str,
 ) -> str:
     """Render optional API/OIDC variables into a Django Compose service."""
     if service["PROFILE"] != "django":
         return ""
     fragments: list[str] = []
-    values = {"ENV_PREFIX": "{{ENV_PREFIX}}"}
+    values = {"ENV_PREFIX": "{{ENV_PREFIX}}", "APP_SLUG": app_slug}
     if service.get("API") == "true":
         fragments.append(
             render(
@@ -641,6 +645,7 @@ def compose_service_block(
     mode: str,
     oidc_service: str | None,
     keycloak_admin_access: bool,
+    app_slug: str,
 ) -> ComposeCompilation:
     """Compile one service and optional profile-owned Compose fragments."""
     prefix = env_prefix(name)
@@ -659,7 +664,11 @@ def compose_service_block(
         "DOCKERFILE_JSON": json.dumps(service["DOCKERFILE"]),
         "PROJECT_MODULE": service.get("PROJECT_MODULE", ""),
         "OPTIONAL_SERVICE_ENVIRONMENT": optional_django_compose_environment(
-            service, mode, name == oidc_service, name == oidc_service and keycloak_admin_access
+            service,
+            mode,
+            name == oidc_service,
+            name == oidc_service and keycloak_admin_access,
+            app_slug,
         ).replace("{{ENV_PREFIX}}", prefix),
     }
 
@@ -687,14 +696,14 @@ def compose_service_block(
 # it contains no Apache, Keycloak, framework, or runtime configuration policy.
 
 
-def addon_dependency_services(addon: str) -> list[str]:
+def addon_dependency_services(addon: str, values: dict[str, str]) -> list[str]:
     """Read healthy service names another add-on may depend upon."""
     path = ADDON_TEMPLATES / addon / "compose" / "dependency-services.txt.tmpl"
     if not path.is_file():
         return []
     names = [
         line.strip()
-        for line in path.read_text(encoding="utf-8").splitlines()
+        for line in render(path, values).decode().splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
     for name in names:
@@ -717,7 +726,9 @@ def compile_addon_compose(
     dependency_names = list(services)
     for selected_addon in addons:
         if selected_addon != addon and mode in addons[selected_addon]["MODES"]:
-            dependency_names.extend(addon_dependency_services(selected_addon))
+            dependency_names.extend(
+                addon_dependency_services(selected_addon, scalar_values(config))
+            )
     depends_on = "\n".join(
         f"      {name}:\n        condition: service_healthy"
         for name in dict.fromkeys(dependency_names)
@@ -803,7 +814,14 @@ def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tup
         "keycloak" in addons and addons["keycloak"].get("ADMIN_ACCESS", False)
     )
     compilations = [
-        compose_service_block(name, service, mode, oidc_service, keycloak_admin_access)
+        compose_service_block(
+            name,
+            service,
+            mode,
+            oidc_service,
+            keycloak_admin_access,
+            str(config["APP_SLUG"]),
+        )
         for name, service in services.items()
     ]
     compilations += [
@@ -1105,12 +1123,22 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         addon_backup = ADDON_TEMPLATES / addon / "documentation" / "backup.md.tmpl"
         if addon_backup.is_file():
             addon_backup_commands.append(
-                rendered_documentation_fragment("addon", addon, "backup.md", {})
+                rendered_documentation_fragment(
+                    "addon",
+                    addon,
+                    "backup.md",
+                    {"APP_SLUG": str(config["APP_SLUG"])},
+                )
             )
         addon_restore = ADDON_TEMPLATES / addon / "documentation" / "restore.md.tmpl"
         if addon_restore.is_file():
             addon_restore_commands.append(
-                rendered_documentation_fragment("addon", addon, "restore.md", {})
+                rendered_documentation_fragment(
+                    "addon",
+                    addon,
+                    "restore.md",
+                    {"APP_SLUG": str(config["APP_SLUG"])},
+                )
             )
         addon_local_test = ADDON_TEMPLATES / addon / "documentation" / "local-test.md.tmpl"
         if addon_local_test.is_file():
@@ -1296,7 +1324,9 @@ def profile_container_installer_compilation(
     return result
 
 
-def addon_container_services(addon: str, filename: str) -> list[str]:
+def addon_container_services(
+    addon: str, filename: str, values: dict[str, str]
+) -> list[str]:
     """Read container service names declared by an add-on lifecycle file."""
     template = (
         ADDON_TEMPLATES
@@ -1306,7 +1336,10 @@ def addon_container_services(addon: str, filename: str) -> list[str]:
     )
     if not template.is_file():
         return []
-    names = [line.strip() for line in template.read_text(encoding="utf-8").splitlines()]
+    names = [
+        line.strip()
+        for line in render(template, values).decode().splitlines()
+    ]
     names = [name for name in names if name and not name.startswith("#")]
     for name in names:
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", name):
@@ -1327,14 +1360,17 @@ def addon_container_installer_compilation(
     for addon, options in addons.items():
         config_service = str(options["CONFIG_SERVICE"])
         callback_values = {
+            **scalar_values(config),
             "CONFIG_SERVICE": config_service,
             "CONFIG_SERVICE_SHELL": shlex.quote(config_service),
         }
         result.addon_build_services.extend(
-            addon_container_services(addon, "build-services.txt.tmpl")
+            addon_container_services(addon, "build-services.txt.tmpl", callback_values)
         )
         result.permission_services.extend(
-            addon_container_services(addon, "permission-services.txt.tmpl")
+            addon_container_services(
+                addon, "permission-services.txt.tmpl", callback_values
+            )
         )
         result.configured_services.append(addon)
         result.default_conf_cases.append(

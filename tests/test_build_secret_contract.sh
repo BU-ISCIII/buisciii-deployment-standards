@@ -38,7 +38,7 @@ grep -Fq '# BEGIN BU-ISCIII ADDON: apache' \
 grep -Fq '# BEGIN BU-ISCIII ADDON: keycloak' \
     "$addons_target/docker-compose.prod.yml"
 test -f "$addons_target/conf/apache/01-reverse-proxy.conf"
-grep -Fq 'apache_config_service=app' "$addons_target/container_install.sh"
+grep -Fq 'apache_config_service=example-app' "$addons_target/container_install.sh"
 
 sed 's/"ADMIN_ACCESS": true/"ADMIN_ACCESS": false/' \
     "$repo_root/scaffold/project.addons.json.example" > "$oidc_only_config"

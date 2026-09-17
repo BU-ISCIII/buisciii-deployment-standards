@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Define service keys as stable deployment identities so standalone application
+  settings can be reused by orchestrators without renaming application and test
+  database services; prefer hyphenated application-specific keys over `app`.
 - Derive each Django test database service from its deployment service name,
   not `PROJECT_MODULE`, so multiple projects may safely use modules such as
   `conf` without producing duplicate Compose keys or sharing a database.

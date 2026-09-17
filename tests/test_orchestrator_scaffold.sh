@@ -13,10 +13,12 @@ python3 "$repo_root/scripts/scaffold.py" init "$shared_module_target" \
     --config "$repo_root/tests/fixtures/shared_django_module_project.json" >/dev/null
 
 shared_module_compose="$shared_module_target/docker-compose.test.yml"
-grep -Fq 'DB_HOST: pathocore_api-db' "$shared_module_compose"
-grep -Fq 'DB_HOST: mepram_omop_api-db' "$shared_module_compose"
-test "$(grep -Fc '  pathocore_api-db:' "$shared_module_compose")" -eq 2
-test "$(grep -Fc '  mepram_omop_api-db:' "$shared_module_compose")" -eq 2
+grep -Fq 'DB_HOST: pathocore-api-db' "$shared_module_compose"
+grep -Fq 'DB_HOST: mepram-omop-api-db' "$shared_module_compose"
+test "$(grep -Fc '  pathocore-api-db:' "$shared_module_compose")" -eq 2
+test "$(grep -Fc '  mepram-omop-api-db:' "$shared_module_compose")" -eq 2
+grep -Fq '${PATHOCORE_API_DB_PORT' "$shared_module_compose"
+grep -Fq '${MEPRAM_OMOP_API_DB_PORT' "$shared_module_compose"
 if grep -Fq 'conf_app_db' "$shared_module_compose"; then
     echo "FAIL: PROJECT_MODULE must not determine Compose database identity" >&2
     exit 1

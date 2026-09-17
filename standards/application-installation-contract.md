@@ -40,6 +40,16 @@ configuration templates. Services with other build contexts own those files in
 their respective repositories. A standalone application is therefore only the
 one-local-service case of the same project schema.
 
+Service keys are deployment identities, not positional labels. A repository
+whose settings are consumed by another deployment MUST use the same stable,
+application-specific service key in both descriptors (for example,
+`pathocore-api`), rather than renaming the standalone service to `app` and the
+orchestrated service to `pathocore_api`. Hyphenated keys are preferred because
+they are valid Compose DNS names; generated environment prefixes normalize
+them to underscores (`PATHOCORE_API`). This keeps derived test database names,
+volume names, dependency targets and settings prefixes portable across both
+topologies.
+
 ```bash
 python3 scripts/scaffold.py init /path/to/my-application \
   --config /tmp/my-application.json
@@ -467,6 +477,15 @@ configuration, readiness checks and smoke tests. `PROJECT_MODULE` remains
 descriptor-owned because it identifies Django source structure. Every Django
 service receives `<service>_documents` and `<service>_static` named volumes from
 its profile; these conventional resources are not application configuration.
+
+Repository-owned settings MAY be reused unchanged by an orchestrator only when
+the orchestrator preserves that repository's service key. Application-local
+endpoints derived from the service identity, including the generated test
+database `<service>-db`, MUST therefore use that stable key. Infrastructure
+owned by the parent topology is different: an orchestrator MAY override values
+such as an OIDC/JWKS or Keycloak administration URL when multiple applications
+share the orchestrator's add-on. Such overrides MUST be explicit in the parent
+Compose environment and MUST NOT require editing the child settings file.
 
 ### `container_start.sh`
 

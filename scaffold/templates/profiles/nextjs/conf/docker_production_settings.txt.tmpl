@@ -37,10 +37,12 @@ NEXT_PUBLIC_USE_CASE_ALERTS_CONTACT_EMAIL=''
 
 ### Server-only runtime configuration
 # Compose-network URL used by Next.js server-side routes for PathoCore API.
-# Example: http://pathocore_api:8301
+# Use the Compose service name and that service's APP_PORT; container_install.sh
+# rejects other hosts or ports. Example: http://pathocore-api:8301
 PATHOCORE_API_PROXY_TARGET='CHANGE_ME_INTERNAL_PATHOCORE_API_URL'
 # Compose-network URL used by Next.js server-side routes for MePRAM OMOP API.
-# Example: http://mepram_omop_api:8001
+# Use the Compose service name and that service's APP_PORT; container_install.sh
+# rejects other hosts or ports. Example: http://mepram-omop-api:8004
 MEPRAM_OMOP_API_PROXY_TARGET='CHANGE_ME_INTERNAL_MEPRAM_API_URL'
 # Secret used to encrypt/sign authentication state. Generate independently for
 # every deployment, for example with: openssl rand -base64 32

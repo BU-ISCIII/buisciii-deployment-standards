@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Check deployment wiring before building images: `container_install.sh` runs
+  the shared `check_deployment_configuration` helper (stdlib
+  `lib/container/check_config.py`, now vendored by `sync-lib`/`check-lib`)
+  after Compose validation. Production fails when proxy targets or Apache
+  upstreams name unknown services or wrong ports, `DB_HOST` bypasses a
+  Compose-managed database, Django would reject a forwarded host (underscores
+  or `DJANGO_ALLOWED_HOSTS`), Keycloak URLs/realms disagree, `AUTH_URL` differs
+  from `NEXTAUTH_URL`, or `CHANGE_ME` remains; test installs only warn.
+- Fixed the Next.js test Keycloak URL to use the published test port 8081 and
+  replaced underscore proxy-target host names in Next.js settings examples.
+
 - Define service keys as stable deployment identities so standalone application
   settings can be reused by orchestrators without renaming application and test
   database services; prefer hyphenated application-specific keys over `app`.

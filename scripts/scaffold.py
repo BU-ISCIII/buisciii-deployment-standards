@@ -2159,7 +2159,8 @@ def synchronize_shared(target: Path, check_only: bool) -> int:
         return 1 if drift else 0
 
     drift = 0
-    for source in sorted(SHARED_LIB.rglob("*.sh")):
+    shared_sources = [*SHARED_LIB.rglob("*.sh"), *SHARED_LIB.rglob("*.py")]
+    for source in sorted(shared_sources):
         relative = shared_destination(source)
         destination = target / relative
         content = source.read_bytes()

@@ -29,7 +29,7 @@ keycloak_target="$work_dir/keycloak-app"
 legacy_config="$work_dir/legacy.json"
 legacy_service_config="$work_dir/legacy-service.json"
 cp "$repo_root/scaffold/project.json.example" "$django_config"
-sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "app"}}/' \
+sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "example-app"}}/' \
     "$django_config" > "$keycloak_config"
 sed -e 's/"PROFILE": "django"/"PROFILE": "react-vite"/' \
     -e 's#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt",#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt"#' \
@@ -60,21 +60,21 @@ python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
 # Documentation must enumerate topology-owned protected files and must present
 # operator decisions as deployment inputs instead of unfinished review markers.
 for document in README.md LEAME.md; do
-    grep -Fq 'cp deployment/settings/app_production_settings.txt "$BACKUP_DIR/"' \
+    grep -Fq 'cp deployment/settings/example-app_production_settings.txt "$BACKUP_DIR/"' \
         "$django_target/$document"
-    grep -Fq 'install -m 0600 "$BACKUP_DIR/app_production_settings.txt" deployment/settings/app_production_settings.txt' \
+    grep -Fq 'install -m 0600 "$BACKUP_DIR/example-app_production_settings.txt" deployment/settings/example-app_production_settings.txt' \
         "$django_target/$document"
 done
 grep -Fq '| Revision aprobada | Tag o commit inmutable y aprobacion asociada |' \
     "$django_target/LEAME.md"
-grep -Fq 'source deployment/settings/app_production_settings.txt' \
+grep -Fq 'source deployment/settings/example-app_production_settings.txt' \
     "$django_target/LEAME.md"
-grep -Fq 'HOST_LOG_PATH is required for app' "$django_target/LEAME.md"
+grep -Fq 'HOST_LOG_PATH is required for example-app' "$django_target/LEAME.md"
 grep -Fq '"$HOST_LOG_PATH" "$(dirname "$DJANGO_SETTINGS_PATH")"' \
     "$django_target/LEAME.md"
 settings_copy_line="$(grep -n 'install -m 0600 conf/docker_production_settings.txt' \
     "$django_target/LEAME.md" | cut -d: -f1)"
-host_source_line="$(grep -n 'source deployment/settings/app_production_settings.txt' \
+host_source_line="$(grep -n 'source deployment/settings/example-app_production_settings.txt' \
     "$django_target/LEAME.md" | cut -d: -f1)"
 test "$settings_copy_line" -lt "$host_source_line"
 settings_heading_line="$(grep -n '^## Configurar los ajustes de produccion$' \
@@ -82,8 +82,8 @@ settings_heading_line="$(grep -n '^## Configurar los ajustes de produccion$' \
 host_heading_line="$(grep -n '^## Preparar directorios persistentes del host$' \
     "$django_target/LEAME.md" | cut -d: -f1)"
 test "$settings_heading_line" -lt "$host_heading_line"
-grep -Fq -- '- `app`: confirmar su endpoint `/health/`' "$django_target/LEAME.md"
-! grep -Fq -- '- API de `app`:' "$django_target/LEAME.md"
+grep -Fq -- '- `example-app`: confirmar su endpoint `/health/`' "$django_target/LEAME.md"
+! grep -Fq -- '- API de `example-app`:' "$django_target/LEAME.md"
 ! grep -Fq '<fichero-ajustes-protegido>' "$django_target/LEAME.md"
 ! grep -Fq '<REVISAR' "$django_target/LEAME.md"
 
@@ -144,14 +144,14 @@ grep -Fq '            "$PROJECT_MODULE" .' "$django_target/install.sh"
 grep -Fq -- '--noreload "0.0.0.0:${APP_PORT}"' \
     "$django_target/scripts/container_start.sh"
 grep -Fq "APP_PORT='8001'" "$django_target/conf/docker_production_settings.txt"
-grep -Fq "DB_HOST='app-db'" "$django_target/conf/docker_test_settings.txt"
-grep -Fq 'DB_HOST: app-db' "$django_target/docker-compose.test.yml"
-grep -Fq 'app-db:' "$django_target/docker-compose.test.yml"
+grep -Fq "DB_HOST='example-app-db'" "$django_target/conf/docker_test_settings.txt"
+grep -Fq 'DB_HOST: example-app-db' "$django_target/docker-compose.test.yml"
+grep -Fq 'example-app-db:' "$django_target/docker-compose.test.yml"
 grep -Fq "DJANGO_DEBUG='true'" "$django_target/conf/docker_test_settings.txt"
 grep -Fq "DJANGO_ALLOWED_HOSTS='*'" "$django_target/conf/docker_test_settings.txt"
-grep -Fq '0.0.0.0:${APP_APP_PORT:?APP_APP_PORT is required}:${APP_APP_PORT:?APP_APP_PORT is required}' \
+grep -Fq '0.0.0.0:${EXAMPLE_APP_APP_PORT:?EXAMPLE_APP_APP_PORT is required}:${EXAMPLE_APP_APP_PORT:?EXAMPLE_APP_APP_PORT is required}' \
     "$django_target/docker-compose.test.yml"
-grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
+grep -Fq 'APP_PORT: ${EXAMPLE_APP_APP_PORT:?EXAMPLE_APP_APP_PORT is required}' "$django_target/docker-compose.prod.yml"
 for setting in REQUIRED_MODULES MIGRATION_MODULES APP_SHELL \
     DB_CONN_MAX_AGE DB_HOST DB_PASSWORD EMAIL_HOST LOG_TYPE LOG_PATH \
     CREATE_INITIAL_SUPERUSER DJANGO_SUPERUSER_USERNAME \
@@ -184,7 +184,7 @@ test ! -e "$django_target/documentation"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     django_env="$work_dir/django.compose.env"
     compose_env_from_settings \
-        "$django_target/conf/docker_test_settings.txt" APP "$django_env"
+        "$django_target/conf/docker_test_settings.txt" EXAMPLE_APP "$django_env"
     docker compose --env-file "$django_env" \
         -f "$django_target/docker-compose.test.yml" config --quiet
 fi
@@ -207,7 +207,7 @@ grep -Fq 'FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine' \
 grep -Fq 'COPY nginx.conf /etc/nginx/templates/default.conf.template' \
     "$react_target/Dockerfile"
 grep -Fq "APP_PORT='8080'" "$react_target/conf/docker_production_settings.txt"
-grep -Fq 'APP_PORT: ${APP_APP_PORT:?APP_APP_PORT is required}' "$react_target/docker-compose.prod.yml"
+grep -Fq 'APP_PORT: ${EXAMPLE_APP_APP_PORT:?EXAMPLE_APP_APP_PORT is required}' "$react_target/docker-compose.prod.yml"
 bash -n "$react_target/container_install.sh"
 sh -n "$react_target/scripts/container_start.sh"
 bash -n "$react_target/scripts/smoke_test.sh"
@@ -217,7 +217,7 @@ test ! -e "$react_target/documentation"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     react_env="$work_dir/react.compose.env"
     compose_env_from_settings \
-        "$react_target/conf/docker_test_settings.txt" APP "$react_env"
+        "$react_target/conf/docker_test_settings.txt" EXAMPLE_APP "$react_env"
     docker compose --env-file "$react_env" \
         -f "$react_target/docker-compose.test.yml" config --quiet
 fi
@@ -261,7 +261,7 @@ bash -n "$nextjs_target/scripts/smoke_test.sh"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     nextjs_env="$work_dir/nextjs.compose.env"
     compose_env_from_settings \
-        "$nextjs_target/conf/docker_test_settings.txt" APP "$nextjs_env"
+        "$nextjs_target/conf/docker_test_settings.txt" EXAMPLE_APP "$nextjs_env"
     docker compose --env-file "$nextjs_env" \
         -f "$nextjs_target/docker-compose.test.yml" config --quiet
 fi

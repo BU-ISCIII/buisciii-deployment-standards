@@ -1,18 +1,22 @@
-### OIDC token validation for this application
+### OpenID Connect (OIDC) access-token validation
 # Generated because ADDONS.keycloak.CONFIG_SERVICE selects this service.
 # Disabled by default so disposable tests do not require identity bootstrap.
-# Require OIDC authentication in the disposable stack. Example: false
+# Require a valid OIDC access token for protected API endpoints. Example: false
 OIDC_AUTH_REQUIRED='false'
-# Issuer expected in test tokens. Example: http://127.0.0.1:8081/realms/test
+# Identity-provider URL expected in the JWT `iss` (issuer) claim. It must match
+# exactly, including scheme, hostname, port, path, realm, and trailing slash.
+# Example: http://127.0.0.1:8081/realms/test
 OIDC_ISSUER='http://127.0.0.1:8081/realms/test'
-# Public signing-key endpoint for the disposable realm.
+# JSON Web Key Set (JWKS) endpoint used to verify token signatures. This is a
+# server-to-server URL and may use an internal container hostname.
 # Example: http://127.0.0.1:8081/realms/test/protocol/openid-connect/certs
 OIDC_JWKS_URL='http://127.0.0.1:8081/realms/test/protocol/openid-connect/certs'
-# Audience accepted in disposable test tokens. Example: test-api
+# API identifier expected in the JWT `aud` (audience) claim. Example: test-api
 OIDC_AUDIENCE='test-api'
-# Calling OAuth client accepted in tests. Example: test-client
+# OAuth/OIDC client identifier expected as the authorized calling application.
+# Example: test-client
 OIDC_CLIENT_ID='test-client'
-# Public signing-key cache lifetime in seconds. Example: 300
+# How long downloaded JWKS signing keys remain cached, in seconds. Example: 300
 OIDC_JWKS_CACHE_TTL_SECONDS='300'
-# Maximum JWKS HTTP request duration in seconds. Example: 5
+# Maximum duration of a JWKS HTTP request, in seconds. Example: 5
 OIDC_JWKS_TIMEOUT_SECONDS='5'

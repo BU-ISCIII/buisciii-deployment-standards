@@ -98,6 +98,31 @@ validate_compose_configuration() {
     fi
 }
 
+# Cross-check service wiring that Compose cannot validate: proxy targets and
+# ports, database hosts, Django allowed hosts and Keycloak URLs/realms. The
+# rules live in check_config.py beside this library. Production findings fail;
+# test findings are printed as warnings.
+# Arguments: mode, Compose environment file, Compose file, rendered Apache
+# configuration directory (ignored when absent), then one `service=profile`
+# entry per application service.
+check_deployment_configuration() {
+    local check_mode="$1" env_file="$2" compose_path="$3" apache_dir="$4"
+    shift 4
+    local checker entry
+    local -a checker_args
+    checker="$(dirname "${BASH_SOURCE[0]}")/check_config.py"
+    command -v python3 >/dev/null 2>&1 || {
+        echo "python3 is required to check the deployment configuration" >&2
+        return 1
+    }
+    checker_args=(--mode "$check_mode" --env-file "$env_file" --compose-file "$compose_path")
+    [ ! -d "$apache_dir" ] || checker_args+=(--apache-config-dir "$apache_dir")
+    for entry in "$@"; do
+        checker_args+=(--service "$entry")
+    done
+    python3 "$checker" "${checker_args[@]}"
+}
+
 # Return a repository's full or short HEAD without printing diagnostics.
 # Arguments: repository path, optional format (`full` or `short`).
 repository_revision() {

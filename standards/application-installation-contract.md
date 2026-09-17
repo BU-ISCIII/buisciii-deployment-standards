@@ -592,6 +592,10 @@ Production secrets MUST NOT be committed, printed, or baked into images.
 Production settings MUST be ignored by Git, protected with mode `0600`, and
 rejected while `CHANGE_ME` values remain. Shared issuer, audience, public URL,
 database, proxy, and frontend values MUST have one documented source of truth.
+Before building images, `container_install.sh` MUST run the shared
+`check_deployment_configuration` check. It rejects production settings whose
+internal URLs, ports, database hosts, Django allowed hosts or Keycloak
+URLs/realms disagree with the Compose topology or with each other.
 
 One operator settings file MUST serve build-time installation decisions,
 host-side Django rendering, and runtime bootstrap. When used during a production

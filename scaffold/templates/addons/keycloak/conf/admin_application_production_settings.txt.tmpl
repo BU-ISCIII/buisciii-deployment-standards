@@ -1,7 +1,8 @@
 ### Application-side Keycloak Admin REST API client
 # Generated only when ADDONS.keycloak.ADMIN_ACCESS is true.
-# Base Keycloak URL without /realms/<realm>. Example: https://auth.example.org
-KEYCLOAK_ADMIN_API_BASE_URL='https://CHANGE_ME'
+# Internal Keycloak URL without /realms/<realm>. The stable Compose-network
+# alias avoids project-specific service names.
+KEYCLOAK_ADMIN_API_BASE_URL='http://keycloak:8080'
 # Realm managed by the application. Example: institutional-realm
 KEYCLOAK_ADMIN_API_REALM='CHANGE_ME'
 # Realm used to obtain the admin access token. Example: master

@@ -1,5 +1,5 @@
 ### OpenID Connect (OIDC) access-token validation
-# Generated because ADDONS.keycloak.CONFIG_SERVICE selects this service.
+# Generated because ADDONS.keycloak.OIDC_SERVICES selects this service.
 # Disabled by default so disposable tests do not require identity bootstrap.
 # Require a valid OIDC access token for protected API endpoints. Example: false
 OIDC_AUTH_REQUIRED='false'
@@ -9,8 +9,9 @@ OIDC_AUTH_REQUIRED='false'
 OIDC_ISSUER='http://127.0.0.1:8081/realms/test'
 # JSON Web Key Set (JWKS) endpoint used to verify token signatures. This is a
 # server-to-server URL and may use an internal container hostname.
-# Example: http://127.0.0.1:8081/realms/test/protocol/openid-connect/certs
-OIDC_JWKS_URL='http://127.0.0.1:8081/realms/test/protocol/openid-connect/certs'
+# The stable `keycloak` Compose-network alias is independent of the project slug.
+# Example: http://keycloak:8080/realms/test/protocol/openid-connect/certs
+OIDC_JWKS_URL='http://keycloak:8080/realms/test/protocol/openid-connect/certs'
 # API identifier expected in the JWT `aud` (audience) claim. Example: test-api
 OIDC_AUDIENCE='test-api'
 # OAuth/OIDC client identifier expected as the authorized calling application.

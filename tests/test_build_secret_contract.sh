@@ -30,7 +30,7 @@ grep -Fq "OIDC_ISSUER='https://CHANGE_ME/realms/CHANGE_ME'" \
     "$addons_target/conf/docker_production_settings.txt"
 grep -Fq 'API_CORS_ALLOWED_ORIGINS:' "$addons_target/docker-compose.prod.yml"
 grep -Fq 'OIDC_ISSUER:' "$addons_target/docker-compose.prod.yml"
-grep -Fq "KEYCLOAK_ADMIN_API_BASE_URL='https://CHANGE_ME'" \
+grep -Fq "KEYCLOAK_ADMIN_API_BASE_URL='http://keycloak:8080'" \
     "$addons_target/conf/docker_production_settings.txt"
 grep -Fq 'KEYCLOAK_ADMIN_API_BASE_URL:' "$addons_target/docker-compose.prod.yml"
 grep -Fq '# BEGIN BU-ISCIII ADDON: apache' \

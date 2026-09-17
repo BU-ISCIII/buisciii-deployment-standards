@@ -354,7 +354,7 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
         normalized_options = dict(options)
         supported_options = {"CONFIG_SERVICE", "MOUNTS", "MODES"}
         if name == "keycloak":
-            supported_options.add("ADMIN_ACCESS")
+            supported_options.update({"ADMIN_ACCESS", "OIDC_SERVICES"})
         unknown_options = sorted(set(normalized_options) - supported_options)
         if unknown_options:
             raise ValueError(
@@ -371,6 +371,34 @@ def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
             )
         normalized_options["CONFIG_SERVICE"] = config_service
         if name == "keycloak":
+            default_oidc_services = (
+                [config_service]
+                if services[config_service]["PROFILE"] == "django"
+                else []
+            )
+            raw_oidc_services = normalized_options.get(
+                "OIDC_SERVICES", default_oidc_services
+            )
+            if not isinstance(raw_oidc_services, list):
+                raise ValueError("ADDONS.keycloak.OIDC_SERVICES must be an array")
+            oidc_services = list(dict.fromkeys(map(str, raw_oidc_services)))
+            unknown_oidc_services = sorted(set(oidc_services) - set(services))
+            if unknown_oidc_services:
+                raise ValueError(
+                    "ADDONS.keycloak.OIDC_SERVICES targets unknown application "
+                    "services: " + ", ".join(unknown_oidc_services)
+                )
+            non_django_oidc_services = [
+                service_name
+                for service_name in oidc_services
+                if services[service_name]["PROFILE"] != "django"
+            ]
+            if non_django_oidc_services:
+                raise ValueError(
+                    "ADDONS.keycloak.OIDC_SERVICES currently supports only Django "
+                    "services: " + ", ".join(non_django_oidc_services)
+                )
+            normalized_options["OIDC_SERVICES"] = oidc_services
             admin_access = normalized_options.get("ADMIN_ACCESS", False)
             if not isinstance(admin_access, bool):
                 raise ValueError("ADDONS.keycloak.ADMIN_ACCESS must be a boolean")
@@ -643,7 +671,8 @@ def compose_service_block(
     name: str,
     service: dict[str, str],
     mode: str,
-    oidc_service: str | None,
+    oidc_services: set[str],
+    keycloak_config_service: str | None,
     keycloak_admin_access: bool,
     app_slug: str,
 ) -> ComposeCompilation:
@@ -666,8 +695,8 @@ def compose_service_block(
         "OPTIONAL_SERVICE_ENVIRONMENT": optional_django_compose_environment(
             service,
             mode,
-            name == oidc_service,
-            name == oidc_service and keycloak_admin_access,
+            name in oidc_services,
+            name == keycloak_config_service and keycloak_admin_access,
             app_slug,
         ).replace("{{ENV_PREFIX}}", prefix),
     }
@@ -805,11 +834,11 @@ def compile_addon_compose(
 def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tuple[Path, bytes]]]:
     services = normalized_services(config)
     addons = normalized_addons(config)
-    oidc_service = (
-        str(addons["keycloak"]["CONFIG_SERVICE"])
-        if "keycloak" in addons
-        else None
-    )
+    keycloak_config_service = None
+    oidc_services: set[str] = set()
+    if "keycloak" in addons:
+        keycloak_config_service = str(addons["keycloak"]["CONFIG_SERVICE"])
+        oidc_services = set(addons["keycloak"]["OIDC_SERVICES"])
     keycloak_admin_access = bool(
         "keycloak" in addons and addons["keycloak"].get("ADMIN_ACCESS", False)
     )
@@ -818,7 +847,8 @@ def compose_document(config: dict[str, Any], mode: str) -> tuple[bytes, list[tup
             name,
             service,
             mode,
-            oidc_service,
+            oidc_services,
+            keycloak_config_service,
             keycloak_admin_access,
             str(config["APP_SLUG"]),
         )
@@ -1231,9 +1261,9 @@ def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
     settings_owner = owned[0] if owned else next(iter(services))
     owner_service = services[settings_owner]
     addons = normalized_addons(config)
-    has_oidc = (
+    has_oidc = bool(
         "keycloak" in addons
-        and addons["keycloak"]["CONFIG_SERVICE"] == settings_owner
+        and settings_owner in addons["keycloak"]["OIDC_SERVICES"]
     )
     has_keycloak_admin = bool(
         has_oidc and addons["keycloak"].get("ADMIN_ACCESS", False)

@@ -25,6 +25,7 @@
     },
     "keycloak": {
       "CONFIG_SERVICE": "example-app",
+      "OIDC_SERVICES": ["example-app"],
       "ADMIN_ACCESS": true
     }
   }

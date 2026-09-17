@@ -29,9 +29,11 @@ Every project uses the same schema. Keep one `SERVICES` entry for a standalone
 application, or add entries for an orchestrator. Each service independently
 selects `PROFILE` as `django`, `nextjs`, or `react-vite`; `ADDONS` may be empty.
 Set optional `API: true` only on Django services that need the standard API
-configuration contract. When the Keycloak add-on selects a Django service with
-`CONFIG_SERVICE`, the scaffold also adds the application-side OIDC validation
-settings to that service; these are distinct from the Keycloak server settings.
+configuration contract. `ADDONS.keycloak.OIDC_SERVICES` selects every Django
+service that validates tokens from the shared Keycloak realm; when omitted it
+defaults to `[CONFIG_SERVICE]`. These application-side OIDC settings are
+distinct from the Keycloak server settings. A non-Django configuration owner
+defaults to no OIDC consumers.
 Set `ADDONS.keycloak.ADMIN_ACCESS` to `true` only when the application also
 calls the Keycloak Admin REST API; it defaults to `false`.
 The one service using `BUILD_CONTEXT: "."` owns this repository's profile

@@ -106,6 +106,13 @@ grep -Fq '  example-orchestrator-apache:' "$prod"
 grep -Fq '  example-orchestrator-keycloak:' "$prod"
 grep -Fq '  example-orchestrator-keycloak-db:' "$prod"
 grep -Fq 'jdbc:mysql://example-orchestrator-keycloak-db:3306/' "$prod"
+grep -A45 -F '  example-orchestrator-keycloak:' "$prod" | grep -Fq '          - keycloak'
+grep -Fq 'OIDC_ISSUER: ${API_OIDC_ISSUER:' "$test_compose"
+grep -Fq 'OIDC_JWKS_URL: ${API_OIDC_JWKS_URL:' "$test_compose"
+if grep -Fq 'OIDC_ISSUER: ${WEB_OIDC_ISSUER:' "$test_compose"; then
+    echo "FAIL: only ADDONS.keycloak.OIDC_SERVICES may receive OIDC variables" >&2
+    exit 1
+fi
 ! grep -Eq '^  (apache|keycloak|keycloak_db):' "$prod"
 if grep -Fq 'build:' "$prod" && grep -Fq 'secrets:' "$prod"; then
     echo "FAIL: orchestrator Compose must not require build.secrets support" >&2

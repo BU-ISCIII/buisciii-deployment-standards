@@ -24,7 +24,8 @@
       "CONFIG_SERVICE": "web"
     },
     "keycloak": {
-      "CONFIG_SERVICE": "web"
+      "CONFIG_SERVICE": "web",
+      "OIDC_SERVICES": ["api"]
     }
   }
 }

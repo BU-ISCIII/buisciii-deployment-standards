@@ -58,5 +58,8 @@
       # OPTIONAL provider/theme mounts for multi-app deployments, when needed:
       # - ${KEYCLOAK_PROVIDER_PATH}:/opt/keycloak/providers:ro,z
       # - ${KEYCLOAK_THEME_PATH}:/opt/keycloak/themes/custom:ro,z
-    networks: [deployment_net]
+    networks:
+      deployment_net:
+        aliases:
+          - keycloak
   # END BU-ISCIII ADDON: keycloak

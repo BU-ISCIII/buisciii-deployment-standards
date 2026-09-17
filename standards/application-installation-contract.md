@@ -23,9 +23,12 @@ The descriptor always contains `SERVICES` and `ADDONS`. A standalone project
 has one service; an orchestrator has several. Each service independently
 selects `PROFILE` as `django`, `nextjs`, or `react-vite`; Django also declares its stable
 `PROJECT_MODULE`. A Django service may declare `API: true` to receive the
-optional API configuration contract. When `ADDONS.keycloak.CONFIG_SERVICE`
-selects a Django service, that service also receives generic application-side
-`OIDC_*` settings; the Keycloak server retains its separate add-on settings.
+optional API configuration contract. `ADDONS.keycloak.OIDC_SERVICES` selects
+the Django services that receive generic application-side `OIDC_*` settings;
+it defaults to `[CONFIG_SERVICE]` for backward compatibility. The Keycloak
+server retains its separate add-on settings and exposes the stable internal
+network alias `keycloak`. When the configuration owner is not Django, the
+consumer-list default is empty.
 `ADDONS.keycloak.ADMIN_ACCESS` defaults to `false` and MUST be enabled only when
 the selected application needs the Keycloak Admin REST API client contract.
 Runtime paths, ports and numeric identities belong only to
@@ -469,6 +472,8 @@ add-ons MUST reuse one application's settings source, placing their values in
 clearly marked `APACHE_*` or `KEYCLOAK_*` sections. A standalone project uses
 its only service automatically; a multi-app descriptor uses `CONFIG_SERVICE`
 only when the add-on settings are not owned by the first declared service.
+For Keycloak, configuration ownership is independent from token consumption:
+`OIDC_SERVICES` lists all Django consumers of the shared identity service.
 `REPO_PATH`, `INSTALL_PATH`, `HOST_LOG_PATH`, `APP_PORT`,
 `APP_UID`, and `APP_GID` MUST be defined in those service settings and MUST NOT
 be duplicated in `project.json`. The generated environment passes them to

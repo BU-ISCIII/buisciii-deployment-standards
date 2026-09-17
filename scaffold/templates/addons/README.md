@@ -25,17 +25,22 @@ A standalone application can select both current add-ons as follows:
   },
   "keycloak": {
     "CONFIG_SERVICE": "app",
+    "OIDC_SERVICES": ["app"],
     "ADMIN_ACCESS": false
   }
 }
 ```
 
-`CONFIG_SERVICE` identifies the application used for add-on relationships and
-derived defaults. Add-on values remain in `conf/<addon>/` and are mapped with
-the same repeatable `--install_conf_map` option as applications.
+`CONFIG_SERVICE` identifies the application that owns the add-on relationship
+and derived defaults. Add-on values remain in `conf/<addon>/` and are mapped
+with the same repeatable `--install_conf_map` option as applications.
 
-For Keycloak, `ADMIN_ACCESS` defaults to `false`; enable it only for an
-application that needs the generated `KEYCLOAK_ADMIN_API_*` client contract.
+For Keycloak, `OIDC_SERVICES` selects the Django services that validate tokens
+from the shared realm. It defaults to `[CONFIG_SERVICE]` for compatibility.
+When `CONFIG_SERVICE` is not Django, the default is an empty list.
+`ADMIN_ACCESS` defaults to `false`; enable it only when `CONFIG_SERVICE` needs
+the generated `KEYCLOAK_ADMIN_API_*` client contract. The Keycloak container
+is always reachable through the stable `keycloak:8080` network address.
 
 `MOUNTS` is optional and contains complete
 Compose mount strings contributed to an add-on that provides an

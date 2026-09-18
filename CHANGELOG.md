@@ -6,7 +6,6 @@
   Compose validation. 
 - Fixed the Next.js test Keycloak URL to use the published test port 8081
 - Replaced underscore proxy-target host names in Next.js settings examples.
-
 - Define service keys as stable deployment identities so standalone application
   settings can be reused by orchestrators without renaming application and test
   database services; prefer hyphenated application-specific keys over `app`.

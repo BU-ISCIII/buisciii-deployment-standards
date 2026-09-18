@@ -77,6 +77,13 @@ require_text 'deployment_compose -f "$compose_file" up -d --force-recreate' "$te
 if grep -Fq '[ "$mode" = production ] || return 0' "$template"; then
     fail "host permission repair must run through the same workflow in test and production"
 fi
+require_text 'check_deployment_configuration "$mode" "$compose_env_file" "$compose_file"' "$template" \
+    "common installer must cross-check deployment wiring"
+check_line="$(grep -n 'check_deployment_configuration "$mode"' "$template" | cut -d: -f1)"
+config_line="$(grep -n 'deployment_compose -f "$compose_file" config' "$template" | cut -d: -f1)"
+build_line="$(grep -n '^# 6\.' "$template" | cut -d: -f1)"
+((config_line < check_line && check_line < build_line)) \
+    || fail "configuration check must run after Compose validation and before builds"
 require_text 'echo "Running services and published ports:"' "$template" \
     "common installer must label the final service summary"
 require_text 'deployment_compose -f "$compose_file" ps' "$template" \

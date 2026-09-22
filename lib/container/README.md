@@ -34,6 +34,7 @@ explicit container names. Otherwise container resolution uses Compose labels.
 - `compose_service_image_id`
 - `require_compose_file`
 - `validate_compose_configuration`
+- `check_deployment_configuration`
 - `repository_revision`
 - `print_repository_diagnostics`
 - `print_image_before_diagnostics`
@@ -90,6 +91,36 @@ keeps standalone setting names, while orchestrators use prefixes such as
 not stored in application settings, such as image tags and the requested Git
 revision. The writer normalizes shell-quoted settings, rejects duplicates and
 multiline values, and atomically installs the result with mode `0600`.
+
+## Deployment configuration check
+
+`check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir>
+<service=profile>...` runs `check_config.py`, a Python 3 standard-library
+checker distributed beside these shell files. The wrapper calls it after
+Compose validation and before any image build. It reads only the generated
+Compose environment file, the Compose file and the rendered Apache
+configuration, and cross-checks wiring that Compose cannot validate:
+
+| Rule | Finding |
+|---|---|
+| `unresolved-placeholder` | A setting still contains `CHANGE_ME` (production only) |
+| `unknown-host` | An internal URL or `DB_HOST` names no Compose service, network alias or container name |
+| `upstream-port` | An internal URL port differs from the target's `APP_PORT` or `expose` port |
+| `loopback-target` | A `*_PROXY_TARGET` points at `localhost` inside its own container |
+| `database-host` | `DB_HOST` ignores a Compose-managed `<service>-db`/`<service>_db` service (production only) |
+| `django-hostname` | A host name containing `_` reaches Django, which rejects it |
+| `allowed-hosts` | A host reaching Django through a URL setting or Apache is missing from `DJANGO_ALLOWED_HOSTS` |
+| `keycloak-url` | `OIDC_ISSUER` or `OIDC_JWKS_URL` does not follow the Keycloak realm path |
+| `keycloak-origin` | Public Keycloak URLs (frontend, Keycloak, issuer, JWKS, admin API) disagree |
+| `keycloak-realm` | Frontend, issuer, JWKS and admin API realms disagree |
+| `canonical-url` | `AUTH_URL` and `NEXTAUTH_URL` differ |
+
+Production findings fail the installation; test findings are warnings. A
+single-label host without a similarly named Compose service is always a warning
+because it may resolve through institutional DNS. Only URL and host values are
+printed; URL credentials and all other setting values are never printed.
+Add a failing fixture under `tests/fixtures/check_config/cases/` for every new
+rule.
 
 The Django profile adds:
 

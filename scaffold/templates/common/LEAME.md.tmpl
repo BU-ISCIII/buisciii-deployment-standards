@@ -143,8 +143,7 @@ instalacion y actualizacion usan estas rutas protegidas.
 Solo despues de completar y revisar todos los ajustes, crear los binds
 exactamente donde indica cada servicio. Los ficheros se cargan como el usuario
 actual dentro de subshells; solo `install -d` usa privilegios. Esto incluye
-servicios con un namespace de host distinto al despliegue principal. This must be 
-executed as `root`, sudo user is not enough.
+servicios con un namespace de host distinto al despliegue principal.
 
 ```bash
 PODMAN_USER='<usuario-podman>'

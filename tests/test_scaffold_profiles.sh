@@ -70,7 +70,7 @@ sed -i '/<!-- END BU-ISCIII APPLICATION: overview -->/i Application overview.' \
     "$django_target/README.md"
 sed -i '/# END BU-ISCIII APPLICATION: install-hooks/i # Application install hook.' \
     "$django_target/install.sh"
-sed -i '/# END BU-ISCIII APPLICATION: test-data-loader/i # Application test data.' \
+sed -i '/# END BU-ISCIII APPLICATION: deployment-hooks/i # Application test data.' \
     "$django_target/container_install.sh"
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     > "$work_dir/check-local.out"

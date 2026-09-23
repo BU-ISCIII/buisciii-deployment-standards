@@ -13,12 +13,23 @@ APPLICATION_NAME="{{APP_NAME}}"
 # Applications with disposable fixtures or demo files customize this callback
 # and set application_supports_test_data=true. Keep application-specific
 # fixture names, users/groups, downloads, and data-service layout here.
-# BEGIN BU-ISCIII APPLICATION: test-data-loader
+# BEGIN BU-ISCIII APPLICATION: deployment-hooks
 application_supports_test_data=false
 load_test_deployment_data() {
     die "Test/demo data loading is not implemented for $APPLICATION_NAME"
 }
-# END BU-ISCIII APPLICATION: test-data-loader
+
+# Add application-only host bind paths that profiles/add-ons cannot describe.
+set_application_host_bind_permissions() {
+    :
+}
+
+# Arguments: service name and running container ID. Add application-only
+# writable paths; profile/add-on permissions have already been applied.
+set_application_running_mount_permissions() {
+    :
+}
+# END BU-ISCIII APPLICATION: deployment-hooks
 
 action="install"; mode="production"; engine="docker"; git_revision="current"
 install_conf=""; compose_file=""; compose_env_file=""
@@ -177,6 +188,7 @@ prepare_application_host_sources() {
 prepare_host_bind_source_permissions() {
     local log_path settings_path uid gid
 {{HOST_PERMISSION_SPECS}}
+    set_application_host_bind_permissions
 }
 
 # Keep a separate running-mount specification in every service/add-on case.
@@ -185,8 +197,9 @@ prepare_running_container_mount_permissions() {
     local install_path uid gid
     case "$service_name" in
 {{RUNNING_PERMISSION_CASES}}
-        *) return 0 ;;
+        *) : ;;
     esac
+    set_application_running_mount_permissions "$service_name" "$container_id"
 }
 
 bootstrap_service() {

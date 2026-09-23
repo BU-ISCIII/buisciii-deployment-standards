@@ -107,7 +107,7 @@ remains standard-managed and local edits there are conflicts.
 | Artifact | Ownership contract |
 |---|---|
 | `README.md`, `LEAME.md` | Standard-managed except named application documentation blocks |
-| `container_install.sh` | Standard-managed except the test/demo-data loader block |
+| `container_install.sh` | Standard-managed except the application deployment hooks block |
 | Django `install.sh` | Standard-managed except the `install-hooks` block |
 | `deployment/lib/**` | Exact central copy; never edit locally |
 | Compose, Dockerfile, health and smoke artifacts | Fully generated; change the descriptor or template source |

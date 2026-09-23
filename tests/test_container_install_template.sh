@@ -14,7 +14,7 @@ require_text() {
 
 require_text 'GENERATED SERVICE/ADD-ON IMPLEMENTATION' "$template" \
     "common installer must mark its generated implementation"
-custom_end_line="$(grep -n '# END BU-ISCIII APPLICATION: test-data-loader' "$template" | cut -d: -f1)"
+custom_end_line="$(grep -n '# END BU-ISCIII APPLICATION: deployment-hooks' "$template" | cut -d: -f1)"
 usage_line="$(grep -n '^usage()' "$template" | cut -d: -f1)"
 generated_line="$(grep -n 'GENERATED SERVICE/ADD-ON IMPLEMENTATION' "$template" | cut -d: -f1)"
 ((custom_end_line < usage_line && usage_line < generated_line)) \
@@ -48,6 +48,10 @@ require_text 'prepare_host_bind_source_permissions()' "$template" \
     "common installer must expose host permission policy"
 require_text 'prepare_running_container_mount_permissions()' "$template" \
     "common installer must expose running-mount permission policy"
+require_text 'set_application_host_bind_permissions' "$template" \
+    "generated host permissions must invoke the application extension hook"
+require_text 'set_application_running_mount_permissions "$service_name" "$container_id"' "$template" \
+    "generated running-mount permissions must invoke the application extension hook"
 require_text 'load_test_deployment_data()' "$template" \
     "common installer must expose inline application test-data customization"
 require_text 'application_supports_test_data=false' "$template" \

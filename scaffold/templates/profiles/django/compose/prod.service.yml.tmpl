@@ -16,6 +16,7 @@
         APP_REPO_PATH: ${{{ENV_PREFIX}}_REPO_PATH:?{{ENV_PREFIX}}_REPO_PATH is required}
         APP_INSTALL_PATH: ${{{ENV_PREFIX}}_INSTALL_PATH:?{{ENV_PREFIX}}_INSTALL_PATH is required}
     restart: unless-stopped
+{{DATABASE_DEPENDS_ON}}
     user: "${{{ENV_PREFIX}}_APP_UID:?{{ENV_PREFIX}}_APP_UID is required}:${{{ENV_PREFIX}}_APP_GID:?{{ENV_PREFIX}}_APP_GID is required}"
     environment:
       APP_MODE: prod

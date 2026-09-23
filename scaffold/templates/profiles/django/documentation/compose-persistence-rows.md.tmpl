@@ -1,0 +1,5 @@
+| `{{SERVICE_NAME}}` database | `{{SERVICE_NAME}}_db_data` named volume, mounted by `{{SERVICE_NAME}}-db` | Logical dump before migration; persistent volume recovery |
+| `{{SERVICE_NAME}}` documents | `{{SERVICE_NAME}}_documents` named volume | Volume backup |
+| `{{SERVICE_NAME}}` static | `{{SERVICE_NAME}}_static` named volume | Replaceable through collectstatic |
+| `{{SERVICE_NAME}}` logs | Host bind configured by `HOST_LOG_PATH` in `{{SERVICE_NAME}}_production_settings.txt` | Retain/rotate per institutional log policy |
+| `{{SERVICE_NAME}}` rendered settings | Host bind configured by `DJANGO_SETTINGS_PATH` in `{{SERVICE_NAME}}_production_settings.txt` | Protected configuration backup |

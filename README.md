@@ -29,7 +29,12 @@ Every project uses the same schema. Keep one `SERVICES` entry for a standalone
 application, or add entries for an orchestrator. Each service independently
 selects `PROFILE` as `django`, `nextjs`, or `react-vite`; `ADDONS` may be empty.
 Set optional `API: true` only on Django services that need the standard API
-configuration contract. `ADDONS.keycloak.OIDC_SERVICES` selects every Django
+configuration contract. Set `DATABASE: "compose"` on a Django service when its production
+MySQL
+service and persistent volume must be generated in Compose; omit it or use
+`DATABASE: "external"` for an operator-managed production database. Test mode
+continues to use a disposable Compose database in both cases.
+`ADDONS.keycloak.OIDC_SERVICES` selects every Django
 service that validates tokens from the shared Keycloak realm; when omitted it
 defaults to `[CONFIG_SERVICE]`. These application-side OIDC settings are
 distinct from the Keycloak server settings. A non-Django configuration owner

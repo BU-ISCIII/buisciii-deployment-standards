@@ -317,6 +317,7 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         "TEST_INSTALL_CONF",
         "PROJECT_MODULE",
         "API",
+        "DATABASE",
     }
     services: dict[str, dict[str, str]] = {}
     for raw_name, raw_service in raw.items():
@@ -331,7 +332,7 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         service = {
             str(key): str(value)
             for key, value in raw_service.items()
-            if key != "API"
+            if key not in {"API", "DATABASE"}
         }
         unknown_keys = sorted(service.keys() - allowed_keys)
         if unknown_keys:
@@ -356,7 +357,17 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
             )
         if raw_api and profile != "django":
             raise ValueError(f"SERVICES.{name}.API is supported only for Django services")
+        database = raw_service.get("DATABASE", "external")
+        if database not in {"external", "compose"}:
+            raise ValueError(
+                f"SERVICES.{name}.DATABASE must be external or compose"
+            )
+        if "DATABASE" in raw_service and profile != "django":
+            raise ValueError(
+                f"SERVICES.{name}.DATABASE is supported only for Django services"
+            )
         service["API"] = "true" if raw_api else "false"
+        service["DATABASE"] = str(database)
         service["PROFILE"] = profile
         service.setdefault("IMAGE", f"{name.replace('_', '-')}:local")
         service.setdefault("DOCKERFILE", "Dockerfile")
@@ -736,6 +747,13 @@ def compose_service_block(
         "BUILD_CONTEXT_JSON": json.dumps(service["BUILD_CONTEXT"]),
         "DOCKERFILE_JSON": json.dumps(service["DOCKERFILE"]),
         "PROJECT_MODULE": service.get("PROJECT_MODULE", ""),
+        "DATABASE_DEPENDS_ON": (
+            "    depends_on:\n"
+            f"      {name}-db:\n"
+            "        condition: service_healthy"
+            if mode == "prod" and service["DATABASE"] == "compose"
+            else ""
+        ),
         "OPTIONAL_SERVICE_ENVIRONMENT": optional_django_compose_environment(
             service,
             mode,
@@ -754,8 +772,19 @@ def compose_service_block(
     lines = render(template, values).decode().rstrip("\n").splitlines()
     return ComposeCompilation(
         service_lines=lines,
-        support_lines=optional_fragment("support-services"),
-        volume_lines=optional_fragment("volumes"),
+        support_lines=(
+            optional_fragment("support-services")
+            if mode != "prod" or service["DATABASE"] == "compose"
+            else []
+        ),
+        volume_lines=(
+            optional_fragment("volumes")
+            + (
+                optional_fragment("database-volumes")
+                if mode == "prod" and service["DATABASE"] == "compose"
+                else []
+            )
+        ),
         secret_lines=optional_fragment("secrets"),
         artifacts=[],
     )
@@ -1052,7 +1081,11 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
             rendered_documentation_fragment(
                 "profile",
                 service["PROFILE"],
-                "persistence-rows.md",
+                (
+                    "compose-persistence-rows.md"
+                    if service["DATABASE"] == "compose"
+                    else "persistence-rows.md"
+                ),
                 {"SERVICE_NAME": name, "APP_SLUG": str(config["APP_SLUG"])},
             )
         )

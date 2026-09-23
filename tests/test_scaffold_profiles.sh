@@ -22,6 +22,8 @@ django_target="$work_dir/django-app"
 react_target="$work_dir/react-app"
 nextjs_target="$work_dir/nextjs-app"
 django_config="$work_dir/django.json"
+compose_database_config="$work_dir/django-compose-database.json"
+compose_database_target="$work_dir/django-compose-database-app"
 react_config="$work_dir/react.json"
 nextjs_config="$work_dir/nextjs.json"
 keycloak_config="$work_dir/keycloak.json"
@@ -32,6 +34,7 @@ legacy_config="$work_dir/legacy.json"
 legacy_service_config="$work_dir/legacy-service.json"
 updated_django_config="$work_dir/django-updated.json"
 cp "$repo_root/scaffold/project.json.example" "$django_config"
+sed 's/"PROJECT_MODULE": "example_app"/"PROJECT_MODULE": "example_app", "DATABASE": "compose"/' "$django_config" > "$compose_database_config"
 sed 's#https://github.com/BU-ISCIII/example-app.git#https://github.com/BU-ISCIII/example-app-renamed.git#' \
     "$django_config" > "$updated_django_config"
 sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "example-app"}}/' \
@@ -63,6 +66,11 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+python3 "$repo_root/scripts/scaffold.py" init "$compose_database_target" --config "$compose_database_config" >/dev/null
+grep -Fq 'example-app-db:' "$compose_database_target/docker-compose.prod.yml"
+grep -Fq 'example-app_db_data:/var/lib/mysql' "$compose_database_target/docker-compose.prod.yml"
+grep -Fq 'example-app_db_data:' "$compose_database_target/docker-compose.prod.yml"
+! grep -Fq 'example-app-db:' "$django_target/docker-compose.prod.yml"
 python3 "$repo_root/scripts/scaffold.py" init "$nextstrain_target" \
     --config "$nextstrain_config" >/dev/null
 

@@ -22,6 +22,14 @@ if grep -Fq -- '--conf deployment/settings/external-django_production_settings.t
     echo "FAIL: bare-metal documentation must target the repository-owned service" >&2
     exit 1
 fi
+first_service_row="$(grep -m1 '^| `.*` | `django`' "$owned_second_target/README.md")"
+[[ "$first_service_row" == '| `owned-django`'* ]] || {
+    echo "FAIL: generated service order must place the repository-owned service first" >&2
+    exit 1
+}
+python3 "$repo_root/scripts/scaffold.py" sync "$owned_second_target" \
+    > "$owned_second_target/sync.out"
+grep -Fq 'current  README.md' "$owned_second_target/sync.out"
 
 shared_module_compose="$shared_module_target/docker-compose.test.yml"
 grep -Fq 'DB_HOST: pathocore-api-db' "$shared_module_compose"

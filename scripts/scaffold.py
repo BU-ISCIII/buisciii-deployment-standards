@@ -31,6 +31,22 @@ SHARED_LIB = ROOT / "lib"
 STATE_DIR = ".bu-isciii-deployment"
 STATE_FILE = "state.json"
 TOKEN = re.compile(r"{{([A-Z0-9_]+)}}")
+APPLICATION_BLOCKS = (
+    re.compile(
+        rb"(?P<start><!-- BEGIN BU-ISCIII APPLICATION: "
+        rb"(?P<name>[a-z0-9-]+) -->\n)"
+        rb"(?P<body>.*?)"
+        rb"(?P<end><!-- END BU-ISCIII APPLICATION: (?P=name) -->)",
+        re.DOTALL,
+    ),
+    re.compile(
+        rb"(?P<start># BEGIN BU-ISCIII APPLICATION: "
+        rb"(?P<name>[a-z0-9-]+)\n)"
+        rb"(?P<body>.*?)"
+        rb"(?P<end># END BU-ISCIII APPLICATION: (?P=name))",
+        re.DOTALL,
+    ),
+)
 
 
 @dataclass
@@ -98,6 +114,31 @@ class ContainerInstallerCompilation:
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def preserve_application_blocks(expected: bytes, current: bytes | None) -> bytes:
+    """Copy explicitly application-owned blocks into a new render."""
+    if current is None:
+        return expected
+    current_blocks: dict[bytes, bytes] = {}
+    for pattern in APPLICATION_BLOCKS:
+        for match in pattern.finditer(current):
+            name = match.group("name")
+            if name in current_blocks:
+                raise ValueError(f"Duplicate application-owned block: {name.decode()}")
+            current_blocks[name] = match.group("body")
+
+    def preserve(match: re.Match[bytes]) -> bytes:
+        body = current_blocks.get(match.group("name"), match.group("body"))
+        return match.group("start") + body + match.group("end")
+
+    for pattern in APPLICATION_BLOCKS:
+        expected = pattern.sub(preserve, expected)
+    return expected
+
+
+def has_application_blocks(content: bytes) -> bool:
+    return any(pattern.search(content) for pattern in APPLICATION_BLOCKS)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -323,7 +364,13 @@ def normalized_services(config: dict[str, Any]) -> dict[str, dict[str, str]]:
         service.setdefault("IMAGE", f"{name.replace('_', '-')}:local")
         service.setdefault("DOCKERFILE", "Dockerfile")
         services[name] = service
-    return services
+    owned_names = [
+        name
+        for name, service in services.items()
+        if service["BUILD_CONTEXT"] in {".", "./"}
+    ]
+    ordered_names = owned_names + sorted(set(services) - set(owned_names))
+    return {name: services[name] for name in ordered_names}
 
 
 def normalized_addons(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -1515,6 +1562,10 @@ def classify_artifact(
     if old_hash is not None and current_hash == old_hash:
         return "update-available", current_hash, candidate
     if old_hash == expected_hash:
+        if has_application_blocks(content) and has_application_blocks(
+            destination.read_bytes()
+        ):
+            return "conflict", current_hash, candidate
         return "locally-modified", current_hash, candidate
     return "conflict", current_hash, candidate
 
@@ -1531,6 +1582,8 @@ def check_baseline(target: Path, config: dict[str, Any]) -> int:
         relative_name = relative.as_posix()
         expected_paths.add(relative_name)
         destination = target / relative
+        current_content = destination.read_bytes() if destination.exists() else None
+        content = preserve_application_blocks(content, current_content)
         old_hash = old_hashes.get(relative_name)
         status, _, _ = classify_artifact(destination, content, old_hash)
 
@@ -1558,6 +1611,8 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
 
     for relative, content in rendered_artifacts(config):
         destination = target / relative
+        current_content = destination.read_bytes() if destination.exists() else None
+        content = preserve_application_blocks(content, current_content)
         new_hash = digest(content)
         old_hash = old_hashes.get(relative.as_posix())
         status, _, candidate = classify_artifact(destination, content, old_hash)

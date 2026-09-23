@@ -97,6 +97,28 @@ reported as `conflict` by both `check` and `sync`. After merging the required
 standard changes into the application file, remove its candidate to mark the
 conflict as resolved.
 
+### Generated-file ownership
+
+`README.md`, `LEAME.md`, `container_install.sh`, and profile installers may
+contain explicitly delimited `BU-ISCIII APPLICATION` blocks. Application code
+inside those blocks is preserved by `check` and `sync`; all surrounding content
+remains standard-managed and local edits there are conflicts.
+
+| Artifact | Ownership contract |
+|---|---|
+| `README.md`, `LEAME.md` | Standard-managed except named application documentation blocks |
+| `container_install.sh` | Standard-managed except the test/demo-data loader block |
+| Django `install.sh` | Standard-managed except the `install-hooks` block |
+| `deployment/lib/**` | Exact central copy; never edit locally |
+| Compose, Dockerfile, health and smoke artifacts | Fully generated; change the descriptor or template source |
+| `conf/docker_*_settings.txt` | Versioned setting schema/defaults; operators edit only protected copies under `deployment/settings/` |
+| `conf/template_settings.py` | Application-aware source template; changes require explicit review until a narrower extension contract is defined |
+| `conf/apache/*.conf` | Application-owned proxy routes built from a generated baseline |
+
+The scaffold orders services deterministically: the repository-owned service
+(`BUILD_CONTEXT: "."`) first, followed by remaining services sorted by name.
+JSON serialization order therefore cannot change generated behavior or docs.
+
 ### Synchronize only the shared container library
 
 Mature applications should synchronize the centrally owned library without

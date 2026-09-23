@@ -166,10 +166,12 @@ build_production_service() {
 # in their generated wrapper and set application_supports_test_data=true. Keep
 # application-specific fixture names, users/groups, downloads, and data-service
 # layout here so the complete data-loading workflow remains readable in one file.
+# BEGIN BU-ISCIII APPLICATION: test-data-loader
 application_supports_test_data=false
 load_test_deployment_data() {
     die "Test/demo data loading is not implemented for $APPLICATION_NAME"
 }
+# END BU-ISCIII APPLICATION: test-data-loader
 
 action="install"; mode="production"; engine="docker"; git_revision="current"
 install_conf=""; compose_file=""; compose_env_file=""

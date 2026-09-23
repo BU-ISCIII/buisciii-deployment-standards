@@ -63,13 +63,24 @@ python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     > "$work_dir/check-current.out"
 grep -Fq 'Deployment baseline check found 0 synchronization issue(s).' \
     "$work_dir/check-current.out"
-printf '\nlocal documentation note\n' >> "$django_target/README.md"
+
+# Application-owned Markdown blocks survive checks and synchronization without
+# weakening enforcement for the surrounding managed documentation.
+sed -i '/<!-- END BU-ISCIII APPLICATION: overview -->/i Application overview.' \
+    "$django_target/README.md"
+sed -i '/# END BU-ISCIII APPLICATION: install-hooks/i # Application install hook.' \
+    "$django_target/install.sh"
+sed -i '/# END BU-ISCIII APPLICATION: test-data-loader/i # Application test data.' \
+    "$django_target/container_install.sh"
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     > "$work_dir/check-local.out"
-grep -Eq '^locally-modified +README.md$' "$work_dir/check-local.out"
+grep -Eq '^current +README.md$' "$work_dir/check-local.out"
+grep -Eq '^current +install.sh$' "$work_dir/check-local.out"
+grep -Eq '^current +container_install.sh$' "$work_dir/check-local.out"
+test "$state_hash_before" = "$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-local.out"
-grep -Eq '^locally-modified +README.md$' "$work_dir/sync-local.out"
+grep -Eq '^current +README.md$' "$work_dir/sync-local.out"
 test ! -e "$django_target/README.md.bu-isciii-update"
 mv "$django_target/README.md" "$work_dir/README.md.local"
 if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
@@ -78,13 +89,11 @@ if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     exit 1
 fi
 grep -Eq '^missing +README.md$' "$work_dir/check-missing.out"
-test "$state_hash_before" = "$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
 mv "$work_dir/README.md.local" "$django_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" >/dev/null
 
-# A generated conflict candidate remains actionable after state advances.
-sed -i '/"README.md":/s/"[0-9a-f]\{64\}"/"0000000000000000000000000000000000000000000000000000000000000000"/' \
-    "$django_target/.bu-isciii-deployment/state.json"
+# A modification outside the application-owned blocks is a durable conflict.
+printf '\nmanaged documentation edit\n' >> "$django_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-conflict.out" || test "$?" -eq 2
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" \

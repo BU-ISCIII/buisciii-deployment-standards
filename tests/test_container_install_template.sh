@@ -92,11 +92,11 @@ generated="$target/container_install.sh"
 bash -n "$generated"
 require_text 'print_service_summary' "$generated" \
     "generated installer must print the final Compose service summary"
-require_text 'install_services=(api web)' "$generated" \
-    "mixed installer must preserve application order"
-require_text 'permission_services=(api web example-orchestrator-apache example-orchestrator-keycloak-db example-orchestrator-keycloak)' "$generated" \
+require_text 'install_services=(web api)' "$generated" \
+    "mixed installer must place the repository-owned service first"
+require_text 'permission_services=(web api example-orchestrator-apache example-orchestrator-keycloak-db example-orchestrator-keycloak)' "$generated" \
     "mixed installer must include add-ons in permission repair"
-require_text 'configured_services=(api web apache keycloak)' "$generated" \
+require_text 'configured_services=(web api apache keycloak)' "$generated" \
     "application and add-on configurations must share one mapping interface"
 require_text 'api) echo django' "$generated" \
     "mixed installer must dispatch the Django profile"

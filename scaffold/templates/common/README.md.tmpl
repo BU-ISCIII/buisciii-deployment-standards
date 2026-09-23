@@ -1,11 +1,13 @@
 # {{APP_NAME}}
 
+<!-- BEGIN BU-ISCIII APPLICATION: overview -->
 {{DESCRIPTION}}
 
 > Application developers: replace this short description with the domain
 > overview, architecture image, user-facing documentation link, and support
 > channel. The installation sections below are rendered by the deployment
 > standard and are ready to use unless explicitly marked for review.
+<!-- END BU-ISCIII APPLICATION: overview -->
 
 - [Get the code (required)](#get-the-code-required)
 - [Choose your path](#choose-your-path)
@@ -367,13 +369,19 @@ volume at `/data` and extracting `/backup/documents.tar` there.
 
 ## Final configuration steps
 
+<!-- BEGIN BU-ISCIII APPLICATION: final-configuration -->
 The application developer must document real post-install workflows here:
 initial administrator ownership, email delivery, identity-provider clients,
 storage credentials, scheduled jobs, and one representative user workflow.
 The generated baseline creates the initial Django administrator only when its
 profile settings explicitly request it.
+<!-- END BU-ISCIII APPLICATION: final-configuration -->
 
 ## Developer notes
+
+<!-- BEGIN BU-ISCIII APPLICATION: developer-notes -->
+Add application-specific development, test, and release workflows here.
+<!-- END BU-ISCIII APPLICATION: developer-notes -->
 
 ### Shared container installer library
 
@@ -403,5 +411,7 @@ and domain-specific read workflows without removing the generated checks.
 
 ## Application documentation
 
+<!-- BEGIN BU-ISCIII APPLICATION: documentation-links -->
 Application developers: replace this paragraph with links to user,
 administrator, API, upgrade, and support documentation.
+<!-- END BU-ISCIII APPLICATION: documentation-links -->

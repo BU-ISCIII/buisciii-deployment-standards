@@ -287,8 +287,8 @@ chmod -R go-rwx "$BACKUP_DIR"
 
 # For each Compose-managed application database:
 podman compose --env-file .env.production.file -f docker-compose.prod.yml \
-  exec -T <service>-db sh -c 'exec mysqldump --single-transaction --routines --triggers -u"" -p"" ""' \
-  > "/<service>-database.sql"
+  exec -T <service>-db sh -c 'exec mysqldump --single-transaction --routines --triggers -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
+  > "$BACKUP_DIR/<service>-database.sql"
 
 # For each external application database:
 mysqldump --single-transaction --routines --triggers \

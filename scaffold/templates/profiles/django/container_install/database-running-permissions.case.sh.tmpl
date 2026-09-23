@@ -1,0 +1,8 @@
+        {{SERVICE_NAME}}-db)
+            # The persistent MySQL volume must remain owned by the UID/GID used
+            # by the database image, including after restoring or moving data.
+            local -a {{SPEC_NAME}}_db_running_mount_permission_spec=(
+                "/var/lib/mysql|999:999|u+rwX,g+rwX,o-rwx"
+            )
+            apply_container_directory_permission_spec "$container_id" "${{{SPEC_NAME}}_db_running_mount_permission_spec[@]}"
+            ;;

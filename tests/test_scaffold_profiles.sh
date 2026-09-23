@@ -70,6 +70,9 @@ python3 "$repo_root/scripts/scaffold.py" init "$compose_database_target" --confi
 grep -Fq 'example-app-db:' "$compose_database_target/docker-compose.prod.yml"
 grep -Fq 'example-app_db_data:/var/lib/mysql' "$compose_database_target/docker-compose.prod.yml"
 grep -Fq 'example-app_db_data:' "$compose_database_target/docker-compose.prod.yml"
+grep -Fq 'permission_services=(example-app example-app-db)' "$compose_database_target/container_install.sh"
+grep -Fq 'example-app-db)' "$compose_database_target/container_install.sh"
+grep -Fq '/var/lib/mysql|999:999|u+rwX,g+rwX,o-rwx' "$compose_database_target/container_install.sh"
 ! grep -Fq 'example-app-db:' "$django_target/docker-compose.prod.yml"
 python3 "$repo_root/scripts/scaffold.py" init "$nextstrain_target" \
     --config "$nextstrain_config" >/dev/null

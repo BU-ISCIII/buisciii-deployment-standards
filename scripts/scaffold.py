@@ -11,6 +11,7 @@ below and group it by owning profile or add-on.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -1570,6 +1571,289 @@ def classify_artifact(
     return "conflict", current_hash, candidate
 
 
+CONFIG_ASSIGNMENT_RE = re.compile(
+    rb"^[ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=",
+    re.MULTILINE,
+)
+
+
+def schema_managed_settings(relative: Path) -> bool:
+    """Return whether values are local but assignment names are standardized."""
+    parts = relative.parts
+    if len(parts) == 2 and parts[0] == "conf":
+        return bool(re.fullmatch(r"docker_(?:production|test)_settings\.txt", parts[1]))
+    if len(parts) == 3 and parts[0] == "conf":
+        return bool(
+            re.fullmatch(
+                rf"{re.escape(parts[1])}_(?:production|test)_settings\.txt",
+                parts[2],
+            )
+        )
+    return False
+
+
+def config_assignment_names(content: bytes) -> list[str]:
+    """Extract shell assignment names without evaluating operator input."""
+    return [match.decode("ascii") for match in CONFIG_ASSIGNMENT_RE.findall(content)]
+
+
+def config_schema_differences(
+    current: bytes, expected: bytes
+) -> tuple[list[str], list[str]]:
+    """Return missing standard names and duplicate local assignment names."""
+    expected_names = set(config_assignment_names(expected))
+    current_names = config_assignment_names(current)
+    counts = {name: current_names.count(name) for name in set(current_names)}
+    missing = sorted(expected_names - set(current_names))
+    duplicates = sorted(name for name, count in counts.items() if count > 1)
+    return missing, duplicates
+
+
+def merge_missing_config_assignments(current: bytes, expected: bytes) -> bytes:
+    """Append only missing standard assignments, preserving every local value."""
+    current_names = set(config_assignment_names(current))
+    missing_lines: list[bytes] = []
+    for line in expected.splitlines():
+        match = CONFIG_ASSIGNMENT_RE.match(line)
+        if not match:
+            continue
+        name = match.group(1).decode("ascii")
+        if name not in current_names:
+            missing_lines.append(line)
+            current_names.add(name)
+    if not missing_lines:
+        return current
+    merged = current.rstrip(b"\n")
+    return (
+        merged
+        + b"\n\n# Added from the BU-ISCIII configuration schema; review local values.\n"
+        + b"\n".join(missing_lines)
+        + b"\n"
+    )
+
+
+def print_config_schema_details(missing: list[str], duplicates: list[str]) -> None:
+    if missing:
+        print(f"  missing variables: {', '.join(missing)}")
+    if duplicates:
+        print(f"  duplicate variables: {', '.join(duplicates)}")
+
+
+def schema_managed_json(relative: Path) -> bool:
+    """Return whether a JSON artifact has standard keys but local values."""
+    return relative.as_posix() == "nextstrain/auspice-config.json"
+
+
+def load_json_object(content: bytes) -> tuple[Any, list[str]]:
+    """Parse JSON without silently accepting duplicate object keys."""
+    duplicates: list[str] = []
+
+    def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                duplicates.append(key)
+            result[key] = value
+        return result
+
+    parsed = json.loads(content.decode("utf-8"), object_pairs_hook=object_pairs)
+    return parsed, sorted(set(duplicates))
+
+
+def json_schema_differences(
+    current: Any, expected: Any, prefix: str = ""
+) -> tuple[list[str], list[str]]:
+    """Compare required object keys while treating scalar values as local."""
+    if not isinstance(expected, dict):
+        return [], []
+    if not isinstance(current, dict):
+        return [], [prefix or "<root>"]
+
+    missing: list[str] = []
+    object_conflicts: list[str] = []
+    for key, expected_value in expected.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if key not in current:
+            missing.append(path)
+            continue
+        nested_missing, nested_conflicts = json_schema_differences(
+            current[key], expected_value, path
+        )
+        missing.extend(nested_missing)
+        object_conflicts.extend(nested_conflicts)
+    return missing, object_conflicts
+
+
+def merge_missing_json_properties(current: Any, expected: Any) -> Any:
+    """Recursively add standard properties without replacing local values."""
+    if not isinstance(expected, dict) or not isinstance(current, dict):
+        return current
+    for key, expected_value in expected.items():
+        if key not in current:
+            current[key] = expected_value
+        else:
+            merge_missing_json_properties(current[key], expected_value)
+    return current
+
+
+def print_json_schema_details(
+    missing: list[str],
+    duplicates: list[str],
+    object_conflicts: list[str],
+    error: str | None,
+) -> None:
+    if missing:
+        print(f"  missing properties: {', '.join(missing)}")
+    if duplicates:
+        print(f"  duplicate properties: {', '.join(duplicates)}")
+    if object_conflicts:
+        print(f"  expected objects: {', '.join(object_conflicts)}")
+    if error:
+        print(f"  invalid JSON: {error}")
+
+
+def classify_json_schema(
+    current_content: bytes, expected_content: bytes
+) -> tuple[str, list[str], list[str], list[str], str | None, Any, Any]:
+    """Classify a JSON key schema while retaining parsed values for merging."""
+    expected, expected_duplicates = load_json_object(expected_content)
+    if expected_duplicates:
+        raise ValueError(
+            "Standard JSON contains duplicate properties: "
+            + ", ".join(expected_duplicates)
+        )
+    try:
+        current, duplicates = load_json_object(current_content)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        return "json-conflict", [], [], [], str(error), None, expected
+    missing, object_conflicts = json_schema_differences(current, expected)
+    status = (
+        "json-conflict"
+        if duplicates or object_conflicts
+        else "json-schema-update"
+        if missing
+        else "current"
+    )
+    return status, missing, duplicates, object_conflicts, None, current, expected
+
+
+DJANGO_SETTINGS_PLACEHOLDERS = (
+    "djangodebug",
+    "djangoallowedhosts",
+    "djangocsrftrustedorigins",
+    "djangouser",
+    "djangopass",
+    "djangohost",
+    "djangoport",
+    "djangodbname",
+    "dbconnmaxage",
+    "emailhostserver",
+    "emailport",
+    "emailhostuser",
+    "emailhostpassword",
+    "emailhosttls",
+)
+DJANGO_SETTINGS_ASSIGNMENTS = (
+    "SECRET_KEY",
+    "DEBUG",
+    "ALLOWED_HOSTS",
+    "CSRF_TRUSTED_ORIGINS",
+    "ROOT_URLCONF",
+    "WSGI_APPLICATION",
+    "DATABASES",
+    "STATIC_ROOT",
+    "MEDIA_ROOT",
+)
+
+
+def schema_managed_django_settings(relative: Path) -> bool:
+    return relative.as_posix() == "conf/template_settings.py"
+
+
+def top_level_python_assignments(tree: ast.AST) -> set[str]:
+    assignments: set[str] = set()
+    for node in getattr(tree, "body", []):
+        targets: list[ast.expr] = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name):
+                assignments.add(target.id)
+    return assignments
+
+
+def django_settings_contract(
+    target: Path, config: dict[str, Any], content: bytes
+) -> tuple[list[str], list[str], list[str], str | None]:
+    """Validate renderer placeholders without constraining application settings."""
+    try:
+        source = content.decode("utf-8")
+        tree = ast.parse(source, filename="conf/template_settings.py")
+    except (UnicodeDecodeError, SyntaxError) as error:
+        return [], [], [], str(error)
+
+    placeholder_counts = {token: 0 for token in DJANGO_SETTINGS_PLACEHOLDERS}
+    application_tokens: set[str] = set()
+    for node in ast.walk(tree):
+        value: str | None = None
+        if isinstance(node, ast.Name):
+            value = node.id
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            value = node.value
+        if value in placeholder_counts:
+            placeholder_counts[value] += 1
+        if isinstance(node, ast.Name) and re.fullmatch(
+            r"settingsconf_[A-Z][A-Z0-9_]*", node.id
+        ):
+            application_tokens.add(node.id.removeprefix("settingsconf_"))
+    missing_placeholders = sorted(
+        token for token, count in placeholder_counts.items() if count == 0
+    )
+    duplicate_placeholders = sorted(
+        token for token, count in placeholder_counts.items() if count > 1
+    )
+    assignments = top_level_python_assignments(tree)
+    missing_assignments = sorted(set(DJANGO_SETTINGS_ASSIGNMENTS) - assignments)
+
+    owned = owned_profile_service(config)
+    if owned:
+        _, service = owned
+        for setting_path in (service["INSTALL_CONF"], service["TEST_INSTALL_CONF"]):
+            path = target / setting_path
+            available = (
+                set(config_assignment_names(path.read_bytes())) if path.is_file() else set()
+            )
+            missing_assignments.extend(
+                f"{token} in {setting_path}"
+                for token in sorted(application_tokens)
+                if token not in available
+            )
+    return (
+        sorted(missing_placeholders),
+        sorted(duplicate_placeholders),
+        sorted(set(missing_assignments)),
+        None,
+    )
+
+
+def print_django_settings_details(
+    missing_placeholders: list[str],
+    duplicate_placeholders: list[str],
+    missing_assignments: list[str],
+    error: str | None,
+) -> None:
+    if missing_placeholders:
+        print(f"  missing placeholders: {', '.join(missing_placeholders)}")
+    if duplicate_placeholders:
+        print(f"  duplicate placeholders: {', '.join(duplicate_placeholders)}")
+    if missing_assignments:
+        print(f"  missing assignments: {', '.join(missing_assignments)}")
+    if error:
+        print(f"  invalid Python: {error}")
+
+
 def check_baseline(target: Path, config: dict[str, Any]) -> int:
     """Report generated-file drift without modifying the target repository."""
     state = load_state(target)
@@ -1585,9 +1869,63 @@ def check_baseline(target: Path, config: dict[str, Any]) -> int:
         current_content = destination.read_bytes() if destination.exists() else None
         content = preserve_application_blocks(content, current_content)
         old_hash = old_hashes.get(relative_name)
-        status, _, _ = classify_artifact(destination, content, old_hash)
+        missing: list[str] = []
+        duplicates: list[str] = []
+        json_missing: list[str] = []
+        json_duplicates: list[str] = []
+        json_object_conflicts: list[str] = []
+        json_error: str | None = None
+        settings_missing_placeholders: list[str] = []
+        settings_duplicate_placeholders: list[str] = []
+        settings_missing_assignments: list[str] = []
+        settings_error: str | None = None
+        if schema_managed_settings(relative) and current_content is not None:
+            missing, duplicates = config_schema_differences(current_content, content)
+            if duplicates:
+                status = "config-conflict"
+            elif missing:
+                status = "schema-update"
+            else:
+                status = "current"
+        elif schema_managed_json(relative) and current_content is not None:
+            (
+                status,
+                json_missing,
+                json_duplicates,
+                json_object_conflicts,
+                json_error,
+                _,
+                _,
+            ) = classify_json_schema(current_content, content)
+        elif schema_managed_django_settings(relative) and current_content is not None:
+            (
+                settings_missing_placeholders,
+                settings_duplicate_placeholders,
+                settings_missing_assignments,
+                settings_error,
+            ) = django_settings_contract(target, config, current_content)
+            status = (
+                "template-contract-conflict"
+                if settings_missing_placeholders
+                or settings_duplicate_placeholders
+                or settings_missing_assignments
+                or settings_error
+                else "current"
+            )
+        else:
+            status, _, _ = classify_artifact(destination, content, old_hash)
 
         print(f"{status:16} {relative}")
+        print_config_schema_details(missing, duplicates)
+        print_json_schema_details(
+            json_missing, json_duplicates, json_object_conflicts, json_error
+        )
+        print_django_settings_details(
+            settings_missing_placeholders,
+            settings_duplicate_placeholders,
+            settings_missing_assignments,
+            settings_error,
+        )
         if status not in {"current", "locally-modified"}:
             drift += 1
 
@@ -1615,11 +1953,93 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
         content = preserve_application_blocks(content, current_content)
         new_hash = digest(content)
         old_hash = old_hashes.get(relative.as_posix())
-        status, _, candidate = classify_artifact(destination, content, old_hash)
+        missing: list[str] = []
+        duplicates: list[str] = []
+        json_missing: list[str] = []
+        json_duplicates: list[str] = []
+        json_object_conflicts: list[str] = []
+        json_error: str | None = None
+        current_json: Any = None
+        expected_json: Any = None
+        settings_missing_placeholders: list[str] = []
+        settings_duplicate_placeholders: list[str] = []
+        settings_missing_assignments: list[str] = []
+        settings_error: str | None = None
+        if schema_managed_settings(relative) and current_content is not None:
+            missing, duplicates = config_schema_differences(current_content, content)
+            if duplicates:
+                status = "config-conflict"
+            elif missing:
+                status = "schema-update"
+            else:
+                status = "current"
+            candidate = destination.with_name(destination.name + ".bu-isciii-update")
+        elif schema_managed_json(relative) and current_content is not None:
+            (
+                status,
+                json_missing,
+                json_duplicates,
+                json_object_conflicts,
+                json_error,
+                current_json,
+                expected_json,
+            ) = classify_json_schema(current_content, content)
+            candidate = destination.with_name(destination.name + ".bu-isciii-update")
+        elif schema_managed_django_settings(relative) and current_content is not None:
+            (
+                settings_missing_placeholders,
+                settings_duplicate_placeholders,
+                settings_missing_assignments,
+                settings_error,
+            ) = django_settings_contract(target, config, current_content)
+            status = (
+                "template-contract-conflict"
+                if settings_missing_placeholders
+                or settings_duplicate_placeholders
+                or settings_missing_assignments
+                or settings_error
+                else "current"
+            )
+            candidate = destination.with_name(destination.name + ".bu-isciii-update")
+        else:
+            status, _, candidate = classify_artifact(destination, content, old_hash)
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         if status == "current":
             print(f"current  {relative}")
+        elif status == "schema-update":
+            destination.write_bytes(merge_missing_config_assignments(current_content, content))
+            print(f"updated  {relative}")
+            print_config_schema_details(missing, duplicates)
+        elif status == "config-conflict":
+            print(f"config-conflict {relative}")
+            print_config_schema_details(missing, duplicates)
+            conflicts += 1
+        elif status == "json-schema-update":
+            merged_json = merge_missing_json_properties(current_json, expected_json)
+            destination.write_text(
+                json.dumps(merged_json, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            print(f"updated  {relative}")
+            print_json_schema_details(
+                json_missing, json_duplicates, json_object_conflicts, json_error
+            )
+        elif status == "json-conflict":
+            print(f"json-conflict {relative}")
+            print_json_schema_details(
+                json_missing, json_duplicates, json_object_conflicts, json_error
+            )
+            conflicts += 1
+        elif status == "template-contract-conflict":
+            print(f"template-contract-conflict {relative}")
+            print_django_settings_details(
+                settings_missing_placeholders,
+                settings_duplicate_placeholders,
+                settings_missing_assignments,
+                settings_error,
+            )
+            conflicts += 1
         elif status in {"missing", "update-available"}:
             destination.write_bytes(content)
             if executable(relative):

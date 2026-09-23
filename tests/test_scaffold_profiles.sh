@@ -26,11 +26,15 @@ react_config="$work_dir/react.json"
 nextjs_config="$work_dir/nextjs.json"
 keycloak_config="$work_dir/keycloak.json"
 keycloak_target="$work_dir/keycloak-app"
+nextstrain_config="$work_dir/nextstrain.json"
+nextstrain_target="$work_dir/nextstrain-app"
 legacy_config="$work_dir/legacy.json"
 legacy_service_config="$work_dir/legacy-service.json"
 cp "$repo_root/scaffold/project.json.example" "$django_config"
 sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "example-app"}}/' \
     "$django_config" > "$keycloak_config"
+sed 's/"ADDONS": {}/"ADDONS": {"nextstrain": {"CONFIG_SERVICE": "example-app"}}/' \
+    "$django_config" > "$nextstrain_config"
 sed -e 's/"PROFILE": "django"/"PROFILE": "react-vite"/' \
     -e 's#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt",#"TEST_INSTALL_CONF": "conf/docker_test_settings.txt"#' \
     -e '/"PROJECT_MODULE":/d' \
@@ -56,6 +60,8 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+python3 "$repo_root/scripts/scaffold.py" init "$nextstrain_target" \
+    --config "$nextstrain_config" >/dev/null
 
 # The full baseline checker is read-only and detects application-owned drift.
 state_hash_before="$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
@@ -63,6 +69,125 @@ python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     > "$work_dir/check-current.out"
 grep -Fq 'Deployment baseline check found 0 synchronization issue(s).' \
     "$work_dir/check-current.out"
+test "$state_hash_before" = \
+    "$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
+
+# Django settings remain application-owned but must preserve the renderer
+# placeholders and structural assignments required by the deployment library.
+cp "$django_target/conf/template_settings.py" \
+    "$work_dir/template_settings.py.original"
+printf '\nAPPLICATION_SETTING = {"local": True}\n' \
+    >> "$django_target/conf/template_settings.py"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-template-settings-local.out"
+grep -Eq '^current +conf/template_settings.py$' \
+    "$work_dir/check-template-settings-local.out"
+sed -i 's/^DEBUG = djangodebug$/DEBUG = False/' \
+    "$django_target/conf/template_settings.py"
+if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-template-settings-missing.out"; then
+    echo "FAIL: a missing Django renderer placeholder must fail check" >&2
+    exit 1
+fi
+grep -Eq '^template-contract-conflict +conf/template_settings.py$' \
+    "$work_dir/check-template-settings-missing.out"
+grep -Fq 'missing placeholders: djangodebug' \
+    "$work_dir/check-template-settings-missing.out"
+cp "$work_dir/template_settings.py.original" \
+    "$django_target/conf/template_settings.py"
+
+# The health route is managed while application imports and routes survive.
+sed -i '/# END BU-ISCIII APPLICATION: django-url-routes/i\    # Local application route.' \
+    "$django_target/conf/urls.py"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-urls-local.out"
+grep -Eq '^current +conf/urls.py$' "$work_dir/check-urls-local.out"
+
+# Settings files are synchronized by assignment schema: local values and
+# application-only variables are preserved, while missing standard variables
+# are reported and appended without replacing operator configuration.
+cp "$django_target/conf/docker_production_settings.txt" \
+    "$work_dir/docker_production_settings.txt.original"
+sed -i "s/^APP_PORT=.*/APP_PORT='9123'/" \
+    "$django_target/conf/docker_production_settings.txt"
+printf "APPLICATION_ONLY_VALUE='local'\n" \
+    >> "$django_target/conf/docker_production_settings.txt"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-settings-values.out"
+grep -Eq '^current +conf/docker_production_settings.txt$' \
+    "$work_dir/check-settings-values.out"
+
+sed -i '/^DB_PORT=/d' "$django_target/conf/docker_production_settings.txt"
+if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-settings-missing.out"; then
+    echo "FAIL: a missing standard configuration variable must fail check" >&2
+    exit 1
+fi
+grep -Eq '^schema-update +conf/docker_production_settings.txt$' \
+    "$work_dir/check-settings-missing.out"
+grep -Fq 'missing variables: DB_PORT' "$work_dir/check-settings-missing.out"
+python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
+    > "$work_dir/sync-settings-missing.out"
+grep -Eq '^updated +conf/docker_production_settings.txt$' \
+    "$work_dir/sync-settings-missing.out"
+grep -Fq "APP_PORT='9123'" "$django_target/conf/docker_production_settings.txt"
+grep -Fq "APPLICATION_ONLY_VALUE='local'" \
+    "$django_target/conf/docker_production_settings.txt"
+grep -Eq '^DB_PORT=' "$django_target/conf/docker_production_settings.txt"
+
+printf "DB_PORT='duplicate'\n" >> "$django_target/conf/docker_production_settings.txt"
+if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-settings-duplicate.out"; then
+    echo "FAIL: a duplicate configuration variable must fail check" >&2
+    exit 1
+fi
+grep -Eq '^config-conflict +conf/docker_production_settings.txt$' \
+    "$work_dir/check-settings-duplicate.out"
+grep -Fq 'duplicate variables: DB_PORT' \
+    "$work_dir/check-settings-duplicate.out"
+cp "$work_dir/docker_production_settings.txt.original" \
+    "$django_target/conf/docker_production_settings.txt"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" >/dev/null
+
+# Auspice JSON is synchronized by required property paths, not scalar values.
+auspice_config="$nextstrain_target/nextstrain/auspice-config.json"
+cp "$auspice_config" "$work_dir/auspice-config.json.original"
+sed -i 's/"browserTitle": "Nextstrain"/"browserTitle": "Local title"/' \
+    "$auspice_config"
+python3 "$repo_root/scripts/scaffold.py" check "$nextstrain_target" \
+    > "$work_dir/check-auspice-value.out"
+grep -Eq '^current +nextstrain/auspice-config.json$' \
+    "$work_dir/check-auspice-value.out"
+
+sed -i '/"attribution":/d' "$auspice_config"
+if python3 "$repo_root/scripts/scaffold.py" check "$nextstrain_target" \
+    > "$work_dir/check-auspice-missing.out"; then
+    echo "FAIL: a missing standard JSON property must fail check" >&2
+    exit 1
+fi
+grep -Eq '^json-schema-update +nextstrain/auspice-config.json$' \
+    "$work_dir/check-auspice-missing.out"
+grep -Fq 'missing properties: mapTiles.attribution' \
+    "$work_dir/check-auspice-missing.out"
+python3 "$repo_root/scripts/scaffold.py" sync "$nextstrain_target" \
+    > "$work_dir/sync-auspice-missing.out"
+grep -Eq '^updated +nextstrain/auspice-config.json$' \
+    "$work_dir/sync-auspice-missing.out"
+grep -Fq '"browserTitle": "Local title"' "$auspice_config"
+grep -Fq '"attribution":' "$auspice_config"
+
+sed -i '/"browserTitle":/a\  "browserTitle": "Duplicate",' "$auspice_config"
+if python3 "$repo_root/scripts/scaffold.py" check "$nextstrain_target" \
+    > "$work_dir/check-auspice-duplicate.out"; then
+    echo "FAIL: a duplicate JSON property must fail check" >&2
+    exit 1
+fi
+grep -Eq '^json-conflict +nextstrain/auspice-config.json$' \
+    "$work_dir/check-auspice-duplicate.out"
+grep -Fq 'duplicate properties: browserTitle' \
+    "$work_dir/check-auspice-duplicate.out"
+cp "$work_dir/auspice-config.json.original" "$auspice_config"
+python3 "$repo_root/scripts/scaffold.py" check "$nextstrain_target" >/dev/null
 
 # Application-owned Markdown blocks survive checks and synchronization without
 # weakening enforcement for the surrounding managed documentation.
@@ -77,10 +202,10 @@ python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
 grep -Eq '^current +README.md$' "$work_dir/check-local.out"
 grep -Eq '^current +install.sh$' "$work_dir/check-local.out"
 grep -Eq '^current +container_install.sh$' "$work_dir/check-local.out"
-test "$state_hash_before" = "$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-local.out"
 grep -Eq '^current +README.md$' "$work_dir/sync-local.out"
+grep -Fq '# Local application route.' "$django_target/conf/urls.py"
 test ! -e "$django_target/README.md.bu-isciii-update"
 mv "$django_target/README.md" "$work_dir/README.md.local"
 if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
@@ -344,7 +469,7 @@ if grep -Eq 'prepare_django_settings_bind_mount|stage_container_runtime_config|p
     echo "FAIL: profile installer callbacks must live in profile templates" >&2
     exit 1
 fi
-if grep -Eq '_DEFAULT_(REPO_PATH|INSTALL_PATH|APP_PORT|APP_UID|APP_GID)|"(8001|1212|101|300|3306|djangopass|test-only-change-me)"' \
+if grep -Eq '_DEFAULT_(REPO_PATH|INSTALL_PATH|APP_PORT|APP_UID|APP_GID)|"(8001|1212|101|300|3306|test-only-change-me)"' \
     "$repo_root/scripts/scaffold.py"; then
     echo "FAIL: profile runtime defaults must live in profile settings templates" >&2
     exit 1

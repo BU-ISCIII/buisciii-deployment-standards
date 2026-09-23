@@ -180,6 +180,20 @@ grep -Fq 'LimitRequestBody ${APACHE_LIMIT_REQUEST_BODY}' \
     "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq '# OPTIONAL SECOND DNS VIRTUAL HOST' \
     "$target/conf/apache/01-reverse-proxy.conf"
+grep -Fq '# BEGIN BU-ISCIII APPLICATION: additional-apache-routes' \
+    "$target/conf/apache/01-reverse-proxy.conf"
+grep -Fq '# END BU-ISCIII APPLICATION: additional-apache-routes' \
+    "$target/conf/apache/01-reverse-proxy.conf"
+sed -i '/# END BU-ISCIII APPLICATION: additional-apache-routes/i # Application VirtualHost.' \
+    "$target/conf/apache/01-reverse-proxy.conf"
+python3 "$repo_root/scripts/scaffold.py" check "$target" \
+    > "$target/check-apache-application-block.out"
+grep -Eq '^current +conf/apache/01-reverse-proxy.conf$' \
+    "$target/check-apache-application-block.out"
+python3 "$repo_root/scripts/scaffold.py" sync "$target" \
+    > "$target/sync-apache-application-block.out"
+grep -Fq '# Application VirtualHost.' \
+    "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq 'CustomLog logs/<LOG_STEM>-apache.access.log proxy env=forwarded' \
     "$target/conf/apache/01-reverse-proxy.conf"
 grep -Fq 'ServerName ${SERVER_STATUS_SERVER_NAME}' \
@@ -232,8 +246,8 @@ grep -Fq '/srv/containers/bind/example-orchestrator/keycloak/realm-import' \
     "$target/LEAME.md"
 grep -Fq 'crea automaticamente esta ruta' "$target/LEAME.md"
 grep -Fq '`SERVER_STATUS_SERVER_NAME`' "$target/conf/INSTALL_SETTINGS.md"
-grep -Fq 'configured_services=(api web apache keycloak)' "$target/container_install.sh"
-grep -Fq 'permission_services=(api web example-orchestrator-apache example-orchestrator-keycloak-db example-orchestrator-keycloak)' \
+grep -Fq 'configured_services=(web api apache keycloak)' "$target/container_install.sh"
+grep -Fq 'permission_services=(web api example-orchestrator-apache example-orchestrator-keycloak-db example-orchestrator-keycloak)' \
     "$target/container_install.sh"
 grep -Fq 'service_environment_value "$1" REPO_PATH' \
     "$target/container_install.sh"
@@ -255,7 +269,7 @@ grep -Fq 'apache_config_service=web' "$target/container_install.sh"
 test "$(find "$target" -name 'docker-compose*.yml' -type f | wc -l)" -eq 2
 bash -n "$target/container_install.sh"
 bash -n "$target/scripts/smoke_test.sh"
-grep -Fq 'install_services=(api web)' "$target/scripts/smoke_test.sh"
+grep -Fq 'install_services=(web api)' "$target/scripts/smoke_test.sh"
 grep -Fq 'for service in "${install_services[@]}"; do' \
     "$target/scripts/smoke_test.sh"
 grep -Fq 'port_variable="${prefix}_APP_PORT"' "$target/scripts/smoke_test.sh"

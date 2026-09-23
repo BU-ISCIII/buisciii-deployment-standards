@@ -1,0 +1,15 @@
+"""Root URL configuration with the standard deployment health endpoint."""
+
+from django.urls import include, path
+
+# BEGIN BU-ISCIII APPLICATION: django-url-imports
+# Add application-owned view and URL imports here.
+# END BU-ISCIII APPLICATION: django-url-imports
+
+urlpatterns = [
+    # Required by Compose health checks and deployment smoke tests.
+    path("health/", include("deployment_health.urls")),
+    # BEGIN BU-ISCIII APPLICATION: django-url-routes
+    # Add application-owned routes here.
+    # END BU-ISCIII APPLICATION: django-url-routes
+]

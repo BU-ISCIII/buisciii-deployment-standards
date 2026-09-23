@@ -111,9 +111,31 @@ remains standard-managed and local edits there are conflicts.
 | Django `install.sh` | Standard-managed except the `install-hooks` block |
 | `deployment/lib/**` | Exact central copy; never edit locally |
 | Compose, Dockerfile, health and smoke artifacts | Fully generated; change the descriptor or template source |
-| `conf/docker_*_settings.txt` | Versioned setting schema/defaults; operators edit only protected copies under `deployment/settings/` |
-| `conf/template_settings.py` | Application-aware source template; changes require explicit review until a narrower extension contract is defined |
-| `conf/apache/*.conf` | Application-owned proxy routes built from a generated baseline |
+| `conf/docker_*_settings.txt`, `conf/<addon>/<addon>_*_settings.txt` | Standard-managed variable schema; local values and application-only variables are preserved |
+| `conf/template_settings.py` | Application-owned Django code checked for renderer placeholders, required assignments, Python syntax, and declared `settingsconf_*` inputs |
+| `conf/urls.py` | Standard-managed health route plus application-owned import and route blocks |
+| `deployment_health/**` | Exact standard-managed health implementation |
+| `conf/apache/00-logs.conf`, `conf/apache/02-server-status.conf` | Fully standard-managed Apache configuration |
+| `conf/apache/01-reverse-proxy.conf` | Standard-managed default VirtualHost plus application-owned additional route block |
+| `nextstrain/auspice-config.json` | Standard-managed property schema; local scalar values and additional properties are preserved |
+
+Settings synchronization compares shell assignment names, never their values.
+`check` reports `schema-update` when a standard variable is missing and
+`config-conflict` when a name is assigned more than once. `sync` appends only
+missing standard assignments with their generated defaults for local review;
+it does not replace existing values or application-only assignments.
+
+The Auspice JSON follows the same schema-first rule. `check` reports missing
+standard property paths and rejects invalid JSON, duplicate properties, or a
+scalar where the standard requires an object. `sync` recursively adds only
+missing properties and preserves existing values and application properties.
+
+The Django settings template is not compared by hash or by application
+setting values. Its contract requires valid Python, one occurrence of every
+deployment renderer placeholder, the structural Django assignments consumed
+by the standard, and matching install-setting variables for every optional
+`settingsconf_VARIABLE` token. Contract failures require manual correction;
+`sync` never inserts Python into an application settings template.
 
 The scaffold orders services deterministically: the repository-owned service
 (`BUILD_CONTEXT: "."`) first, followed by remaining services sorted by name.

@@ -111,6 +111,7 @@ remains standard-managed and local edits there are conflicts.
 | Django `install.sh` | Standard-managed except the `install-hooks` block |
 | `deployment/lib/**` | Exact central copy; never edit locally |
 | Compose, Dockerfile, health and smoke artifacts | Fully generated; change the descriptor or template source |
+| `conf/INSTALL_SETTINGS.md` | Generated profile/add-on documentation with application settings and add-on notes blocks |
 | `conf/docker_*_settings.txt`, `conf/<addon>/<addon>_*_settings.txt` | Standard-managed variable schema; local values and application-only variables are preserved |
 | `conf/template_settings.py` | Application-owned Django code checked for renderer placeholders, required assignments, Python syntax, and declared `settingsconf_*` inputs |
 | `conf/urls.py` | Standard-managed health route plus application-owned import and route blocks |

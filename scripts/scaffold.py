@@ -572,11 +572,11 @@ def rendered_addon_compose_fragment(
     return render(template, values).decode().rstrip("\n").splitlines()
 
 
-def addon_settings_documentation(config: dict[str, Any], service_name: str) -> str:
+def addon_settings_documentation(config: dict[str, Any]) -> str:
+    """Document every add-on whose settings are generated in this repository."""
     sections = [
         rendered_addon_settings_documentation(config, addon)
-        for addon, options in normalized_addons(config).items()
-        if options["CONFIG_SERVICE"] == service_name
+        for addon in normalized_addons(config)
     ]
     return "\n\n".join(sections) or "No infrastructure add-on settings are owned by this service."
 
@@ -1322,9 +1322,7 @@ def settings_template_values(config: dict[str, Any]) -> dict[str, str]:
             config, settings_owner, "production"
         ),
         "TEST_ADDON_SETTINGS": addon_settings_section(config, settings_owner, "test"),
-        "ADDON_SETTINGS_DOCUMENTATION": addon_settings_documentation(
-            config, settings_owner
-        ),
+        "ADDON_SETTINGS_DOCUMENTATION": addon_settings_documentation(config),
         "PRODUCTION_OPTIONAL_APP_SETTINGS": optional_django_install_settings(
             owner_service, "production", has_oidc, has_keycloak_admin
         ),

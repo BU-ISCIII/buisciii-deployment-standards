@@ -72,6 +72,17 @@ grep -Fq 'Deployment baseline check found 0 synchronization issue(s).' \
 test "$state_hash_before" = \
     "$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
 
+# Generated settings documentation preserves application-only variables and
+# topology notes without weakening the profile/add-on documentation around it.
+sed -i '/<!-- END BU-ISCIII APPLICATION: installation-settings -->/i Application variable notes.' \
+    "$django_target/conf/INSTALL_SETTINGS.md"
+sed -i '/<!-- END BU-ISCIII APPLICATION: addon-settings-notes -->/i Application add-on notes.' \
+    "$django_target/conf/INSTALL_SETTINGS.md"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-install-settings-blocks.out"
+grep -Eq '^current +conf/INSTALL_SETTINGS.md$' \
+    "$work_dir/check-install-settings-blocks.out"
+
 # Django settings remain application-owned but must preserve the renderer
 # placeholders and structural assignments required by the deployment library.
 cp "$django_target/conf/template_settings.py" \
@@ -206,6 +217,8 @@ python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-local.out"
 grep -Eq '^current +README.md$' "$work_dir/sync-local.out"
 grep -Fq '# Local application route.' "$django_target/conf/urls.py"
+grep -Fq 'Application variable notes.' "$django_target/conf/INSTALL_SETTINGS.md"
+grep -Fq 'Application add-on notes.' "$django_target/conf/INSTALL_SETTINGS.md"
 test ! -e "$django_target/README.md.bu-isciii-update"
 mv "$django_target/README.md" "$work_dir/README.md.local"
 if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \

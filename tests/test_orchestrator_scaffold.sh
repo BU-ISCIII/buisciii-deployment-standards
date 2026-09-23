@@ -298,6 +298,8 @@ grep -Fq "REPO_PATH='/srv/example-django'" "$single_target/conf/docker_productio
 grep -Fq "INSTALL_PATH='/opt/example-django'" "$single_target/conf/docker_production_settings.txt"
 test -f "$single_target/conf/apache/apache_production_settings.txt"
 test -f "$single_target/conf/apache/apache_test_settings.txt"
+grep -Fq '### Apache' "$single_target/conf/INSTALL_SETTINGS.md"
+grep -Fq '### Samba test data' "$single_target/conf/INSTALL_SETTINGS.md"
 grep -Fq 'app_test_static:${APP_INSTALL_PATH:?APP_INSTALL_PATH is required}/static:ro,z' \
     "$single_target/docker-compose.test.yml"
 grep -Fq 'app_test_documents:${APP_INSTALL_PATH:?APP_INSTALL_PATH is required}/documents:ro,z' \

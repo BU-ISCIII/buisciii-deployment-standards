@@ -5,12 +5,23 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="$(mktemp -d)"
 single_target="$(mktemp -d)"
 shared_module_target="$(mktemp -d)"
-trap 'rm -rf "$target" "$single_target" "$shared_module_target"' EXIT
+owned_second_target="$(mktemp -d)"
+trap 'rm -rf "$target" "$single_target" "$shared_module_target" "$owned_second_target"' EXIT
 
 python3 "$repo_root/scripts/scaffold.py" init "$target" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
 python3 "$repo_root/scripts/scaffold.py" init "$shared_module_target" \
     --config "$repo_root/tests/fixtures/shared_django_module_project.json" >/dev/null
+python3 "$repo_root/scripts/scaffold.py" init "$owned_second_target" \
+    --config "$repo_root/tests/fixtures/owned_service_second.json" >/dev/null
+
+grep -Fq -- '--conf deployment/settings/owned-django_production_settings.txt' \
+    "$owned_second_target/README.md"
+if grep -Fq -- '--conf deployment/settings/external-django_production_settings.txt' \
+    "$owned_second_target/README.md"; then
+    echo "FAIL: bare-metal documentation must target the repository-owned service" >&2
+    exit 1
+fi
 
 shared_module_compose="$shared_module_target/docker-compose.test.yml"
 grep -Fq 'DB_HOST: pathocore-api-db' "$shared_module_compose"

@@ -948,7 +948,8 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
     selected_profiles = list(
         dict.fromkeys(service["PROFILE"] for service in services.values())
     )
-    primary_service = next(iter(services))
+    owned = owned_profile_service(config)
+    primary_service = owned[0] if owned else next(iter(services))
 
     for name, service in services.items():
         service_rows.append(

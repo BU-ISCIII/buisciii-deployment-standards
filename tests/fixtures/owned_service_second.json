@@ -1,0 +1,24 @@
+{
+  "APP_NAME": "Owned Service Ordering Regression",
+  "APP_SLUG": "owned-service-ordering",
+  "DESCRIPTION": "Ensures repository-owned documentation ignores service ordering.",
+  "PYTHON_VERSION": "3.12",
+  "TIMEZONE": "Europe/Madrid",
+  "SERVICES": {
+    "external-django": {
+      "PROFILE": "django",
+      "BUILD_CONTEXT": "../external-django",
+      "INSTALL_CONF": "../external-django/conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "../external-django/conf/docker_test_settings.txt",
+      "PROJECT_MODULE": "external"
+    },
+    "owned-django": {
+      "PROFILE": "django",
+      "BUILD_CONTEXT": ".",
+      "INSTALL_CONF": "conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "conf/docker_test_settings.txt",
+      "PROJECT_MODULE": "owned"
+    }
+  },
+  "ADDONS": {}
+}

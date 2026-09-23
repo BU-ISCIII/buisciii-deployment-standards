@@ -68,12 +68,12 @@ The application configuration and baseline checksums are stored under
 The complete nested `SERVICES`/`ADDONS` descriptor is recorded there. A
 standalone repository cannot change its owned framework profile through `sync`
 because that would mix incompatible profile artifacts; multi-service projects
-can evolve service declarations through normal conflict-aware synchronization.
+can evolve service declarations through normal drift-aware synchronization.
 
 - Unmodified generated files are updated automatically.
 - New baseline files are added automatically.
 - Locally modified files are never overwritten.
-- A conflicting new version is written beside the local file with the suffix
+- A managed version is written beside a locally modified file with the suffix
   `.bu-isciii-update` for manual comparison and merge.
 
 After resolving a candidate, remove the `.bu-isciii-update` file and run the
@@ -87,22 +87,21 @@ generated file without changing the application checkout:
 python3 scripts/scaffold.py check /path/to/my-application
 ```
 
-The command reports local modifications but exits non-zero only when it finds
-an available standard update, a conflict, a missing or obsolete generated file,
-or drift in the shared container library. Run `sync` afterwards to apply safe
-updates and write conflicting candidates for review.
+The command exits non-zero when it finds an available standard update, managed
+drift, contract drift, a missing or obsolete generated file, or drift in the
+shared container library. Run `sync` afterwards to apply safe updates and write
+managed-file candidates for review.
 
-An unresolved `.bu-isciii-update` matching the current rendered standard is
-reported as `conflict` by both `check` and `sync`. After merging the required
-standard changes into the application file, remove its candidate to mark the
-conflict as resolved.
+An unresolved `.bu-isciii-update` matching the current rendered standard keeps
+its managed-drift status in both `check` and `sync`. After merging or discarding
+the local managed changes, remove its candidate to mark the drift as resolved.
 
 ### Generated-file ownership
 
 `README.md`, `LEAME.md`, `container_install.sh`, and profile installers may
 contain explicitly delimited `BU-ISCIII APPLICATION` blocks. Application code
 inside those blocks is preserved by `check` and `sync`; all surrounding content
-remains standard-managed and local edits there are conflicts.
+remains standard-managed and local edits there are managed drift.
 
 | Artifact | Ownership contract |
 |---|---|
@@ -121,8 +120,8 @@ remains standard-managed and local edits there are conflicts.
 | `nextstrain/auspice-config.json` | Standard-managed property schema; local scalar values and additional properties are preserved |
 
 Settings synchronization compares shell assignment names, never their values.
-`check` reports `schema-update` when a standard variable is missing and
-`config-conflict` when a name is assigned more than once. `sync` appends only
+`check` reports `update-available` when a standard variable is missing and
+`contract-drift` when a name is assigned more than once. `sync` appends only
 missing standard assignments with their generated defaults for local review;
 it does not replace existing values or application-only assignments.
 
@@ -137,6 +136,15 @@ deployment renderer placeholder, the structural Django assignments consumed
 by the standard, and matching install-setting variables for every optional
 `settingsconf_VARIABLE` token. Contract failures require manual correction;
 `sync` never inserts Python into an application settings template.
+
+Synchronization statuses describe operator action rather than file format:
+
+- `current`: synchronized or customized within its declared contract;
+- `update-available`: `sync` can safely apply the standard change;
+- `managed-drift-without-update`: managed content changed only locally;
+- `managed-drift-with-update`: managed content changed both locally and centrally;
+- `contract-drift`: a structural contract is invalid and needs manual repair;
+- `missing`: a generated artifact is absent.
 
 The scaffold orders services deterministically: the repository-owned service
 (`BUILD_CONTEXT: "."`) first, followed by remaining services sorted by name.

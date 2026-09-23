@@ -138,10 +138,6 @@ def preserve_application_blocks(expected: bytes, current: bytes | None) -> bytes
     return expected
 
 
-def has_application_blocks(content: bytes) -> bool:
-    return any(pattern.search(content) for pattern in APPLICATION_BLOCKS)
-
-
 def load_json(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as handle:
         values = json.load(handle)
@@ -1550,10 +1546,14 @@ def classify_artifact(
     current_hash = digest(destination.read_bytes()) if destination.exists() else None
     candidate_hash = digest(candidate.read_bytes()) if candidate.exists() else None
 
-    # A candidate is the durable marker for an unresolved three-way conflict.
-    # State may already contain expected_hash after a previous sync.
+    # A candidate is the durable marker for unresolved managed drift.
     if candidate_hash == expected_hash and current_hash != expected_hash:
-        return "conflict", current_hash, candidate
+        status = (
+            "managed-drift-without-update"
+            if old_hash == expected_hash
+            else "managed-drift-with-update"
+        )
+        return status, current_hash, candidate
     if current_hash is None:
         return "missing", current_hash, candidate
     if current_hash == expected_hash:
@@ -1561,12 +1561,8 @@ def classify_artifact(
     if old_hash is not None and current_hash == old_hash:
         return "update-available", current_hash, candidate
     if old_hash == expected_hash:
-        if has_application_blocks(content) and has_application_blocks(
-            destination.read_bytes()
-        ):
-            return "conflict", current_hash, candidate
-        return "locally-modified", current_hash, candidate
-    return "conflict", current_hash, candidate
+        return "managed-drift-without-update", current_hash, candidate
+    return "managed-drift-with-update", current_hash, candidate
 
 
 CONFIG_ASSIGNMENT_RE = re.compile(
@@ -1723,12 +1719,12 @@ def classify_json_schema(
     try:
         current, duplicates = load_json_object(current_content)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        return "json-conflict", [], [], [], str(error), None, expected
+        return "contract-drift", [], [], [], str(error), None, expected
     missing, object_conflicts = json_schema_differences(current, expected)
     status = (
-        "json-conflict"
+        "contract-drift"
         if duplicates or object_conflicts
-        else "json-schema-update"
+        else "update-available"
         if missing
         else "current"
     )
@@ -1880,9 +1876,9 @@ def check_baseline(target: Path, config: dict[str, Any]) -> int:
         if schema_managed_settings(relative) and current_content is not None:
             missing, duplicates = config_schema_differences(current_content, content)
             if duplicates:
-                status = "config-conflict"
+                status = "contract-drift"
             elif missing:
-                status = "schema-update"
+                status = "update-available"
             else:
                 status = "current"
         elif schema_managed_json(relative) and current_content is not None:
@@ -1903,7 +1899,7 @@ def check_baseline(target: Path, config: dict[str, Any]) -> int:
                 settings_error,
             ) = django_settings_contract(target, config, current_content)
             status = (
-                "template-contract-conflict"
+                "contract-drift"
                 if settings_missing_placeholders
                 or settings_duplicate_placeholders
                 or settings_missing_assignments
@@ -1924,7 +1920,7 @@ def check_baseline(target: Path, config: dict[str, Any]) -> int:
             settings_missing_assignments,
             settings_error,
         )
-        if status not in {"current", "locally-modified"}:
+        if status != "current":
             drift += 1
 
     for relative_name in sorted(set(old_hashes) - expected_paths):
@@ -1943,7 +1939,7 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
         validate_deployment_shape(state, config)
     old_hashes = state.get("files", {})
     new_hashes: dict[str, str] = {}
-    conflicts = 0
+    issues = 0
 
     for relative, content in rendered_artifacts(config):
         destination = target / relative
@@ -1963,12 +1959,14 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
         settings_duplicate_placeholders: list[str] = []
         settings_missing_assignments: list[str] = []
         settings_error: str | None = None
+        update_kind: str | None = None
         if schema_managed_settings(relative) and current_content is not None:
             missing, duplicates = config_schema_differences(current_content, content)
             if duplicates:
-                status = "config-conflict"
+                status = "contract-drift"
             elif missing:
-                status = "schema-update"
+                status = "update-available"
+                update_kind = "config-schema"
             else:
                 status = "current"
             candidate = destination.with_name(destination.name + ".bu-isciii-update")
@@ -1982,6 +1980,8 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
                 current_json,
                 expected_json,
             ) = classify_json_schema(current_content, content)
+            if status == "update-available":
+                update_kind = "json-schema"
             candidate = destination.with_name(destination.name + ".bu-isciii-update")
         elif schema_managed_django_settings(relative) and current_content is not None:
             (
@@ -1991,7 +1991,7 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
                 settings_error,
             ) = django_settings_contract(target, config, current_content)
             status = (
-                "template-contract-conflict"
+                "contract-drift"
                 if settings_missing_placeholders
                 or settings_duplicate_placeholders
                 or settings_missing_assignments
@@ -2005,62 +2005,63 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
         destination.parent.mkdir(parents=True, exist_ok=True)
         if status == "current":
             print(f"current  {relative}")
-        elif status == "schema-update":
+        elif status == "update-available" and update_kind == "config-schema":
             destination.write_bytes(merge_missing_config_assignments(current_content, content))
             print(f"updated  {relative}")
-            print_config_schema_details(missing, duplicates)
-        elif status == "config-conflict":
-            print(f"config-conflict {relative}")
-            print_config_schema_details(missing, duplicates)
-            conflicts += 1
-        elif status == "json-schema-update":
+            if missing:
+                print(f"  added variables: {', '.join(missing)}")
+        elif status == "update-available" and update_kind == "json-schema":
             merged_json = merge_missing_json_properties(current_json, expected_json)
             destination.write_text(
                 json.dumps(merged_json, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
             print(f"updated  {relative}")
+            if json_missing:
+                print(f"  added properties: {', '.join(json_missing)}")
+        elif status == "contract-drift":
+            print(f"contract-drift {relative}")
+            print_config_schema_details(missing, duplicates)
             print_json_schema_details(
                 json_missing, json_duplicates, json_object_conflicts, json_error
             )
-        elif status == "json-conflict":
-            print(f"json-conflict {relative}")
-            print_json_schema_details(
-                json_missing, json_duplicates, json_object_conflicts, json_error
-            )
-            conflicts += 1
-        elif status == "template-contract-conflict":
-            print(f"template-contract-conflict {relative}")
             print_django_settings_details(
                 settings_missing_placeholders,
                 settings_duplicate_placeholders,
                 settings_missing_assignments,
                 settings_error,
             )
-            conflicts += 1
+            issues += 1
         elif status in {"missing", "update-available"}:
             destination.write_bytes(content)
             if executable(relative):
                 destination.chmod(destination.stat().st_mode | 0o111)
             print(f"updated  {relative}")
-        elif status == "locally-modified":
-            print(f"locally-modified {relative}")
-        else:
+        elif status in {
+            "managed-drift-without-update",
+            "managed-drift-with-update",
+        }:
             if not candidate.exists() or digest(candidate.read_bytes()) != new_hash:
                 candidate.write_bytes(content)
-            print(f"conflict {relative} -> {candidate.name}")
-            conflicts += 1
+            print(f"{status} {relative} -> {candidate.name}")
+            issues += 1
+        else:
+            raise ValueError(f"Unsupported synchronization status: {status}")
 
-        new_hashes[relative.as_posix()] = new_hash
+        if status == "managed-drift-with-update" and old_hash is not None:
+            new_hashes[relative.as_posix()] = old_hash
+        else:
+            new_hashes[relative.as_posix()] = new_hash
 
-    # The recorded hash is the latest central baseline, not a conflicting local file.
+    # Keep the previous central baseline while a central update and local managed
+    # drift remain unresolved; otherwise record the latest rendered standard.
     write_state(target, config, new_hashes)
     # Shared libraries are centrally owned exact copies, so a generated
     # installer must never be left pointing at missing or stale helpers.
     synchronize_shared(target, check_only=False)
     verb = "Initialized" if initial else "Synchronized"
-    print(f"{verb} {target} with {conflicts} conflict(s).")
-    return 2 if conflicts else 0
+    print(f"{verb} {target} with {issues} unresolved issue(s).")
+    return 2 if issues else 0
 
 
 def shared_destination(source: Path) -> Path:

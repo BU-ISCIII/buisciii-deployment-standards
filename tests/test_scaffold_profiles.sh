@@ -30,7 +30,10 @@ nextstrain_config="$work_dir/nextstrain.json"
 nextstrain_target="$work_dir/nextstrain-app"
 legacy_config="$work_dir/legacy.json"
 legacy_service_config="$work_dir/legacy-service.json"
+updated_django_config="$work_dir/django-updated.json"
 cp "$repo_root/scaffold/project.json.example" "$django_config"
+sed 's#https://github.com/BU-ISCIII/example-app.git#https://github.com/BU-ISCIII/example-app-renamed.git#' \
+    "$django_config" > "$updated_django_config"
 sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "example-app"}}/' \
     "$django_config" > "$keycloak_config"
 sed 's/"ADDONS": {}/"ADDONS": {"nextstrain": {"CONFIG_SERVICE": "example-app"}}/' \
@@ -100,7 +103,7 @@ if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     echo "FAIL: a missing Django renderer placeholder must fail check" >&2
     exit 1
 fi
-grep -Eq '^template-contract-conflict +conf/template_settings.py$' \
+grep -Eq '^contract-drift +conf/template_settings.py$' \
     "$work_dir/check-template-settings-missing.out"
 grep -Fq 'missing placeholders: djangodebug' \
     "$work_dir/check-template-settings-missing.out"
@@ -134,13 +137,14 @@ if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     echo "FAIL: a missing standard configuration variable must fail check" >&2
     exit 1
 fi
-grep -Eq '^schema-update +conf/docker_production_settings.txt$' \
+grep -Eq '^update-available +conf/docker_production_settings.txt$' \
     "$work_dir/check-settings-missing.out"
 grep -Fq 'missing variables: DB_PORT' "$work_dir/check-settings-missing.out"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-settings-missing.out"
 grep -Eq '^updated +conf/docker_production_settings.txt$' \
     "$work_dir/sync-settings-missing.out"
+grep -Fq 'added variables: DB_PORT' "$work_dir/sync-settings-missing.out"
 grep -Fq "APP_PORT='9123'" "$django_target/conf/docker_production_settings.txt"
 grep -Fq "APPLICATION_ONLY_VALUE='local'" \
     "$django_target/conf/docker_production_settings.txt"
@@ -152,7 +156,7 @@ if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     echo "FAIL: a duplicate configuration variable must fail check" >&2
     exit 1
 fi
-grep -Eq '^config-conflict +conf/docker_production_settings.txt$' \
+grep -Eq '^contract-drift +conf/docker_production_settings.txt$' \
     "$work_dir/check-settings-duplicate.out"
 grep -Fq 'duplicate variables: DB_PORT' \
     "$work_dir/check-settings-duplicate.out"
@@ -176,13 +180,15 @@ if python3 "$repo_root/scripts/scaffold.py" check "$nextstrain_target" \
     echo "FAIL: a missing standard JSON property must fail check" >&2
     exit 1
 fi
-grep -Eq '^json-schema-update +nextstrain/auspice-config.json$' \
+grep -Eq '^update-available +nextstrain/auspice-config.json$' \
     "$work_dir/check-auspice-missing.out"
 grep -Fq 'missing properties: mapTiles.attribution' \
     "$work_dir/check-auspice-missing.out"
 python3 "$repo_root/scripts/scaffold.py" sync "$nextstrain_target" \
     > "$work_dir/sync-auspice-missing.out"
 grep -Eq '^updated +nextstrain/auspice-config.json$' \
+    "$work_dir/sync-auspice-missing.out"
+grep -Fq 'added properties: mapTiles.attribution' \
     "$work_dir/sync-auspice-missing.out"
 grep -Fq '"browserTitle": "Local title"' "$auspice_config"
 grep -Fq '"attribution":' "$auspice_config"
@@ -193,7 +199,7 @@ if python3 "$repo_root/scripts/scaffold.py" check "$nextstrain_target" \
     echo "FAIL: a duplicate JSON property must fail check" >&2
     exit 1
 fi
-grep -Eq '^json-conflict +nextstrain/auspice-config.json$' \
+grep -Eq '^contract-drift +nextstrain/auspice-config.json$' \
     "$work_dir/check-auspice-duplicate.out"
 grep -Fq 'duplicate properties: browserTitle' \
     "$work_dir/check-auspice-duplicate.out"
@@ -230,19 +236,37 @@ grep -Eq '^missing +README.md$' "$work_dir/check-missing.out"
 mv "$work_dir/README.md.local" "$django_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" >/dev/null
 
-# A modification outside the application-owned blocks is a durable conflict.
+# A modification outside application-owned blocks is managed drift.
 printf '\nmanaged documentation edit\n' >> "$django_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-conflict.out" || test "$?" -eq 2
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     > "$work_dir/check-pending.out" || test "$?" -eq 1
-grep -Eq '^conflict +README.md$' "$work_dir/check-pending.out"
+grep -Eq '^managed-drift-without-update +README.md$' \
+    "$work_dir/check-pending.out"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     > "$work_dir/sync-pending.out" || test "$?" -eq 2
-grep -Eq '^conflict +README.md -> README.md.bu-isciii-update$' \
+grep -Eq '^managed-drift-without-update +README.md -> README.md.bu-isciii-update$' \
     "$work_dir/sync-pending.out"
 mv "$django_target/README.md.bu-isciii-update" "$django_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" check "$django_target" >/dev/null
+
+# Managed drift remains distinguishable when the central standard also changes,
+# including after sync writes the candidate and refreshes unrelated state.
+printf '\nsecond managed documentation edit\n' >> "$django_target/README.md"
+python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
+    --config "$updated_django_config" > "$work_dir/sync-drift-update.out" \
+    || test "$?" -eq 2
+grep -Eq '^managed-drift-with-update +README.md -> README.md.bu-isciii-update$' \
+    "$work_dir/sync-drift-update.out"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-pending-update.out" \
+    || test "$?" -eq 1
+grep -Eq '^managed-drift-with-update +README.md$' \
+    "$work_dir/check-pending-update.out"
+mv "$django_target/README.md.bu-isciii-update" "$django_target/README.md"
+python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
+    >/dev/null
 
 # Documentation must enumerate topology-owned protected files and must present
 # operator decisions as deployment inputs instead of unfinished review markers.

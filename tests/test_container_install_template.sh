@@ -12,8 +12,13 @@ require_text() {
     grep -Fq -- "$pattern" "$file" || fail "$description"
 }
 
-require_text 'GENERATED SERVICE/ADD-ON CUSTOMIZATION' "$template" \
-    "common installer must mark generated customization"
+require_text 'GENERATED SERVICE/ADD-ON IMPLEMENTATION' "$template" \
+    "common installer must mark its generated implementation"
+custom_end_line="$(grep -n '# END BU-ISCIII APPLICATION: test-data-loader' "$template" | cut -d: -f1)"
+usage_line="$(grep -n '^usage()' "$template" | cut -d: -f1)"
+generated_line="$(grep -n 'GENERATED SERVICE/ADD-ON IMPLEMENTATION' "$template" | cut -d: -f1)"
+((custom_end_line < usage_line && usage_line < generated_line)) \
+    || fail "only application hooks may appear in the customization section before usage"
 require_text 'install_services={{INSTALL_SERVICES_LITERAL}}' "$template" \
     "common installer must receive normalized application services"
 require_text 'permission_services={{PERMISSION_SERVICES_LITERAL}}' "$template" \

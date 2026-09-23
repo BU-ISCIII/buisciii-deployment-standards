@@ -10,10 +10,55 @@ source "$script_dir/deployment/lib/container/django.sh"
 APP_VERSION="0.1.0"
 APPLICATION_NAME="{{APP_NAME}}"
 
+# Applications with disposable fixtures or demo files customize this callback
+# and set application_supports_test_data=true. Keep application-specific
+# fixture names, users/groups, downloads, and data-service layout here.
+# BEGIN BU-ISCIII APPLICATION: test-data-loader
+application_supports_test_data=false
+load_test_deployment_data() {
+    die "Test/demo data loading is not implemented for $APPLICATION_NAME"
+}
+# END BU-ISCIII APPLICATION: test-data-loader
+
+action="install"; mode="production"; engine="docker"; git_revision="current"
+install_conf=""; compose_file=""; compose_env_file=""
+install_conf_map_entries=(); migration_script_before=(); migration_script_after=()
+demo_data=""; demo_data_service=""; demo_data_map_entries=()
+skip_demo_data=""; skip_test_data=""; skip_test_data_services=()
+load_tables=false; skip_tables=false
+
+usage() {
+    cat <<'EOF'
+Install, upgrade, or repair the application deployment.
+
+Options:
+  --action install|upgrade|fix-permissions
+  --test
+  --engine docker|podman
+  --git_revision <branch|tag|commit|current>
+  --install_conf <path>              First application service only.
+  --install_conf_map <component,path>  Repeat for application and add-on overrides.
+  --compose_file <path>
+  --script_before <name[,args]>
+  --script_after <name[,args]>
+  --script <name[,args]>
+  --tables                          Load initial tables; opt-in on upgrades.
+  --skip_tables                     Skip initial tables on a fresh install.
+  --demo_data <path>                 Single-service compatibility option.
+  --demo_data_map <service,path>     Repeat for service-specific data imports.
+  --skip_demo_data
+  --skip_test_data
+  --skip_test_data_service <service>  Repeat to skip one service's test fixtures.
+  --help
+  --version
+EOF
+}
+die() { echo "ERROR: $*" >&2; exit 1; }
+
 # ============================================================================
-# GENERATED SERVICE/ADD-ON CUSTOMIZATION
-# Regenerate these callbacks from the descriptor; keep application-neutral
-# lifecycle mechanics below unchanged.
+# GENERATED SERVICE/ADD-ON IMPLEMENTATION
+# Everything below usage() is managed by the descriptor, profiles, add-ons, or
+# common lifecycle. Put application behavior only in the block above.
 # ============================================================================
 install_services={{INSTALL_SERVICES_LITERAL}}
 addon_build_services={{ADDON_BUILD_SERVICES_LITERAL}}
@@ -161,52 +206,6 @@ build_production_service() {
         *) die "Unsupported production build service: $service_name" ;;
     esac
 }
-
-# Applications with disposable fixtures or demo files customize this callback
-# in their generated wrapper and set application_supports_test_data=true. Keep
-# application-specific fixture names, users/groups, downloads, and data-service
-# layout here so the complete data-loading workflow remains readable in one file.
-# BEGIN BU-ISCIII APPLICATION: test-data-loader
-application_supports_test_data=false
-load_test_deployment_data() {
-    die "Test/demo data loading is not implemented for $APPLICATION_NAME"
-}
-# END BU-ISCIII APPLICATION: test-data-loader
-
-action="install"; mode="production"; engine="docker"; git_revision="current"
-install_conf=""; compose_file=""; compose_env_file=""
-install_conf_map_entries=(); migration_script_before=(); migration_script_after=()
-demo_data=""; demo_data_service=""; demo_data_map_entries=()
-skip_demo_data=""; skip_test_data=""; skip_test_data_services=()
-load_tables=false; skip_tables=false
-
-usage() {
-    cat <<'EOF'
-Install, upgrade, or repair the application deployment.
-
-Options:
-  --action install|upgrade|fix-permissions
-  --test
-  --engine docker|podman
-  --git_revision <branch|tag|commit|current>
-  --install_conf <path>              First application service only.
-  --install_conf_map <component,path>  Repeat for application and add-on overrides.
-  --compose_file <path>
-  --script_before <name[,args]>
-  --script_after <name[,args]>
-  --script <name[,args]>
-  --tables                          Load initial tables; opt-in on upgrades.
-  --skip_tables                     Skip initial tables on a fresh install.
-  --demo_data <path>                 Single-service compatibility option.
-  --demo_data_map <service,path>     Repeat for service-specific data imports.
-  --skip_demo_data
-  --skip_test_data
-  --skip_test_data_service <service>  Repeat to skip one service's test fixtures.
-  --help
-  --version
-EOF
-}
-die() { echo "ERROR: $*" >&2; exit 1; }
 
 # 1. Parse the canonical outer-installer interface.
 while (($#)); do

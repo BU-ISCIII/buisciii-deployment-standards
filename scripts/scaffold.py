@@ -1458,19 +1458,11 @@ def deployment_shape(config: dict[str, Any]) -> str:
     return "multi-service"
 
 
-def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
-    state = load_state(target)
+def rendered_artifacts(config: dict[str, Any]) -> list[tuple[Path, bytes]]:
+    """Render every application-owned artifact for a normalized config."""
     if "SERVICES" not in config:
         raise ValueError(
             "Projects must use the canonical SERVICES descriptor"
-        )
-    shape = deployment_shape(config)
-    old_config = state.get("config", {})
-    old_shape = deployment_shape(old_config) if old_config else shape
-    if not initial and state.get("files") and old_shape != shape:
-        raise ValueError(
-            f"Cannot change initialized deployment shape from {old_shape!r} to "
-            f"{shape!r}; initialize a new target to avoid mixing generated files"
         )
     render_values = scalar_values(config)
     if owns_profile_artifacts(config):
@@ -1482,32 +1474,106 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
     render_values.update(container_installer_template_values(config))
     render_values.update(documentation_template_values(config))
     render_values.update(settings_template_values(config))
-    old_hashes = state.get("files", {})
-    new_hashes: dict[str, str] = {}
-    conflicts = 0
 
     artifacts: list[tuple[Path, bytes]] = []
     for template, relative in selected_templates(config):
         artifacts.append((relative, render(template, render_values)))
     artifacts.extend(orchestrator_artifacts(config))
+    return artifacts
 
-    for relative, content in artifacts:
+
+def validate_deployment_shape(state: dict, config: dict[str, Any]) -> None:
+    """Reject synchronization or checking with an incompatible topology."""
+    shape = deployment_shape(config)
+    old_config = state.get("config", {})
+    old_shape = deployment_shape(old_config) if old_config else shape
+    if state.get("files") and old_shape != shape:
+        raise ValueError(
+            f"Cannot change initialized deployment shape from {old_shape!r} to "
+            f"{shape!r}; initialize a new target to avoid mixing generated files"
+        )
+
+
+def classify_artifact(
+    destination: Path, content: bytes, old_hash: str | None
+) -> tuple[str, str | None, Path]:
+    """Classify one artifact consistently for check and sync."""
+    candidate = destination.with_name(destination.name + ".bu-isciii-update")
+    expected_hash = digest(content)
+    current_hash = digest(destination.read_bytes()) if destination.exists() else None
+    candidate_hash = digest(candidate.read_bytes()) if candidate.exists() else None
+
+    # A candidate is the durable marker for an unresolved three-way conflict.
+    # State may already contain expected_hash after a previous sync.
+    if candidate_hash == expected_hash and current_hash != expected_hash:
+        return "conflict", current_hash, candidate
+    if current_hash is None:
+        return "missing", current_hash, candidate
+    if current_hash == expected_hash:
+        return "current", current_hash, candidate
+    if old_hash is not None and current_hash == old_hash:
+        return "update-available", current_hash, candidate
+    if old_hash == expected_hash:
+        return "locally-modified", current_hash, candidate
+    return "conflict", current_hash, candidate
+
+
+def check_baseline(target: Path, config: dict[str, Any]) -> int:
+    """Report generated-file drift without modifying the target repository."""
+    state = load_state(target)
+    validate_deployment_shape(state, config)
+    old_hashes = state.get("files", {})
+    expected_paths: set[str] = set()
+    drift = 0
+
+    for relative, content in rendered_artifacts(config):
+        relative_name = relative.as_posix()
+        expected_paths.add(relative_name)
+        destination = target / relative
+        old_hash = old_hashes.get(relative_name)
+        status, _, _ = classify_artifact(destination, content, old_hash)
+
+        print(f"{status:16} {relative}")
+        if status not in {"current", "locally-modified"}:
+            drift += 1
+
+    for relative_name in sorted(set(old_hashes) - expected_paths):
+        print(f"obsolete         {relative_name}")
+        drift += 1
+
+    shared_drift = check_shared(target)
+    drift += shared_drift
+    print(f"Deployment baseline check found {drift} synchronization issue(s).")
+    return 1 if drift else 0
+
+
+def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
+    state = load_state(target)
+    if not initial:
+        validate_deployment_shape(state, config)
+    old_hashes = state.get("files", {})
+    new_hashes: dict[str, str] = {}
+    conflicts = 0
+
+    for relative, content in rendered_artifacts(config):
         destination = target / relative
         new_hash = digest(content)
         old_hash = old_hashes.get(relative.as_posix())
-        current_hash = digest(destination.read_bytes()) if destination.exists() else None
+        status, _, candidate = classify_artifact(destination, content, old_hash)
 
         destination.parent.mkdir(parents=True, exist_ok=True)
-        if not destination.exists() or current_hash == old_hash:
+        if status == "current":
+            print(f"current  {relative}")
+        elif status in {"missing", "update-available"}:
             destination.write_bytes(content)
             if executable(relative):
                 destination.chmod(destination.stat().st_mode | 0o111)
             print(f"updated  {relative}")
-        elif current_hash == new_hash:
-            print(f"current  {relative}")
+        elif status == "locally-modified":
+            print(f"locally-modified {relative}")
         else:
-            candidate = destination.with_name(destination.name + ".bu-isciii-update")
-            candidate.write_bytes(content)
+            if not candidate.exists() or digest(candidate.read_bytes()) != new_hash:
+                candidate.write_bytes(content)
             print(f"conflict {relative} -> {candidate.name}")
             conflicts += 1
 
@@ -1527,7 +1593,30 @@ def shared_destination(source: Path) -> Path:
     return Path("deployment/lib") / source.relative_to(SHARED_LIB)
 
 
+def check_shared(target: Path) -> int:
+    """Report shared-library drift without writing to the target."""
+    drift = 0
+    for source in sorted(SHARED_LIB.rglob("*.sh")):
+        relative = shared_destination(source)
+        destination = target / relative
+        if (
+            destination.exists()
+            and digest(destination.read_bytes()) == digest(source.read_bytes())
+        ):
+            print(f"{'current':16} {relative}")
+            continue
+        status = "missing" if not destination.exists() else "modified"
+        print(f"{status:16} {relative}")
+        drift += 1
+    return drift
+
+
 def synchronize_shared(target: Path, check_only: bool) -> int:
+    if check_only:
+        drift = check_shared(target)
+        print(f"Shared library check found {drift} drifted file(s).")
+        return 1 if drift else 0
+
     drift = 0
     for source in sorted(SHARED_LIB.rglob("*.sh")):
         relative = shared_destination(source)
@@ -1537,17 +1626,10 @@ def synchronize_shared(target: Path, check_only: bool) -> int:
             print(f"current  {relative}")
             continue
         drift += 1
-        if check_only:
-            status = "missing" if not destination.exists() else "modified"
-            print(f"{status:8} {relative}")
-            continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(content)
         print(f"updated  {relative}")
 
-    if check_only:
-        print(f"Shared library check found {drift} drifted file(s).")
-        return 1 if drift else 0
     print(f"Shared libraries synchronized with {drift} update(s).")
     return 0
 
@@ -1559,6 +1641,8 @@ def main() -> int:
         sub = subparsers.add_parser(command)
         sub.add_argument("target", type=Path)
         sub.add_argument("--config", type=Path)
+    check_parser = subparsers.add_parser("check")
+    check_parser.add_argument("target", type=Path)
     for command in ("check-lib", "sync-lib"):
         sub = subparsers.add_parser(command)
         sub.add_argument("target", type=Path)
@@ -1569,15 +1653,19 @@ def main() -> int:
         return synchronize_shared(target, args.command == "check-lib")
 
     state = load_state(target)
-    if args.config:
+    if getattr(args, "config", None):
         config = load_json(args.config.resolve())
-    elif args.command == "sync" and state.get("config"):
+    elif args.command in {"sync", "check"} and state.get("config"):
         config = state["config"]
     else:
-        parser.error("--config is required for init and for sync without saved state")
+        parser.error(
+            "--config is required for init and for sync/check without saved state"
+        )
 
     if args.command == "init" and (target / STATE_DIR / STATE_FILE).exists():
         parser.error(f"{target} is already initialized; use sync")
+    if args.command == "check":
+        return check_baseline(target, config)
     target.mkdir(parents=True, exist_ok=True)
     return synchronize(target, config, args.command == "init")
 

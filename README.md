@@ -80,6 +80,23 @@ After resolving a candidate, remove the `.bu-isciii-update` file and run the
 application tests. This mechanism is intentionally small and does not require a
 package manager, CI service, or third-party template tool.
 
+Use the read-only check in CI or before synchronizing to classify every
+generated file without changing the application checkout:
+
+```bash
+python3 scripts/scaffold.py check /path/to/my-application
+```
+
+The command reports local modifications but exits non-zero only when it finds
+an available standard update, a conflict, a missing or obsolete generated file,
+or drift in the shared container library. Run `sync` afterwards to apply safe
+updates and write conflicting candidates for review.
+
+An unresolved `.bu-isciii-update` matching the current rendered standard is
+reported as `conflict` by both `check` and `sync`. After merging the required
+standard changes into the application file, remove its candidate to mark the
+conflict as resolved.
+
 ### Synchronize only the shared container library
 
 Mature applications should synchronize the centrally owned library without

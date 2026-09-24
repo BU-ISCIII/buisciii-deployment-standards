@@ -383,6 +383,13 @@ for setting in REQUIRED_MODULES MIGRATION_MODULES APP_SHELL \
 done
 grep -Fq '[[ "$WORKFLOW" == "bootstrap" && "$ACTION" == "install" ]]' \
     "$django_target/install.sh"
+grep -Fq 'if [[ "$WORKFLOW" == "bootstrap" ]]; then' \
+    "$django_target/install.sh"
+grep -Fq 'for variable in DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD; do' \
+    "$django_target/install.sh"
+grep -Fq 'bootstrap_database_values+=("${!variable}")' \
+    "$django_target/install.sh"
+grep -Fq 'printf -v "$variable"' "$django_target/install.sh"
 for legacy_setting in DB_SERVER_IP DB_PASS EMAIL_HOST_SERVER LOCAL_SERVER_IP DNS_URL; do
     ! grep -Eq "^${legacy_setting}=" "$django_target/conf/docker_production_settings.txt"
     ! grep -Eq "^${legacy_setting}=" "$django_target/conf/docker_test_settings.txt"

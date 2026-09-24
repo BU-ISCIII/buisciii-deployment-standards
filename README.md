@@ -173,11 +173,13 @@ custom behavior belongs in their `container_install.sh` wrapper.
 ## Review the standard
 
 1. Read [the installation contract](standards/application-installation-contract.md).
-2. Select only the technology profiles that apply to the application.
-3. Complete the installation checklist during the application audit.
-4. Keep application-specific commands, ports, paths, and recovery procedures in
+2. For Django services, read the
+   [schema migration workflow](scaffold/templates/profiles/django/.github/DJANGO_MIGRATIONS.md.tmpl).
+3. Select only the technology profiles that apply to the application.
+4. Complete the installation checklist during the application audit.
+5. Keep application-specific commands, ports, paths, and recovery procedures in
    the application repository.
-5. Record intentional exceptions instead of silently diverging from the
+6. Record intentional exceptions instead of silently diverging from the
    contract.
 
 This repository owns common requirements and templates. It does not replace an

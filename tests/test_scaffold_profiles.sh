@@ -327,6 +327,13 @@ for callback in readiness-path.case container-install-conf.case \
 done
 test -f "$django_target/install.sh"
 test -f "$django_target/conf/template_settings.py"
+test -f "$django_target/.github/DJANGO_MIGRATIONS.md"
+grep -Fq '[Django schema migration workflow](.github/DJANGO_MIGRATIONS.md)' \
+    "$django_target/README.md"
+grep -Fq 'bash container_install.sh --test --action install --engine docker' \
+    "$django_target/.github/DJANGO_MIGRATIONS.md"
+grep -Fq 'bash container_install.sh --action upgrade --engine podman' \
+    "$django_target/.github/DJANGO_MIGRATIONS.md"
 grep -Fq '"django_extensions"' "$django_target/conf/template_settings.py"
 for health_file in __init__.py views.py urls.py README.md; do
     test -f "$django_target/deployment_health/$health_file"

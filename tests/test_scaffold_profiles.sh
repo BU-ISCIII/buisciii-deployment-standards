@@ -21,6 +21,7 @@ compose_env_from_settings() {
 django_target="$work_dir/django-app"
 react_target="$work_dir/react-app"
 nextjs_target="$work_dir/nextjs-app"
+mixed_target="$work_dir/mixed-app"
 django_config="$work_dir/django.json"
 compose_database_config="$work_dir/django-compose-database.json"
 compose_database_target="$work_dir/django-compose-database-app"
@@ -66,6 +67,11 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+python3 "$repo_root/scripts/scaffold.py" init "$mixed_target" \
+    --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
+test -f "$mixed_target/.github/DJANGO_MIGRATIONS.md"
+grep -Fq '[Django schema migration workflow](.github/DJANGO_MIGRATIONS.md)' \
+    "$mixed_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" init "$compose_database_target" --config "$compose_database_config" >/dev/null
 grep -Fq 'example-app-db:' "$compose_database_target/docker-compose.prod.yml"
 grep -Fq 'example-app_db_data:/var/lib/mysql' "$compose_database_target/docker-compose.prod.yml"

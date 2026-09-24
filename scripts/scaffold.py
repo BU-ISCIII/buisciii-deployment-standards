@@ -271,6 +271,26 @@ def selected_templates(config: dict[str, Any]) -> list[tuple[Path, Path]]:
                     raise ValueError(f"Template destination {relative} is duplicated")
                 destinations.add(relative)
                 selected.append((template, relative))
+
+    # Deployment orchestrators can own a non-Django root profile while still
+    # running Django services from sibling repositories. Their generated
+    # README includes the Django migration workflow, so emit the linked guide
+    # for every topology containing Django rather than only Django-owned repos.
+    django_guide = (
+        PROFILE_TEMPLATES
+        / "django"
+        / ".github"
+        / "DJANGO_MIGRATIONS.md.tmpl"
+    )
+    django_guide_destination = Path(".github/DJANGO_MIGRATIONS.md")
+    raw_services = config.get("SERVICES", {})
+    has_django_service = isinstance(raw_services, dict) and any(
+        isinstance(service, dict)
+        and str(service.get("PROFILE", "")).strip().lower() == "django"
+        for service in raw_services.values()
+    )
+    if has_django_service and django_guide_destination not in destinations:
+        selected.append((django_guide, django_guide_destination))
     return selected
 
 

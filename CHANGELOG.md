@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Created helper (`lib/container/check_config.py`) function, running after 
-  Compose validation. 
+- Created helper (`lib/container/check_config.sh`) function, running after
+  Compose validation.
 - Fixed the Next.js test Keycloak URL to use the published test port 8081
 - Replaced underscore proxy-target host names in Next.js settings examples.
 - Define service keys as stable deployment identities so standalone application

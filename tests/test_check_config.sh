@@ -51,8 +51,8 @@ for override in "$fixtures"/cases/*.env; do
         || fail "$rule must be reported: $check_output"
     case_count=$((case_count + 1))
 done
-documented_rules="$(sed -nE 's/^  ([a-z]+(-[a-z]+)+)  .*/\1/p' \
-    "$repo_root/lib/container/check_config.py" | sort)"
+documented_rules="$(sed -nE 's/^#   ([a-z]+(-[a-z]+)+)  .*/\1/p' \
+    "$repo_root/lib/container/check_config.sh" | sort)"
 fixture_rules="$(for override in "$fixtures"/cases/*.env; do basename "$override" .env; done | sort)"
 [ "$documented_rules" = "$fixture_rules" ] \
     || fail "every documented rule needs exactly one failing fixture"
@@ -122,8 +122,8 @@ grep -Fq 'ERROR [upstream-port] Apache ProxyPass 01-reverse-proxy.conf:' <<<"$ch
 # The checker must be distributed with the vendored shell libraries.
 python3 "$repo_root/scripts/scaffold.py" init "$work/generated" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
-[ -f "$work/generated/deployment/lib/container/check_config.py" ] \
-    || fail "scaffold must vendor check_config.py"
+[ -f "$work/generated/deployment/lib/container/check_config.sh" ] \
+    || fail "scaffold must vendor check_config.sh"
 python3 "$repo_root/scripts/scaffold.py" check-lib "$work/generated" >/dev/null \
     || fail "vendored checker must match the central copy"
 

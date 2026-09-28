@@ -95,9 +95,9 @@ multiline values, and atomically installs the result with mode `0600`.
 ## Deployment configuration check
 
 `check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir>
-<service=profile>...` runs `check_config.py`, a Python 3 standard-library
-checker distributed beside these shell files. The wrapper calls it after
-Compose validation and before any image build. It reads only the generated
+<service=profile>...` runs `check_config.sh`, a Bash 4.4+ checker distributed
+beside these shell files that needs no other interpreter. The wrapper calls it
+after Compose validation and before any image build. It reads only the generated
 Compose environment file, the Compose file and the rendered Apache
 configuration, and cross-checks wiring that Compose cannot validate:
 

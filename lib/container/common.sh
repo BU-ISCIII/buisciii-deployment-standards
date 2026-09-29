@@ -623,6 +623,46 @@ render_environment_config_template() {
     render_config_template "$src" "$dst" "$file_mode" "${replacements[@]}"
 }
 
+# Render ${UPPER_CASE_VARIABLE} placeholders used as JSON string content.
+# Values are escaped before substitution so quotes and backslashes cannot
+# produce malformed JSON. Numeric and boolean properties remain declarative in
+# the source JSON instead of being injected as untyped environment strings.
+# Arguments: source JSON template, destination JSON file, destination mode.
+render_json_environment_template() {
+    local src="$1"
+    local dst="$2"
+    local file_mode="$3"
+    local token variable value
+    local -a replacements=()
+
+    [ -f "$src" ] || {
+        echo "JSON configuration source not found: $src" >&2
+        return 1
+    }
+    while IFS= read -r token; do
+        [ -n "$token" ] || continue
+        variable="${token#\$\{}"
+        variable="${variable%\}}"
+        if ! [[ -v "$variable" ]]; then
+            echo "Required JSON template variable $variable is not set for $src" >&2
+            return 1
+        fi
+        value="${!variable}"
+        if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+            echo "JSON template variable $variable must not contain newlines." >&2
+            return 1
+        fi
+        value="${value//\\/\\\\}"
+        value="${value//\"/\\\"}"
+        value="${value//$'\t'/\\t}"
+        value="${value//$'\b'/\\b}"
+        value="${value//$'\f'/\\f}"
+        replacements+=("$token" "$value")
+    done < <(grep -oE '\$\{[A-Z][A-Z0-9_]*\}' "$src" | sort -u || true)
+
+    render_config_template "$src" "$dst" "$file_mode" "${replacements[@]}"
+}
+
 # Quote one value for literal use in a Compose environment file. Single-quoted
 # dotenv values are not interpolated; embedded apostrophes are escaped.
 compose_environment_quote() {

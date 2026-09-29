@@ -1,16 +1,20 @@
-    # Keep repository-owned realm JSON immutable. Stage it into the deployment
-    # bind tree before Compose validates and starts the Keycloak container.
-    local keycloak_realm_source_path keycloak_import_path realm_source realm_target
-    keycloak_realm_source_path="${KEYCLOAK_REALM_SOURCE_PATH:?KEYCLOAK_REALM_SOURCE_PATH is required}"
+    # Keep the repository-owned realm template immutable. Render it into the
+    # deployment bind tree before Compose validates and starts Keycloak.
+    local keycloak_realm_template_path keycloak_import_path keycloak_realm_name realm_target
+    keycloak_realm_template_path="${KEYCLOAK_REALM_TEMPLATE_PATH:?KEYCLOAK_REALM_TEMPLATE_PATH is required}"
     keycloak_import_path="${KEYCLOAK_IMPORT_PATH:?KEYCLOAK_IMPORT_PATH is required}"
-    [[ "$keycloak_realm_source_path" == /* ]] || keycloak_realm_source_path="$script_dir/$keycloak_realm_source_path"
+    keycloak_realm_name="${KEYCLOAK_REALM:?KEYCLOAK_REALM is required}"
+    [[ "$keycloak_realm_name" =~ ^[A-Za-z0-9._-]+$ ]] || {
+        echo "Invalid Keycloak realm name for an import filename: $keycloak_realm_name" >&2
+        return 1
+    }
+    [[ "$keycloak_realm_template_path" == /* ]] || keycloak_realm_template_path="$script_dir/$keycloak_realm_template_path"
     [[ "$keycloak_import_path" == /* ]] || keycloak_import_path="$script_dir/$keycloak_import_path"
-    compgen -G "$keycloak_realm_source_path/*.json" >/dev/null || {
-        echo "Keycloak realm source JSON not found in $keycloak_realm_source_path" >&2
+    [ -f "$keycloak_realm_template_path" ] || {
+        echo "Keycloak realm template not found: $keycloak_realm_template_path" >&2
         return 1
     }
     mkdir -p "$keycloak_import_path"
-    for realm_source in "$keycloak_realm_source_path"/*.json; do
-        realm_target="$keycloak_import_path/$(basename "$realm_source")"
-        copy_with_podman_fallback "$realm_source" "$realm_target" || return 1
-    done
+    realm_target="$keycloak_import_path/${keycloak_realm_name}-realm.json"
+    render_json_environment_template \
+        "$keycloak_realm_template_path" "$realm_target" 0640 || return 1

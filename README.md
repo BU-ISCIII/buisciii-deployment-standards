@@ -122,6 +122,7 @@ remains standard-managed and local edits there are managed drift.
 | `deployment_health/**` | Exact standard-managed health implementation |
 | `conf/apache/00-logs.conf`, `conf/apache/02-server-status.conf` | Fully standard-managed Apache configuration |
 | `conf/apache/01-reverse-proxy.conf` | Standard-managed default VirtualHost plus application-owned additional route block |
+| `conf/keycloak/realm-*.json` | Standard-managed property schema; application realm values and array contents are preserved |
 | `nextstrain/auspice-config.json` | Standard-managed property schema; local scalar values and additional properties are preserved |
 
 Settings synchronization compares shell assignment names, never their values.
@@ -130,10 +131,11 @@ Settings synchronization compares shell assignment names, never their values.
 missing standard assignments with their generated defaults for local review;
 it does not replace existing values or application-only assignments.
 
-The Auspice JSON follows the same schema-first rule. `check` reports missing
-standard property paths and rejects invalid JSON, duplicate properties, or a
-scalar where the standard requires an object. `sync` recursively adds only
-missing properties and preserves existing values and application properties.
+Keycloak realm templates and the Auspice JSON follow the same schema-first
+rule. `check` reports missing standard property paths and rejects invalid JSON,
+duplicate properties, or a scalar where the standard requires an object.
+`sync` recursively adds only missing properties and preserves existing values,
+application properties, and application-owned arrays.
 
 The Django settings template is not compared by hash or by application
 setting values. Its contract requires valid Python, one occurrence of every

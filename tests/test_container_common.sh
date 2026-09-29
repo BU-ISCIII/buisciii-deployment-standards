@@ -24,6 +24,57 @@ assert_equal 'a\.b\[c\]' "$(sed_search_escape 'a.b[c]')" \
     "escape sed search"
 
 (
+    realm_template="$repo_root/scaffold/templates/addons/keycloak/assets/conf/keycloak/realm-test.json.tmpl"
+    rendered_realm="$(mktemp)"
+    engine=docker
+    export KEYCLOAK_REALM='test-realm'
+    export KEYCLOAK_SMTP_HOST='smtp.example.test'
+    export KEYCLOAK_SMTP_PORT='25'
+    export KEYCLOAK_SMTP_FROM='sender@example.test'
+    export KEYCLOAK_SMTP_FROM_DISPLAY_NAME='Example "Team"'
+    export KEYCLOAK_SMTP_REPLY_TO='support@example.test'
+    export KEYCLOAK_SMTP_REPLY_TO_DISPLAY_NAME='Support \ Desk'
+    export KEYCLOAK_SMTP_ENVELOPE_FROM='sender@example.test'
+    export KEYCLOAK_SMTP_AUTH='false'
+    export KEYCLOAK_SMTP_SSL='false'
+    export KEYCLOAK_SMTP_STARTTLS='true'
+    export KEYCLOAK_SMTP_ALLOW_UTF8='true'
+    export KEYCLOAK_SMTP_CONNECTION_TIMEOUT='10000'
+    export KEYCLOAK_SMTP_TIMEOUT='10000'
+    export KEYCLOAK_SMTP_WRITE_TIMEOUT='10000'
+    export KEYCLOAK_SMTP_USER=''
+    export KEYCLOAK_SMTP_PASSWORD=''
+    export KEYCLOAK_EMAIL_THEME='keycloak'
+
+    render_json_environment_template "$realm_template" "$rendered_realm" 0640
+    python3 - "$rendered_realm" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    realm = json.load(handle)
+assert realm["realm"] == "test-realm"
+assert realm["smtpServer"]["fromDisplayName"] == 'Example "Team"'
+assert realm["smtpServer"]["replyToDisplayName"] == "Support \\ Desk"
+PY
+    if grep -q '\${' "$rendered_realm"; then
+        fail "rendered Keycloak realm must not retain environment placeholders"
+    fi
+
+    unset KEYCLOAK_SMTP_HOST
+    if render_json_environment_template \
+        "$realm_template" "$rendered_realm" 0640 2>/dev/null; then
+        fail "missing Keycloak realm template variables must fail"
+    fi
+    export KEYCLOAK_SMTP_HOST=$'invalid\nvalue'
+    if render_json_environment_template \
+        "$realm_template" "$rendered_realm" 0640 2>/dev/null; then
+        fail "control characters in Keycloak realm values must fail"
+    fi
+    rm -f "$rendered_realm"
+)
+
+(
     settings_fixture="$(mktemp)"
     printf "REQUIRED_VALUE='from-file'\n" > "$settings_fixture"
     assert_equal "from-file" "$(config_value REQUIRED_VALUE "$settings_fixture")" \

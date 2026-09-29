@@ -26,8 +26,12 @@ The source fragments are
 `docker_test_settings.txt.tmpl`. The scaffold renders each as an independent
 add-on settings file.
 
-The repository-owned realm source is copied into a deployment-owned bind under
+The repository-owned production or test realm template is rendered into a
+deployment-owned bind under
 `/srv/containers/bind/<application>/keycloak/realm-import` for production.
+Templates use `${UPPER_CASE_VARIABLE}` only as JSON string content. The shared
+installer escapes those values and does not require an application-side Python
+realm generator.
 The installer creates this child directory automatically when the application
 bind root is writable by the deployment user; hardened hosts may pre-create it
 with the same deployment ownership.
@@ -39,3 +43,9 @@ shown as commented examples in the Compose fragment.
 Permissions remain separate: staged realm files are owned by Keycloak UID/GID
 `1000:0` with mode `0640`, the Keycloak container has an explicit empty
 writable-mount spec, and the database volume is repaired separately.
+
+The scaffold manages the required object-property schema of
+`conf/keycloak/realm-production.json` and `realm-test.json`. Applications own
+the scalar values and the contents of `groups`, `clientScopes`, `clients`, and
+`users`; synchronization adds missing standard properties without replacing
+those application-specific arrays.

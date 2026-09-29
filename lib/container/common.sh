@@ -648,15 +648,13 @@ render_json_environment_template() {
             return 1
         fi
         value="${!variable}"
-        if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
-            echo "JSON template variable $variable must not contain newlines." >&2
+        if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]] \
+            || printf '%s' "$value" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+            echo "JSON template variable $variable must not contain control characters." >&2
             return 1
         fi
         value="${value//\\/\\\\}"
         value="${value//\"/\\\"}"
-        value="${value//$'\t'/\\t}"
-        value="${value//$'\b'/\\b}"
-        value="${value//$'\f'/\\f}"
         replacements+=("$token" "$value")
     done < <(grep -oE '\$\{[A-Z][A-Z0-9_]*\}' "$src" | sort -u || true)
 

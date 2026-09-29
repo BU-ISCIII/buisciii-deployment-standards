@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added schema-managed production and test Keycloak realm templates and a
+  JSON-safe Bash renderer, removing the need for application-side Python realm
+  generation during container installation.
 - Created helper (`lib/container/check_config.sh`) function, running after
   Compose validation.
 - Fixed the Next.js test Keycloak URL to use the published test port 8081

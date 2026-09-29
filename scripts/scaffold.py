@@ -1701,7 +1701,11 @@ def print_config_schema_details(missing: list[str], duplicates: list[str]) -> No
 
 def schema_managed_json(relative: Path) -> bool:
     """Return whether a JSON artifact has standard keys but local values."""
-    return relative.as_posix() == "nextstrain/auspice-config.json"
+    return relative.as_posix() in {
+        "conf/keycloak/realm-production.json",
+        "conf/keycloak/realm-test.json",
+        "nextstrain/auspice-config.json",
+    }
 
 
 def load_json_object(content: bytes) -> tuple[Any, list[str]]:

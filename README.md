@@ -10,6 +10,22 @@ The standard is meant to answer one practical question:
 > What must an application provide before its installation procedure can be
 > considered complete, reproducible, and safe for production?
 
+## Documentation
+
+Start with the documentation area that matches what you need:
+
+- [Standards](standards/README.md): normative requirements for every deployment.
+- [Guides](guides/README.md): procedures and role-based reading paths.
+- [Reference](reference/README.md): implementation details for generated files,
+  descriptors, configuration, and scripts.
+- [Profiles](profiles/README.md): framework- and application-specific behavior.
+- [Addons](addons/README.md): optional supporting components and integrations.
+- [Templates](templates/): operational forms and checklists.
+- [Audits](audits/): assessments of real applications against the standard.
+
+The [guides index](guides/README.md) provides suggested paths for application
+developers, deployment operators, reviewers, and maintainers.
+
 ## Create a new application baseline
 
 Copy and fill the project descriptor:

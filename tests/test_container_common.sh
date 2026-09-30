@@ -213,14 +213,14 @@ assert_equal "" "$(read_install_conf_value MISSING "$test_conf")" \
     "missing configuration value"
 
 compose_env_test_dir="$(mktemp -d)"
-platform_settings="$compose_env_test_dir/platform_settings.txt"
-iskylims_settings="$compose_env_test_dir/iskylims_settings.txt"
+web_settings="$compose_env_test_dir/web_settings.txt"
+api_settings="$compose_env_test_dir/api_settings.txt"
 compose_env_output="$compose_env_test_dir/.env.production.file"
-printf '%s\n' "APP_UID='1212'" "APP_PORT='8000'" > "$platform_settings"
-printf '%s\n' "APP_UID='1213'" "APP_PORT='8001'" > "$iskylims_settings"
+printf '%s\n' "APP_UID='1212'" "APP_PORT='8000'" > "$web_settings"
+printf '%s\n' "APP_UID='1213'" "APP_PORT='8001'" > "$api_settings"
 compose_settings_sources=(
-    "PLATFORM|$platform_settings"
-    "ISKYLIMS|$iskylims_settings"
+    "WEB|$web_settings"
+    "API|$api_settings"
 )
 compose_explicit_values=(
     "GIT_REVISION|current"
@@ -228,28 +228,28 @@ compose_explicit_values=(
 )
 write_compose_environment_file \
     "$compose_env_output" compose_settings_sources compose_explicit_values
-grep -Fq "PLATFORM_APP_UID='1212'" "$compose_env_output" \
-    || fail "prefix Platform settings in Compose environment"
-grep -Fq "ISKYLIMS_APP_PORT='8001'" "$compose_env_output" \
-    || fail "prefix iSkyLIMS settings in Compose environment"
-unset PLATFORM_APP_UID ISKYLIMS_APP_PORT
+grep -Fq "WEB_APP_UID='1212'" "$compose_env_output" \
+    || fail "prefix web settings in Compose environment"
+grep -Fq "API_APP_PORT='8001'" "$compose_env_output" \
+    || fail "prefix API settings in Compose environment"
+unset WEB_APP_UID API_APP_PORT
 load_compose_environment_file "$compose_env_output"
-assert_equal "1212" "$PLATFORM_APP_UID" \
+assert_equal "1212" "$WEB_APP_UID" \
     "load first service value from generated Compose environment"
-assert_equal "8001" "$ISKYLIMS_APP_PORT" \
+assert_equal "8001" "$API_APP_PORT" \
     "load second service value from generated Compose environment"
 grep -Fq "DISPLAY_NAME='two services'" "$compose_env_output" \
     || fail "quote explicit Compose environment values"
 assert_equal "600" "$(stat -c %a "$compose_env_output")" \
     "protect generated Compose environment file"
-duplicate_compose_values=("PLATFORM_APP_UID|9999")
+duplicate_compose_values=("WEB_APP_UID|9999")
 if write_compose_environment_file \
     "$compose_env_test_dir/duplicate.env" compose_settings_sources \
     duplicate_compose_values 2>/dev/null; then
     fail "duplicate Compose environment variables must fail"
 fi
 cleanup_files \
-    "$platform_settings" "$iskylims_settings" "$compose_env_output" \
+    "$web_settings" "$api_settings" "$compose_env_output" \
     "$compose_env_test_dir/duplicate.env"
 rmdir "$compose_env_test_dir"
 

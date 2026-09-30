@@ -7,20 +7,20 @@
   "PYTHON_VERSION": "3.12",
   "TIMEZONE": "Europe/Madrid",
   "SERVICES": {
-    "pathocore-api": {
+    "example-api": {
       "PROFILE": "django",
-      "BUILD_CONTEXT": "../pathocore-api",
+      "BUILD_CONTEXT": "../example-api",
       "DOCKERFILE": "Dockerfile",
-      "INSTALL_CONF": "../pathocore-api/conf/docker_production_settings.txt",
-      "TEST_INSTALL_CONF": "../pathocore-api/conf/docker_test_settings.txt",
+      "INSTALL_CONF": "../example-api/conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "../example-api/conf/docker_test_settings.txt",
       "PROJECT_MODULE": "conf"
     },
-    "mepram-omop-api": {
+    "second-api": {
       "PROFILE": "django",
-      "BUILD_CONTEXT": "../mepram-omop-api",
+      "BUILD_CONTEXT": "../second-api",
       "DOCKERFILE": "Dockerfile",
-      "INSTALL_CONF": "../mepram-omop-api/conf/docker_production_settings.txt",
-      "TEST_INSTALL_CONF": "../mepram-omop-api/conf/docker_test_settings.txt",
+      "INSTALL_CONF": "../second-api/conf/docker_production_settings.txt",
+      "TEST_INSTALL_CONF": "../second-api/conf/docker_test_settings.txt",
       "PROJECT_MODULE": "conf"
     }
   }

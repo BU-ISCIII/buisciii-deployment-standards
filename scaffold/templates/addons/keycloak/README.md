@@ -1,6 +1,6 @@
 # Keycloak add-on
 
-The assembler follows the PathoCore identity stack and generates both
+The assembler generates a complete identity stack, both
 `keycloak_db` and `keycloak`:
 
 - MySQL health checks and dependency ordering;

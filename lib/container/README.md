@@ -87,7 +87,7 @@ Compose interpolation files are generated with
 `write_compose_environment_file <output> <sources-array-name>
 <values-array-name>`. Source entries use `PREFIX|settings-path`; an empty prefix
 keeps standalone setting names, while orchestrators use prefixes such as
-`PLATFORM` and `ISKYLIMS`. Explicit `KEY|value` entries are reserved for values
+`WEB` and `API`. Explicit `KEY|value` entries are reserved for values
 not stored in application settings, such as image tags and the requested Git
 revision. The writer normalizes shell-quoted settings, rejects duplicates and
 multiline values, and atomically installs the result with mode `0600`.

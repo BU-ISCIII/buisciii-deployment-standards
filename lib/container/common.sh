@@ -489,7 +489,7 @@ read_install_conf_value() {
 }
 
 # Return the first non-empty value among compatible setting names. This allows
-# the shared renderer to bridge established RELECOV names and the standard
+# the shared renderer to bridge established legacy names and the standard
 # scaffold names without duplicating application configuration files.
 read_install_conf_first() {
     local file="$1"

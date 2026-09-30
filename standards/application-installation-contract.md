@@ -46,10 +46,10 @@ one-local-service case of the same project schema.
 Service keys are deployment identities, not positional labels. A repository
 whose settings are consumed by another deployment MUST use the same stable,
 application-specific service key in both descriptors (for example,
-`pathocore-api`), rather than renaming the standalone service to `app` and the
-orchestrated service to `pathocore_api`. Hyphenated keys are preferred because
+`example-api`), rather than renaming the standalone service to `app` and the
+orchestrated service to `example_api`. Hyphenated keys are preferred because
 they are valid Compose DNS names; generated environment prefixes normalize
-them to underscores (`PATHOCORE_API`). This keeps derived test database names,
+them to underscores (`EXAMPLE_API`). This keeps derived test database names,
 volume names, dependency targets and settings prefixes portable across both
 topologies.
 

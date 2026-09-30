@@ -10,7 +10,7 @@ source "$repo_root/lib/container/common.sh"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-services=(pathocore-web=nextjs pathocore-api=django mepram-omop-api=django)
+services=(example-web=nextjs example-api=django second-api=django)
 check_output=""
 check_status=0
 
@@ -58,12 +58,12 @@ fixture_rules="$(for override in "$fixtures"/cases/*.env; do basename "$override
     || fail "every documented rule needs exactly one failing fixture"
 
 # A misspelled host still has its port checked against the suggested service.
-printf "PATHOCORE_WEB_MEPRAM_OMOP_API_PROXY_TARGET='http://mepram_omop_api:8001'\n" \
+printf "EXAMPLE_WEB_SECOND_API_PROXY_TARGET='http://second_api:8001'\n" \
     > "$work/host-and-port.override"
 merge_environment "$work/host-and-port.override" "$work/host-and-port.env"
 run_check production "$work/host-and-port.env"
 grep -Fq 'ERROR [unknown-host]' <<<"$check_output" \
-    && grep -Fq "ERROR [upstream-port] PATHOCORE_WEB_MEPRAM_OMOP_API_PROXY_TARGET='http://mepram_omop_api:8001': mepram-omop-api listens on 8004" <<<"$check_output" \
+    && grep -Fq "ERROR [upstream-port] EXAMPLE_WEB_SECOND_API_PROXY_TARGET='http://second_api:8001': second-api listens on 8004" <<<"$check_output" \
     || fail "host and port mistakes must be reported together: $check_output"
 
 # Test settings use shortcuts, so the same finding only warns.
@@ -73,7 +73,7 @@ grep -Fq 'WARNING [upstream-port]' <<<"$check_output" \
     || fail "test mode must still report findings: $check_output"
 
 # A single-label host without a similar Compose service may be institutional DNS.
-printf "MEPRAM_OMOP_API_DB_HOST='dbserver'\n" > "$work/dns.override"
+printf "SECOND_API_DB_HOST='dbserver'\n" > "$work/dns.override"
 merge_environment "$work/dns.override" "$work/dns.env"
 run_check production "$work/dns.env"
 [ "$check_status" -eq 0 ] || fail "unconfirmed hosts must only warn: $check_output"
@@ -81,25 +81,25 @@ grep -Fq 'WARNING [unknown-host]' <<<"$check_output" \
     || fail "unconfirmed hosts must be reported: $check_output"
 
 # Secrets and URL credentials never reach the installer output.
-printf "PATHOCORE_WEB_MEPRAM_OMOP_API_PROXY_TARGET='http://svc-user:url-secret@mepram-omop-api:9000'\nPATHOCORE_API_DB_PASSWORD='CHANGE_ME-db-secret'\n" \
+printf "EXAMPLE_WEB_SECOND_API_PROXY_TARGET='http://svc-user:url-secret@second-api:9000'\nEXAMPLE_API_DB_PASSWORD='CHANGE_ME-db-secret'\n" \
     > "$work/secret.override"
 merge_environment "$work/secret.override" "$work/secret.env"
 run_check production "$work/secret.env"
 grep -Fq 'ERROR [upstream-port]' <<<"$check_output" \
     || fail "credentialed URL must still be checked: $check_output"
-grep -Fq 'ERROR [unresolved-placeholder] PATHOCORE_API_DB_PASSWORD' <<<"$check_output" \
+grep -Fq 'ERROR [unresolved-placeholder] EXAMPLE_API_DB_PASSWORD' <<<"$check_output" \
     || fail "placeholder must be reported by key: $check_output"
 if grep -Eq 'url-secret|svc-user|db-secret' <<<"$check_output"; then
     fail "checker output must not contain secret values: $check_output"
 fi
 
 # Server-side Keycloak calls may use internal routes; browser URLs may not.
-printf "PATHOCORE_API_KEYCLOAK_ADMIN_API_BASE_URL='http://host.docker.internal:8081'\nMEPRAM_OMOP_API_OIDC_JWKS_URL='http://127.0.0.1:8081/realms/pathocore/protocol/openid-connect/certs'\n" \
+printf "EXAMPLE_API_KEYCLOAK_ADMIN_API_BASE_URL='http://host.docker.internal:8081'\nSECOND_API_OIDC_JWKS_URL='http://127.0.0.1:8081/realms/example/protocol/openid-connect/certs'\n" \
     > "$work/internal-keycloak.override"
 merge_environment "$work/internal-keycloak.override" "$work/internal-keycloak.env"
 run_check production "$work/internal-keycloak.env"
 [ "$check_status" -eq 0 ] || fail "internal server-side Keycloak routes must pass: $check_output"
-printf "PATHOCORE_WEB_NEXT_PUBLIC_KEYCLOAK_URL='http://pathocore-web-keycloak:8080'\n" \
+printf "EXAMPLE_WEB_NEXT_PUBLIC_KEYCLOAK_URL='http://example-web-keycloak:8080'\n" \
     > "$work/internal-browser.override"
 merge_environment "$work/internal-browser.override" "$work/internal-browser.env"
 run_check production "$work/internal-browser.env"
@@ -113,7 +113,7 @@ run_check production "$work/no-apache.env" "$work/missing-apache"
 
 # Apache ProxyPass targets are validated like environment URLs.
 mkdir -p "$work/apache"
-sed 's#http://pathocore-web:3000/#http://pathocore-web:8080/#' \
+sed 's#http://example-web:3000/#http://example-web:8080/#' \
     "$fixtures/apache/01-reverse-proxy.conf" > "$work/apache/01-reverse-proxy.conf"
 run_check production "$fixtures/valid.env" "$work/apache"
 grep -Fq 'ERROR [upstream-port] Apache ProxyPass 01-reverse-proxy.conf:' <<<"$check_output" \

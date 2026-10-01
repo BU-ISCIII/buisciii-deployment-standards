@@ -24,6 +24,7 @@
 #   keycloak-url            an OIDC issuer or JWKS URL is malformed
 #   keycloak-origin         Keycloak public URLs disagree across settings
 #   keycloak-realm          Keycloak realms disagree across settings
+#   keycloak-vhost          Keycloak public URL is not routed to Keycloak by Apache
 #   canonical-url           AUTH_URL and NEXTAUTH_URL disagree
 #
 # Production findings are errors and fail the installation. Test findings are
@@ -729,6 +730,47 @@ check_keycloak() {
     fi
 }
 
+# When Apache is part of the generated topology, Keycloak's public URL must
+# reach a VirtualHost that proxies to the Keycloak service. The service name is
+# deliberately matched by its conventional keycloak token so applications may
+# retain their own prefixes and network aliases.
+check_keycloak_vhost() {
+    local value host index name route_host matched=0
+    local U_SCHEME U_NETLOC U_HOST U_PORT U_PORT_VALID U_PATH
+    local -a names
+
+    [ -n "${ENV[KEYCLOAK_PUBLIC_URL]+set}" ] || return 0
+    trim "${ENV[KEYCLOAK_PUBLIC_URL]}"
+    value="$REPLY"
+    [ -n "$value" ] && [[ "$value" != *"$PLACEHOLDER"* ]] || return 0
+    [ "${#ROUTE_TARGETS[@]}" -gt 0 ] || return 0
+
+    url_split "$value"
+    host="$U_HOST"
+    [ -n "$host" ] && [ "$U_PORT_VALID" = 1 ] || return 0
+
+    for index in "${!ROUTE_TARGETS[@]}"; do
+        mapfile -t names <<< "${ROUTE_NAMES[$index]}"
+        for name in "${names[@]}"; do
+            [ -n "$name" ] || continue
+            host_name "$name"
+            [ "$REPLY" = "$host" ] || continue
+            matched=1
+            url_split "${ROUTE_TARGETS[$index]}"
+            if [[ "$U_HOST" == *keycloak* ]]; then return 0; fi
+            resolve_service "$U_HOST" || true
+            if [[ "$REPLY" == *keycloak* ]]; then return 0; fi
+        done
+    done
+
+    py_repr "$host"
+    if [ "$matched" = 1 ]; then
+        add_finding keycloak-vhost "KEYCLOAK_PUBLIC_URL host $REPLY must proxy to the Keycloak Compose service"
+    else
+        add_finding keycloak-vhost "KEYCLOAK_PUBLIC_URL host $REPLY has no Apache Keycloak VirtualHost"
+    fi
+}
+
 strip_trailing_slashes() {
     REPLY="$1"
     while [[ "$REPLY" == */ ]]; do REPLY="${REPLY%/}"; done
@@ -766,6 +808,7 @@ run_checks() {
     # Test Compose files set DB_HOST to the generated test database directly.
     [ "$mode" != "production" ] || check_databases
     check_keycloak
+    check_keycloak_vhost
     check_canonical_urls
 }
 

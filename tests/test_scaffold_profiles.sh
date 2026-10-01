@@ -134,6 +134,20 @@ python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
     > "$work_dir/check-urls-local.out"
 grep -Eq '^current +conf/urls.py$' "$work_dir/check-urls-local.out"
 
+# Ignore templates expose application-owned blocks so projects can keep large
+# local fixtures out of Git and Docker build contexts across future syncs.
+sed -i '/# END BU-ISCIII APPLICATION: additional-dockerignore/i dummy/' \
+    "$django_target/.dockerignore"
+sed -i '/# END BU-ISCIII APPLICATION: additional-gitignore/i dummy/' \
+    "$django_target/.gitignore"
+python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
+    > "$work_dir/check-ignore-local.out"
+grep -Eq '^current +\.dockerignore$' "$work_dir/check-ignore-local.out"
+grep -Eq '^current +\.gitignore$' "$work_dir/check-ignore-local.out"
+python3 "$repo_root/scripts/scaffold.py" sync "$django_target" >/dev/null
+grep -Fqx 'dummy/' "$django_target/.dockerignore"
+grep -Fqx 'dummy/' "$django_target/.gitignore"
+
 # Settings files are synchronized by assignment schema: local values and
 # application-only variables are preserved, while missing standard variables
 # are reported and appended without replacing operator configuration.

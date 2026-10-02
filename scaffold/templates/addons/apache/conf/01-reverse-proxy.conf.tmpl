@@ -32,8 +32,11 @@
 
     ProxyRequests Off
     ProxyPreserveHost On
-    # Forwarded headers are set explicitly below. Disable mod_proxy's implicit
-    # additions so Django receives one valid X-Forwarded-Host value.
+    # mod_proxy adds X-Forwarded-* headers by default. This VirtualHost sets
+    # them explicitly below to represent its public URL, so disable the
+    # implicit additions. Otherwise Django can receive a duplicate value such
+    # as "api.example.org, api.example.org", which is invalid when
+    # USE_X_FORWARDED_HOST is enabled.
     ProxyAddHeaders Off
     AllowEncodedSlashes NoDecode
     RequestHeader set X-Forwarded-Proto "${APACHE_FORWARDED_PROTO}"

@@ -32,6 +32,9 @@
 
     ProxyRequests Off
     ProxyPreserveHost On
+    # Forwarded headers are set explicitly below. Disable mod_proxy's implicit
+    # additions so Django receives one valid X-Forwarded-Host value.
+    ProxyAddHeaders Off
     AllowEncodedSlashes NoDecode
     RequestHeader set X-Forwarded-Proto "${APACHE_FORWARDED_PROTO}"
     RequestHeader set X-Forwarded-Port "${APACHE_FORWARDED_PORT}"
@@ -83,6 +86,7 @@
 #
 #     ProxyRequests Off
 #     ProxyPreserveHost On
+#     ProxyAddHeaders Off
 #     AllowEncodedSlashes NoDecode
 #     RequestHeader set X-Forwarded-Proto "<PUBLIC_SCHEME>"
 #     RequestHeader set X-Forwarded-Port "<PUBLIC_PORT>"

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Prevent duplicate forwarded headers when Apache templates set the public forwarded-header contract explicitly.
 - Added schema-managed production and test Keycloak realm templates and a
   JSON-safe Bash renderer, removing the need for application-side Python realm
   generation during container installation.

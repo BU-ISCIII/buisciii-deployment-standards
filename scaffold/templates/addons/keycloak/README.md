@@ -40,6 +40,11 @@ fresh database. Normal backup/restore therefore protects `keycloak_db_data` and
 the staged realm configuration together. Optional provider/theme binds are
 shown as commented examples in the Compose fragment.
 
+Set `ADDONS.keycloak.MOUNTS` when the application supplies a Keycloak theme or
+provider. The value is a complete read-only Compose mount such as
+`./keycloak/themes/example:/opt/keycloak/themes/example:ro,z`; use `:z` on
+SELinux hosts when the source is shared only with this container.
+
 Permissions remain separate: staged realm files are owned by Keycloak UID/GID
 `1000:0` with mode `0640`, the Keycloak container has an explicit empty
 writable-mount spec, and the database volume is repaired separately.

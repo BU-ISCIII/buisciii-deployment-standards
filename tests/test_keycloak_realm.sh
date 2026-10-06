@@ -7,7 +7,7 @@ trap 'rm -rf "$work_dir"' EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-sed 's/"ADDONS": {}/"ADDONS": {"keycloak": {"CONFIG_SERVICE": "example-app"}}/' \
+sed 's|"ADDONS": {}|"ADDONS": {"keycloak": {"CONFIG_SERVICE": "example-app", "MOUNTS": ["./theme:/opt/keycloak/themes/example:ro,z"]}}|' \
     "$repo_root/scaffold/project.json.example" > "$work_dir/keycloak.json"
 python3 "$repo_root/scripts/scaffold.py" init "$work_dir/app" \
     --config "$work_dir/keycloak.json" >/dev/null
@@ -18,6 +18,10 @@ test -f "$realm_config"
 grep -Fq "KEYCLOAK_REALM_TEMPLATE_PATH='./conf/keycloak/realm-test.json'" \
     "$work_dir/app/conf/keycloak/keycloak_test_settings.txt"
 grep -Fq 'render_json_environment_template' "$work_dir/app/container_install.sh"
+grep -Fq './theme:/opt/keycloak/themes/example:ro,z' \
+    "$work_dir/app/docker-compose.test.yml"
+grep -Fq './theme:/opt/keycloak/themes/example:ro,z' \
+    "$work_dir/app/docker-compose.prod.yml"
 bash -n "$work_dir/app/container_install.sh"
 
 # Local values and arrays belong to the application. Removing a standard key

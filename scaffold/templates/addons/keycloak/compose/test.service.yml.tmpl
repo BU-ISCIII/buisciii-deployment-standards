@@ -51,6 +51,9 @@
     volumes:
       # Generated test realm; edit its source configuration, not tmp-import.
       - ${KEYCLOAK_IMPORT_PATH:-./keycloak/tmp-import}:/opt/keycloak/data/import:ro,z
+      # OPTIONAL application-owned provider/theme mounts from
+      # ADDONS.keycloak.MOUNTS.
+{{ADDON_APPLICATION_MOUNTS}}
     networks:
       deployment_net:
         aliases:

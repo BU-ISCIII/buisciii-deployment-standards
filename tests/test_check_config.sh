@@ -15,12 +15,13 @@ check_output=""
 check_status=0
 
 # Run the checker through the shared library function exactly as the installer
-# does. Arguments: mode, environment file, optional Apache directory override.
+# does. Arguments: mode, environment file, optional Apache and Compose fixtures.
 run_check() {
     local mode="$1" env_file="$2" apache_dir="${3:-$fixtures/apache}"
+    local compose_file="${4:-$fixtures/compose.prod.yml}"
     check_status=0
     check_output="$(check_deployment_configuration "$mode" "$env_file" \
-        "$fixtures/compose.prod.yml" "$apache_dir" "${services[@]}" 2>&1)" \
+        "$compose_file" "$apache_dir" "${services[@]}" 2>&1)" \
         || check_status=$?
 }
 
@@ -105,6 +106,17 @@ merge_environment "$work/internal-browser.override" "$work/internal-browser.env"
 run_check production "$work/internal-browser.env"
 grep -Fq 'ERROR [keycloak-origin]' <<<"$check_output" \
     || fail "browser Keycloak URLs must use the public origin: $check_output"
+
+# Compose-managed OIDC values override standalone application defaults.
+printf "EXAMPLE_API_OIDC_ISSUER='https://stale.example.org/realms/legacy'\nEXAMPLE_API_OIDC_JWKS_URL='https://stale.example.org/realms/legacy/protocol/openid-connect/certs'\n" \
+    > "$work/managed-keycloak.override"
+merge_environment "$work/managed-keycloak.override" "$work/managed-keycloak.env"
+run_check production "$work/managed-keycloak.env" "$work/missing-apache" \
+    "$fixtures/compose.managed-keycloak.yml"
+[ "$check_status" -eq 0 ] \
+    || fail "Compose-managed OIDC values must override standalone defaults: $check_output"
+grep -Fq '0 error(s), 0 warning(s)' <<<"$check_output" \
+    || fail "Compose-managed OIDC values must not warn: $check_output"
 
 # Apache routes are optional; without them the ServerName requirement disappears.
 merge_environment "$fixtures/cases/allowed-hosts.env" "$work/no-apache.env"

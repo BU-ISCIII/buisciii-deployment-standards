@@ -126,8 +126,10 @@ grep -Fq '  example-orchestrator-keycloak:' "$prod"
 grep -Fq '  example-orchestrator-keycloak-db:' "$prod"
 grep -Fq 'jdbc:mysql://example-orchestrator-keycloak-db:3306/' "$prod"
 grep -A45 -F '  example-orchestrator-keycloak:' "$prod" | grep -Fq '          - keycloak'
-grep -Fq 'OIDC_ISSUER: ${API_OIDC_ISSUER:' "$test_compose"
-grep -Fq 'OIDC_JWKS_URL: ${API_OIDC_JWKS_URL:' "$test_compose"
+grep -Fq 'OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://127.0.0.1:8081}/realms/${KEYCLOAK_REALM:-test}' "$test_compose"
+grep -Fq 'OIDC_JWKS_URL: http://keycloak:8080/realms/${KEYCLOAK_REALM:-test}/protocol/openid-connect/certs' "$test_compose"
+grep -Fq 'OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:?KEYCLOAK_PUBLIC_URL is required}/realms/${KEYCLOAK_REALM:?KEYCLOAK_REALM is required}' "$prod"
+grep -Fq 'OIDC_JWKS_URL: http://keycloak:8080/realms/${KEYCLOAK_REALM:?KEYCLOAK_REALM is required}/protocol/openid-connect/certs' "$prod"
 if grep -Fq 'OIDC_ISSUER: ${WEB_OIDC_ISSUER:' "$test_compose"; then
     echo "FAIL: only ADDONS.keycloak.OIDC_SERVICES may receive OIDC variables" >&2
     exit 1

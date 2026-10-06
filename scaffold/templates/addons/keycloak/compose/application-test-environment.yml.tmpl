@@ -1,6 +1,7 @@
       OIDC_AUTH_REQUIRED: ${{{ENV_PREFIX}}_OIDC_AUTH_REQUIRED:-false}
-      OIDC_ISSUER: ${{{ENV_PREFIX}}_OIDC_ISSUER:-}
-      OIDC_JWKS_URL: ${{{ENV_PREFIX}}_OIDC_JWKS_URL:-}
+      # Test tokens use the public issuer; apps fetch keys from Keycloak internally.
+      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://127.0.0.1:8081}/realms/${KEYCLOAK_REALM:-test}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/${KEYCLOAK_REALM:-test}/protocol/openid-connect/certs
       OIDC_AUDIENCE: ${{{ENV_PREFIX}}_OIDC_AUDIENCE:-}
       OIDC_CLIENT_ID: ${{{ENV_PREFIX}}_OIDC_CLIENT_ID:-}
       OIDC_JWKS_CACHE_TTL_SECONDS: ${{{ENV_PREFIX}}_OIDC_JWKS_CACHE_TTL_SECONDS:-300}

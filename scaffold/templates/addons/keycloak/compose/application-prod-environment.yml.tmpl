@@ -1,6 +1,7 @@
       OIDC_AUTH_REQUIRED: ${{{ENV_PREFIX}}_OIDC_AUTH_REQUIRED:?{{ENV_PREFIX}}_OIDC_AUTH_REQUIRED is required}
-      OIDC_ISSUER: ${{{ENV_PREFIX}}_OIDC_ISSUER:?{{ENV_PREFIX}}_OIDC_ISSUER is required}
-      OIDC_JWKS_URL: ${{{ENV_PREFIX}}_OIDC_JWKS_URL:?{{ENV_PREFIX}}_OIDC_JWKS_URL is required}
+      # Tokens use the public issuer; signing keys stay on the Compose network.
+      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:?KEYCLOAK_PUBLIC_URL is required}/realms/${KEYCLOAK_REALM:?KEYCLOAK_REALM is required}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/${KEYCLOAK_REALM:?KEYCLOAK_REALM is required}/protocol/openid-connect/certs
       OIDC_AUDIENCE: ${{{ENV_PREFIX}}_OIDC_AUDIENCE:?{{ENV_PREFIX}}_OIDC_AUDIENCE is required}
       OIDC_CLIENT_ID: ${{{ENV_PREFIX}}_OIDC_CLIENT_ID:?{{ENV_PREFIX}}_OIDC_CLIENT_ID is required}
       OIDC_JWKS_CACHE_TTL_SECONDS: ${{{ENV_PREFIX}}_OIDC_JWKS_CACHE_TTL_SECONDS:-300}

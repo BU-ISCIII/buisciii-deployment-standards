@@ -21,6 +21,11 @@ Set `ADDONS.keycloak.ADMIN_ACCESS` to `true` to generate that application-side
 contract. It defaults to `false`, so OIDC-only applications do not receive
 unused administration settings or Compose variables.
 
+For each service in `OIDC_SERVICES`, Compose derives `OIDC_ISSUER` from
+`KEYCLOAK_PUBLIC_URL` and `KEYCLOAK_REALM`, and uses the internal
+`keycloak:8080` service for `OIDC_JWKS_URL`. Keep `OIDC_AUDIENCE` and
+`OIDC_CLIENT_ID` in each API's settings.
+
 The source fragments are
 `addons/keycloak/conf/docker_production_settings.txt.tmpl` and
 `docker_test_settings.txt.tmpl`. The scaffold renders each as an independent

@@ -154,13 +154,13 @@ require_text 'apache' \
     "Apache must own its permission-service declaration"
 
 installer_compiler_source="$(sed -n \
-    '/^def service_container_installer_compilation(/,/^def deployment_shape(/p' \
+    '/^def service_container_installer_compilation(/,/^def profile_container_installer_compilation(/p' \
     "$repo_root/scripts/scaffold.py")"
 if grep -Fq 'DJANGO_TEMPLATE_PATH_SHELL' <<<"$installer_compiler_source"; then
     fail "generic installer compilation must not calculate Django-only paths"
 fi
-if grep -Fq 'if service["PROFILE"] ==' <<<"$installer_compiler_source"; then
-    fail "generic installer compilation must discover profile callbacks"
+if grep -Fq 'production-build.case' <<<"$installer_compiler_source"; then
+    fail "generic installer compilation must not own profile build callbacks"
 fi
 if grep -Fq 'if addon ==' <<<"$installer_compiler_source"; then
     fail "generic installer compilation must discover add-on callbacks"

@@ -42,13 +42,22 @@ When `CONFIG_SERVICE` is not Django, the default is an empty list.
 the generated `KEYCLOAK_ADMIN_API_*` client contract. The Keycloak container
 is always reachable through the stable `keycloak:8080` network address.
 
-`MOUNTS` is optional and contains complete
-Compose mount strings contributed to an add-on that provides an
-`application-mount` fragment; Apache currently supports it. For example:
+`MOUNTS` is optional and contains complete Compose mount strings contributed
+to an add-on that provides an `application-mount` fragment. Apache and
+Keycloak support it. For example:
 
 ```json
 "MOUNTS": [
   "/srv/public-downloads:/var/www/downloads:ro,Z"
+]
+```
+
+For Keycloak, use it for application-owned themes or providers, keeping the
+mount read-only and SELinux-compatible when applicable:
+
+```json
+"MOUNTS": [
+  "./keycloak/themes/example:/opt/keycloak/themes/example:ro,z"
 ]
 ```
 

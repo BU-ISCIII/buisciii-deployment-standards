@@ -123,7 +123,7 @@ It records:
 
 The hashes cover scaffold-generated artifacts after recognized application-owned blocks have been preserved. Shared-library hashes are not stored in state; library commands compare canonical and vendored files directly.
 
-The state enables future `check` and descriptor-free `sync` operations and distinguishes local managed edits from central template changes. It should normally remain under version control with the generated deployment baseline. Do not edit it manually.
+The state enables future `check` and descriptor-free `sync` operations and distinguishes local managed edits from central template changes. It should normally remain under version control with the generated deployment baseline. Do not edit it manually. The meaning and current enforcement limit of `standard_version` are documented in [Deployment component versioning](versioning.md).
 
 ## Synchronization statuses
 

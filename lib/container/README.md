@@ -99,4 +99,4 @@ The Django profile adds:
 
 These are outer-installer functions even though they render Django settings. The settings file is a host bind-mount source and must exist before container creation; the in-container `install.sh` runs too late to establish that source. Application templates may use tokens named `settingsconf_VARIABLE`; the Django renderer replaces each token with a safely quoted Python string read from the selected installation settings. Applications can use that literal as the fallback of `os.environ.get`, providing bare-metal values while retaining container environment overrides.
 
-Changes to function names, arguments, output, or return behavior require a library version change and a semantic deployment change package.
+Changes that alter a shared library's deployment contract must update the appropriate library version and follow the coordinated compatibility-change process in [Deployment component versioning](../../docs/reference/versioning.md).

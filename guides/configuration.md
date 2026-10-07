@@ -126,8 +126,8 @@ The installer regenerates the Compose environment on each invocation and rerende
 | [React/Vite](../profiles/react-vite.md) | Public build values and Nginx runtime identity/port |
 | [Apache](../addons/apache.md) | Proxy routes, forwarded values, status access, logs, and public binding |
 | [Keycloak](../addons/keycloak.md) | Server/database credentials, public URL, realm import, and optional OIDC values |
-| [Nextstrain](../scaffold/templates/addons/nextstrain/README.md) | Image/build inputs, public map settings, ports, and data path |
-| [Samba](../scaffold/templates/addons/samba/README.md) | Disposable test-only Samba credentials |
+| [Nextstrain](../addons/nextstrain.md) | Image/build inputs, public map settings, ports, and data path |
+| [Samba](../addons/samba.md) | Disposable test-only Samba credentials |
 
 Addon settings remain under `conf/<addon>/`; do not merge addon credentials into an application profile settings file.
 

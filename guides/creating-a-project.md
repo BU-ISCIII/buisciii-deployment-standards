@@ -147,4 +147,3 @@ Continue with:
 - [Configuration](configuration.md) to configure the application;
 - [Scaffold workflow](scaffold-workflow.md) to understand future scaffold updates;
 - [Docker Compose](docker-compose.md) to understand the generated Compose definitions;
-- [Container installer customization](container-install-customization.md) when the deployment wrapper needs an application-specific extension.

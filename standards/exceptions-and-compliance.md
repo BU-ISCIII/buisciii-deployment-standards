@@ -10,8 +10,7 @@ A deployment has one of these compliance states:
 
 ### Compliant
 
-All applicable `MUST` requirements are satisfied. Any difference from a
-`SHOULD` requirement has a documented reason.
+All applicable `MUST` requirements are satisfied. Any difference from a `SHOULD` requirement has a documented reason.
 
 ### Compliant with documented exceptions
 
@@ -29,15 +28,12 @@ Normative words have these meanings:
 
 - **MUST** is required for compliance unless an accepted exception applies.
 - **SHOULD** is the expected approach. A deployment may differ when it records
-  a clear reason; that difference alone does not make the deployment
-  non-compliant.
+a clear reason; that difference alone does not make the deployment non-compliant.
 - **MAY** describes an optional choice.
 
-Common requirements apply to every deployment within their stated scope.
-Profile requirements apply only to services selecting that profile. Addon requirements apply only when that addon is selected and enabled for the deployment mode.
+Common requirements apply to every deployment within their stated scope. Profile requirements apply only to services selecting that profile. Addon requirements apply only when that addon is selected and enabled for the deployment mode.
 
-A deployment mode that an application explicitly does not support does not become applicable merely because another application or template supports it.
-The unsupported mode itself MUST be documented where the standards require it.
+A deployment mode that an application explicitly does not support does not become applicable merely because another application or template supports it. The unsupported mode itself MUST be documented where the standards require it.
 
 Application-specific behavior is not automatically an exception. Using a marked application-owned block or extension hook for behavior expected to vary between applications is normal compliance. Application-specific requirements belong in the application repository.
 
@@ -49,8 +45,7 @@ The applicable common requirements are defined in:
 
 ## 4. Exceptions
 
-An exception MUST be explicit, narrow, and linked to an applicable requirement.
-It MUST NOT be used to hide an unknown status or missing evidence.
+An exception MUST be explicit, narrow, and linked to an applicable requirement. It MUST NOT be used to hide an unknown status or missing evidence.
 
 At minimum, an exception record MUST contain:
 
@@ -92,8 +87,7 @@ A compliance assessment SHOULD link each finding to evidence. Depending on the r
 - output from `scripts/scaffold.py check` or `check-lib`;
 - syntax, scaffold, Compose, installation, upgrade, and smoke-test results;
 - reviewed test and production configuration;
-- the completed
-  [installation checklist](../templates/installation-checklist.md);
+- the completed [installation checklist](../templates/installation-checklist.md);
 - application `README.md` and production `LEAME.md`;
 - infrastructure or operational records; and
 - an application audit in [`audits/`](../audits/).
@@ -134,10 +128,8 @@ A reviewer MUST distinguish an intentional exception from an unresolved deviatio
 
 Resolve a deviation by choosing the appropriate outcome:
 
-1. fix the application when it incorrectly diverges from an applicable
-   requirement;
-2. document and accept a narrow exception when the difference is intentional;
-   or
-3. update the common standard only when the behavior is reusable and should    apply broadly.
+1. fix the application when it incorrectly diverges from an applicable requirement;
+2. document and accept a narrow exception when the difference is intentional; or
+3. update the common standard only when the behavior is reusable and should apply broadly.
 
 The common standard MUST NOT be changed solely to make one application's special behavior appear compliant. Reusable behavior belongs in the common layer, a profile, or an addon; application-only behavior remains in the application repository.

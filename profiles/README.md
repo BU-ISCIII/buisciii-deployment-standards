@@ -1,10 +1,6 @@
 # Technology profiles
 
-A profile describes framework- or application-specific deployment behavior. It
-complements, and does not replace, the common
-[application installation contract](../standards/application-installation-contract.md).
-Canonical generated artifacts live under
-[`scaffold/templates/profiles/`](../scaffold/templates/profiles/).
+A profile describes framework- or application-specific deployment behavior. It complements, and does not replace, the common [application installation contract](../standards/application-installation-contract.md). Canonical generated artifacts live under [`scaffold/templates/profiles/`](../scaffold/templates/profiles/).
 
 > **Status:** Existing profile requirements are retained; their detailed documentation will be expanded incrementally.
 
@@ -35,4 +31,3 @@ Canonical generated artifacts live under
 15. Smoke tests
 16. Security controls
 17. Common failures
-18. External references

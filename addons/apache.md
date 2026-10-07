@@ -1,7 +1,7 @@
+- Security rationale
 # Apache addon
 
-Describes the optional Apache reverse-proxy deployment integration and the
-artifacts under [`scaffold/templates/addons/apache/`](../scaffold/templates/addons/apache/).
+Describes the optional Apache reverse-proxy deployment integration and the artifacts under [`scaffold/templates/addons/apache/`](../scaffold/templates/addons/apache/).
 
 > **Status:** Documentation outline. Detailed addon documentation will be added incrementally.
 
@@ -15,4 +15,3 @@ artifacts under [`scaffold/templates/addons/apache/`](../scaffold/templates/addo
 - Permissions and SELinux
 - Logs
 - Smoke tests
-- Security rationale

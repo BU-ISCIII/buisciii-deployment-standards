@@ -1,13 +1,8 @@
 # Shared container installer library
 
-`common.sh` contains application-neutral functions used by
-`container_install.sh`. `django.sh` contains the reusable Django profile for
-creating a settings bind source on the host before Compose starts. Vendored
-copies live under `deployment/lib/container/` in application repositories.
+`common.sh` contains application-neutral functions used by `container_install.sh`. `django.sh` contains the reusable Django profile for creating a settings bind source on the host before Compose starts. Vendored copies live under `deployment/lib/container/` in application repositories.
 
-Applications MUST NOT edit vendored library files. Application-specific behavior
-belongs in the wrapper `container_install.sh` or another application-owned
-library.
+Applications MUST NOT edit vendored library files. Application-specific behavior belongs in the wrapper `container_install.sh` or another application-owned library.
 
 ## Required globals
 
@@ -21,8 +16,7 @@ The wrapper sets these before calling the relevant functions:
 | `compose_env_file` | `compose_with_env_exec` |
 | `compose_file` | `service_exists` |
 
-The wrapper MAY implement `service_container_name <service>` for legacy
-explicit container names. Otherwise container resolution uses Compose labels.
+The wrapper MAY implement `service_container_name <service>` for legacy explicit container names. Otherwise container resolution uses Compose labels.
 
 ## Public functions
 
@@ -70,37 +64,19 @@ explicit container names. Otherwise container resolution uses Compose labels.
 - `resolve_service_container`
 - `ensure_service_running`
 
-Host permission policy remains application-owned and is expressed as an array
-of `path|owner|mode` entries. A `-` preserves the current owner or mode, and
-missing optional paths are skipped. The wrapper passes that array to
-`apply_host_permission_spec`; the shared library owns only iteration and the
-Docker/Podman-compatible operations.
+Host permission policy remains application-owned and is expressed as an array of `path|owner|mode` entries. A `-` preserves the current owner or mode, and missing optional paths are skipped. The wrapper passes that array to `apply_host_permission_spec`; the shared library owns only iteration and the Docker/Podman-compatible operations.
 
-Writable directory mounts are declared separately inside the application
-wrapper as `path|owner|mode` entries and passed, with a resolved container ID,
-to `apply_container_directory_permission_spec`. That helper creates each
-directory and applies ownership/mode recursively from inside the running
-container. Include named-volume destinations and writable bind destinations;
-exclude read-only mounts and ordinary immutable application source. Mounted
-files such as Django settings use their file-specific profile helper instead.
+Writable directory mounts are declared separately inside the application wrapper as `path|owner|mode` entries and passed, with a resolved container ID, to `apply_container_directory_permission_spec`. That helper creates each directory and applies ownership/mode recursively from inside the running container. Include named-volume destinations and writable bind destinations; exclude read-only mounts and ordinary immutable application source. Mounted files such as Django settings use their file-specific profile helper instead.
 
-Compose interpolation files are generated with
-`write_compose_environment_file <output> <sources-array-name>
+Compose interpolation files are generated with `write_compose_environment_file <output> <sources-array-name>
 <values-array-name>`. Source entries use `PREFIX|settings-path`; an empty prefix
-keeps standalone setting names, while orchestrators use prefixes such as
-`WEB` and `API`. Explicit `KEY|value` entries are reserved for values
-not stored in application settings, such as image tags and the requested Git
-revision. The writer normalizes shell-quoted settings, rejects duplicates and
-multiline values, and atomically installs the result with mode `0600`.
+keeps standalone setting names, while orchestrators use prefixes such as `WEB` and `API`. Explicit `KEY|value` entries are reserved for values not stored in application settings, such as image tags and the requested Git revision. The writer normalizes shell-quoted settings, rejects duplicates and multiline values, and atomically installs the result with mode `0600`.
 
 ## Deployment configuration check
 
 `check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir>
 <service=profile>...` runs `check_config.sh`, a Bash 4.4+ checker distributed
-beside these shell files that needs no other interpreter. The wrapper calls it
-after Compose validation and before any image build. It reads only the generated
-Compose environment file, the Compose file and the rendered Apache
-configuration, and cross-checks wiring that Compose cannot validate:
+beside these shell files that needs no other interpreter. The wrapper calls it after Compose validation and before any image build. It reads only the generated Compose environment file, the Compose file and the rendered Apache configuration, and cross-checks wiring that Compose cannot validate:
 
 | Rule | Finding |
 |---|---|
@@ -116,12 +92,7 @@ configuration, and cross-checks wiring that Compose cannot validate:
 | `keycloak-realm` | Frontend, issuer, JWKS and admin API realms disagree |
 | `canonical-url` | `AUTH_URL` and `NEXTAUTH_URL` differ |
 
-Production findings fail the installation; test findings are warnings. A
-single-label host without a similarly named Compose service is always a warning
-because it may resolve through institutional DNS. Only URL and host values are
-printed; URL credentials and all other setting values are never printed.
-Add a failing fixture under `tests/fixtures/check_config/cases/` for every new
-rule.
+Production findings fail the installation; test findings are warnings. A single-label host without a similarly named Compose service is always a warning because it may resolve through institutional DNS. Only URL and host values are printed; URL credentials and all other setting values are never printed. Add a failing fixture under `tests/fixtures/check_config/cases/` for every new rule.
 
 The Django profile adds:
 
@@ -130,14 +101,6 @@ The Django profile adds:
 - `prepare_django_settings_bind_mount`
 - `prepare_django_container_settings_permissions`
 
-These are outer-installer functions even though they render Django settings.
-The settings file is a host bind-mount source and must exist before container
-creation; the in-container `install.sh` runs too late to establish that source.
-Application templates may use tokens named `settingsconf_VARIABLE`; the Django
-renderer replaces each token with a safely quoted Python string read from the
-selected installation settings. Applications can use that literal as the
-fallback of `os.environ.get`, providing bare-metal values while retaining
-container environment overrides.
+These are outer-installer functions even though they render Django settings. The settings file is a host bind-mount source and must exist before container creation; the in-container `install.sh` runs too late to establish that source. Application templates may use tokens named `settingsconf_VARIABLE`; the Django renderer replaces each token with a safely quoted Python string read from the selected installation settings. Applications can use that literal as the fallback of `os.environ.get`, providing bare-metal values while retaining container environment overrides.
 
-Changes to function names, arguments, output, or return behavior require a
-library version change and a semantic deployment change package.
+Changes to function names, arguments, output, or return behavior require a library version change and a semantic deployment change package.

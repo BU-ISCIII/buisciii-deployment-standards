@@ -32,7 +32,7 @@ Realm import is not a substitute for backing up the Keycloak database. After ini
 
 `ADDONS.keycloak.OIDC_SERVICES` identifies application services that receive the generated OIDC validation contract. The current scaffold accepts only Django services in this array, rejects unknown services, removes duplicates, and defaults to `[CONFIG_SERVICE]` when the configuration owner is Django; otherwise it defaults to an empty array.
 
-Configuration ownership and OIDC consumption are separate concepts. One application can own the addon configuration while one or more Django services consume OIDC settings. Selected consumers receive issuer, JWKS URL, audience, client ID, JWKS cache duration, request timeout, and the authentication-required flag in their settings and Compose environment.
+Configuration ownership and OIDC consumption are separate concepts. One application can own the addon configuration while one or more Django services consume OIDC settings. Selected consumers receive the OIDC settings and Compose environment. Compose derives `OIDC_ISSUER` as `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}` and `OIDC_JWKS_URL` as `http://keycloak:8080/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs`, overriding application settings for these two values. Keep audience, client ID, cache duration, request timeout, and the authentication-required flag in each consumer's settings. The configuration checker skips application issuer/JWKS defaults when Compose supplies both managed values.
 
 ## Hostname and proxy model
 
@@ -99,4 +99,4 @@ Back up the `keycloak_db_data` volume as critical persistent state and retain th
 | Realm values, clients, roles, groups, and users | Supported `conf/keycloak/realm-*.json` source |
 | Generated Compose, installer, or settings fragments | Do not edit directly; change their source or supported inputs |
 
-Optional provider and custom-theme mounts are shown only as commented template examples and are not enabled by the descriptor. Changes to generic addon behavior belong upstream in the deployment standards; deployment-specific realm and application behavior belong in the application repository.
+Use `ADDONS.keycloak.MOUNTS` to add application-owned provider or theme mounts in test and production. For example, `./keycloak/themes/example:/opt/keycloak/themes/example:ro,z` mounts a theme read-only with shared SELinux relabeling. Operators must choose valid paths, access modes, and relabel options. Changes to generic addon behavior belong upstream in the deployment standards; deployment-specific realm and application behavior belong in the application repository.

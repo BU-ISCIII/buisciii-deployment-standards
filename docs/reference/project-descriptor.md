@@ -114,7 +114,7 @@ The accepted forms are:
 "apache,keycloak"
 ```
 
-Use object form to set options. Names are normalized to lowercase and must match a current directory under `scaffold/templates/addons/`: `apache`, `keycloak`, `nextstrain`, or `samba`.
+Use object form to set options. Names are normalized to lowercase and must match a current directory under `scaffold/templates/addons/`: `apache`, `keycloak`, `mailpit`, `nextstrain`, or `samba`.
 
 Array and comma-separated forms select add-ons with default options. An object value may be `null`, which is treated as an empty options object.
 
@@ -126,7 +126,7 @@ Unknown add-on options are rejected.
 | --- | --- | --- | --- |
 | `CONFIG_SERVICE` | String | All add-ons | Application service whose configuration context the add-on uses; defaults to the first normalized service |
 | `MODES` | Non-empty array | All add-ons | Enabled Compose modes; accepts `prod`, `production`, and `test`; defaults to both `prod` and `test`, with `production` normalized to `prod` |
-| `MOUNTS` | Array | All add-ons | Optional mount strings consumed when the add-on supplies an application-mount template; currently used by Apache |
+| `MOUNTS` | Array | All add-ons | Optional mount strings consumed when the add-on supplies an application-mount template; currently used by Apache and Keycloak |
 | `OIDC_SERVICES` | Array | Keycloak | Django services receiving Keycloak OIDC settings; defaults to the configuration service only when that service is Django, otherwise empty |
 | `ADMIN_ACCESS` | Boolean | Keycloak | Adds Keycloak administrative-access settings to the configured Django consumer when applicable; defaults to `false` |
 

@@ -44,6 +44,8 @@ This is the central reference for profile and addon settings. Values belong in t
 | `KEYCLOAK_ADMIN_API_CLIENT_SECRET`, `KEYCLOAK_ADMIN_API_USERNAME`, `KEYCLOAK_ADMIN_API_PASSWORD` | Admin API | test, prod | Yes | Yes | Privileged credentials. |
 | `KEYCLOAK_ADMIN_API_TIMEOUT_SECONDS`, `KEYCLOAK_ADMIN_API_SEND_ACTION_EMAILS`, `KEYCLOAK_ADMIN_API_ACTION_EMAIL_REDIRECT_URI` | Admin API | test, prod | Yes | No | Request and action-email behavior. |
 
+For managed Keycloak OIDC consumers, Compose overrides `OIDC_ISSUER` and `OIDC_JWKS_URL` using the addon public URL, realm, and internal `keycloak:8080` endpoint. Their application settings are not the effective Compose values; see [Keycloak OIDC consumers](../addons/keycloak.md#oidc-consumers).
+
 ## Browser profiles
 
 | Variables | Profile | Modes | Required | Sensitive | Purpose / timing |
@@ -97,6 +99,7 @@ Commented `APACHE_SECOND_*` entries are inactive application-owned examples.
 | `NEXTSTRAIN_IMAGE`, `NEXTSTRAIN_BUILD_CONTEXT`, `NEXTSTRAIN_DOCKERFILE` | Nextstrain | test, prod | Yes | No | Runtime image and build inputs. |
 | `NEXTSTRAIN_PORT`, `NEXTSTRAIN_HOST_PORT`, `NEXTSTRAIN_DATA_DIR` | Nextstrain | test, prod | Yes | No | Ports and host data. |
 | `MAPBOX_ACCESS_TOKEN`, `MAPBOX_STYLE_OWNER`, `MAPBOX_STYLE_ID` | Nextstrain | test, prod | Yes | No; public | Browser Mapbox configuration. |
+| `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT` | Mailpit | test only | No | No | Loopback host ports; defaults to `1025` and `8025`. Containers use `mailpit:1025`. |
 | `SAMBA_USER`, `SAMBA_PASSWORD` | Samba | test only | Yes | Yes | Test share credentials; production has no settings. |
 
 ## Ownership, derivation, and validation

@@ -9,7 +9,9 @@ host loopback by default. Select it with:
 
 ```json
 "mailpit": {
-  "CONFIG_SERVICE": "app",
+  "CONFIG_SERVICE": "example-app",
   "MODES": ["test"]
 }
 ```
+
+See the [Mailpit addon documentation](../../../../docs/addons/mailpit.md).

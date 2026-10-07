@@ -9,8 +9,6 @@ A profile describes framework- or application-specific deployment behavior. It c
 - [Django](django.md)
 - [Next.js](nextjs.md)
 - [React and Vite](react-vite.md)
-- [MySQL](mysql.md)
-- [Keycloak](keycloak.md)
 
 ## Common future structure
 

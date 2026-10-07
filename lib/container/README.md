@@ -20,6 +20,8 @@ The wrapper MAY implement `service_container_name <service>` for legacy explicit
 
 ## Public functions
 
+Functions not listed in this section are internal implementation helpers and are not part of the shared library's public interface.
+
 - `set_engine`
 - `engine_exec`
 - `engine_build`

@@ -1,4 +1,3 @@
-- [Backups and restore](backups-and-restore.md)
 # Generated documentation files
 
 The scaffold generates a common documentation structure for every application. Some text is managed by the deployment standard, while marked blocks belong to the application. Selected profiles and add-ons insert only the sections relevant to the generated topology.

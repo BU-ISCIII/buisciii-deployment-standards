@@ -130,7 +130,7 @@ python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
 
 ## 6. Scaffold state
 
-`.bu-isciii-deployment/state.json` records the normalized scaffold configuration, standards source/version, and generated-artifact hashes. `check` and `sync` use it to distinguish central updates from local changes and retain the initialized topology.
+`.bu-isciii-deployment/state.json` records the project descriptor, standards source/version, and generated-artifact hashes. `check` and `sync` use it to distinguish central updates from local changes and retain the initialized topology.
 
 Commit this file with the baseline. Do not edit it manually. See the [project descriptor](project-descriptor.md) for topology inputs.
 

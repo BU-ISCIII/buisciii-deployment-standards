@@ -1,4 +1,3 @@
-- Cross-script lifecycle and call order
 # container_start.sh reference
 
 ## Purpose

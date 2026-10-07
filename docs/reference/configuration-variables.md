@@ -1,4 +1,3 @@
-- Operational and security responsibilities
 # Configuration variables
 
 Before starting a deployment, confirm that the generated project is fully synchronized with the current deployment standards. If it is not, stop and follow the synchronization guidance for the applicable standards commit and/or version; return to the deployment only after synchronization is complete. See [Upgrades and rollback](../guides/upgrades-and-rollback.md) and [Deployment workflow](../guides/deployment-workflow.md).

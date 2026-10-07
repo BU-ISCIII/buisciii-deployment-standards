@@ -1419,7 +1419,7 @@ def service_container_installer_compilation(
     result.permission_services.extend(
         f"{name}-db"
         for name, service in services.items()
-        if service["PROFILE"] == "django" and service["DATABASE"] == "compose"
+        if service["DATABASE"] == "compose"
     )
     return result
 
@@ -1452,10 +1452,10 @@ def profile_container_installer_compilation(
                     service["PROFILE"], callback, callback_values
                 )
             )
-        if service["PROFILE"] == "django" and service["DATABASE"] == "compose":
+        if service["DATABASE"] == "compose":
             result.running_cases.extend(
                 rendered_profile_callback(
-                    "django",
+                    service["PROFILE"],
                     "database-running-permissions.case",
                     callback_values,
                 )

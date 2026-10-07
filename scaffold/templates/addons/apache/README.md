@@ -1,6 +1,6 @@
 # Apache add-on
 
-The add-on owns three standard source files under `addons/apache/conf/`. During scaffold initialization they become normal, editable application files:
+The add-on owns three standard source templates under `conf/`. During scaffold initialization they become application files:
 
 - `conf/apache/00-logs.conf`;
 - `conf/apache/01-reverse-proxy.conf`;
@@ -77,3 +77,5 @@ The generic add-on Compose compiler provides:
 - optional application mounts from `ADDONS.apache.MOUNTS`.
 
 The source configuration directory, rendered configuration directory, and log bind have an independent Apache host-permission specification. Apache has an explicit empty running-container mount specification because it owns no writable named volume.
+
+See the canonical [Apache addon documentation](../../../../docs/addons/apache.md) for the operator-facing contract.

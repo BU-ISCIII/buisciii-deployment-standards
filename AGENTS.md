@@ -28,9 +28,9 @@ Relevant areas include:
 - `scaffold/templates/profiles/`: framework-specific behavior.
 - `scaffold/templates/addons/`: optional deployment components.
 - `tests/`: expected contracts and boundaries.
-- `standards/`: normative requirements.
-- `guides/`: task-oriented documentation.
-- `reference/`: detailed implementation reference.
+- `docs/standards/`: normative requirements.
+- `docs/guides/`: task-oriented documentation.
+- `docs/reference/`: detailed implementation reference.
 
 Do not change code simply to make it match outdated documentation. Identify the difference first and decide whether the code or documentation should change.
 

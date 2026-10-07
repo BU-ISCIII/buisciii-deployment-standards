@@ -1,3 +1,5 @@
-# Samba test-data add-on
+# Samba test-data addon
 
-This add-on creates a Samba service and named data volume only in the test Compose profile. Applications may populate it from an application-owned `deployment/hooks/test_data.sh` hook.
+This catalog entry creates an authenticated, read-only `ngs_data` SMB share backed by `samba_test_data` only in the test Compose model. It has no production service or published host ports.
+
+Applications may populate disposable data through their preserved `load_test_deployment_data` hook. See the canonical [Samba addon documentation](../../../../docs/addons/samba.md) for the exact limitations.

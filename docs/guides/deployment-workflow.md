@@ -43,7 +43,7 @@ bash -n container_install.sh
 bash -n scripts/smoke_test.sh
 ```
 
-Review the [application profiles](../scaffold/templates/profiles/README.md) and [add-on profiles](../scaffold/templates/addons/README.md) selected by the manifest.
+Review the [application profiles](../profiles/README.md) and [addons](../addons/README.md) selected by the descriptor.
 
 ## 4. Prepare configuration
 
@@ -68,7 +68,7 @@ The check cross-validates the generated environment, Compose services, applicati
 
 Production findings fail the installation. Test findings are reported as warnings where the implementation permits test-only shortcuts. Review warnings rather than treating them as successful acceptance. The checker does not prove that external DNS, databases, identity providers, email, or other remote services are reachable.
 
-When the installer reports `Deployment configuration check failed`, correct the selected settings or component mapping and rerun the same install command. See [Configuration](configuration.md) for the validation boundaries and the [shared container library](../lib/container/README.md#deployment-configuration-check) for exact rules.
+When the installer reports `Deployment configuration check failed`, correct the selected settings or component mapping and rerun the same install command. See [Configuration](configuration.md) for the validation boundaries and the [shared container library](../../lib/container/README.md#deployment-configuration-check) for exact rules.
 
 ## 6. Deploy to test
 
@@ -147,7 +147,7 @@ The generated lifecycle is:
 
 A readiness file means bootstrap may begin; it is not final acceptance.
 
-Bootstrap is profile-specific. Django validates database access and runtime configuration, runs deployment checks, verifies and applies migrations, optionally creates configured first tables, runs hooks, collects static files, and verifies migrations. Generated Next.js and React/Vite profiles currently have no runtime bootstrap. Consult the [profile documentation](../scaffold/templates/profiles/README.md) instead of assuming every profile performs database work.
+Bootstrap is profile-specific. Django validates database access and runtime configuration, runs deployment checks, verifies and applies migrations, optionally creates configured first tables, runs hooks, collects static files, and verifies migrations. Generated Next.js and React/Vite profiles currently have no runtime bootstrap. Consult the [profile documentation](../profiles/README.md) instead of assuming every profile performs database work.
 
 ## 11. Smoke test and acceptance
 

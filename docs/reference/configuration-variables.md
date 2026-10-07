@@ -97,7 +97,7 @@ Commented `APACHE_SECOND_*` entries are inactive application-owned examples.
 |---|---|---|---:|---:|---|
 | `NEXTSTRAIN_IMAGE`, `NEXTSTRAIN_BUILD_CONTEXT`, `NEXTSTRAIN_DOCKERFILE` | Nextstrain | test, prod | Yes | No | Runtime image and build inputs. |
 | `NEXTSTRAIN_PORT`, `NEXTSTRAIN_HOST_PORT`, `NEXTSTRAIN_DATA_DIR` | Nextstrain | test, prod | Yes | No | Ports and host data. |
-| `NEXTSTRAIN_MAPBOX_ACCESS_TOKEN`, `NEXTSTRAIN_MAPBOX_STYLE_OWNER`, `NEXTSTRAIN_MAPBOX_STYLE_ID` | Nextstrain | test, prod | Yes | No; public | Browser Mapbox configuration. |
+| `MAPBOX_ACCESS_TOKEN`, `MAPBOX_STYLE_OWNER`, `MAPBOX_STYLE_ID` | Nextstrain | test, prod | Yes | No; public | Browser Mapbox configuration. |
 | `SAMBA_USER`, `SAMBA_PASSWORD` | Samba | test only | Yes | Yes | Test share credentials; production has no settings. |
 
 ## Ownership, derivation, and validation

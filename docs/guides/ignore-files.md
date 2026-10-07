@@ -88,4 +88,4 @@ Before committing or building, confirm that:
 - logs, documents, dependencies, and build output are not copied accidentally;
 - required source and explicitly allowed test/template files remain included.
 
-Use `git status --ignored` to inspect Git exclusions. Review the generated [Git ignore template](../scaffold/templates/common/.gitignore.tmpl) and [Docker ignore template](../scaffold/templates/common/.dockerignore.tmpl) when checking exact patterns.
+Use `git status --ignored` to inspect Git exclusions. Review the generated [Git ignore template](../../scaffold/templates/common/.gitignore.tmpl) and [Docker ignore template](../../scaffold/templates/common/.dockerignore.tmpl) when checking exact patterns.

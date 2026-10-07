@@ -53,7 +53,7 @@ External best practices may be mentioned as recommendations only when clearly se
 
 Keep the purpose of each documentation area clear.
 
-### `standards/`
+### `docs/standards/`
 
 Defines what a compliant BU-ISCIII deployment MUST, SHOULD or MAY do.
 
@@ -63,7 +63,7 @@ Standards answer:
 
 They should not contain long tutorials or exhaustive command references.
 
-### `guides/`
+### `docs/guides/`
 
 Procedural documentation.
 
@@ -71,7 +71,7 @@ Guides answer:
 
 > How do I do this?
 
-### `reference/`
+### `docs/reference/`
 
 Exact behavior of scripts, configuration, generated files and interfaces.
 
@@ -79,11 +79,11 @@ Reference pages answer:
 
 > What is this and exactly how does it behave?
 
-### `profiles/`
+### `docs/profiles/`
 
 Framework-specific behavior such as Django, Next.js or React/Vite.
 
-### `addons/`
+### `docs/addons/`
 
 Optional supporting deployment components such as Apache or Keycloak.
 
@@ -303,8 +303,8 @@ Check:
 4. Did I distinguish Docker behavior from rootless Podman where needed?
 5. Did I explain unfamiliar container concepts briefly?
 6. Can any paragraph be made shorter without losing meaning?
-7. Is detailed implementation material better placed in `reference/`?
-8. Is procedural material better placed in `guides/`?
+7. Is detailed implementation material better placed in `docs/reference/`?
+8. Is procedural material better placed in `docs/guides/`?
 9. Are external links authoritative and useful?
 10. Do examples use the current commands and file names?
 11. Are existing useful diagrams still correct?

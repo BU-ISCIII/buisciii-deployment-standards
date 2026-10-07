@@ -1,17 +1,173 @@
 # Deployment workflow
 
-How to take an application from prepared infrastructure to production acceptance.
+This guide is the practical path from a generated, configuration-ready repository to a verified test or production deployment. It assumes the application has already been scaffolded; use [Creating a project](creating-a-project.md) for initial generation.
 
-> **Status:** Documentation outline. Detailed guidance will be added incrementally.
+## Before you start
 
-## Future sections
+Confirm that the host meets the [infrastructure requirements](../standards/infrastructure-requirements.md). For a new host, follow [Requesting a virtual machine](requesting-a-virtual-machine.md).
 
-- Infrastructure preparation
-- Scaffold generation and review
-- Application customization
-- Configuration and secret provisioning
-- Image build
-- Deployment
-- Framework bootstrap
-- Smoke tests
-- Production acceptance and handoff
+Have these ready:
+
+- a clean, reviewed application revision;
+- Docker or Podman with Compose support;
+- access to the host, image sources, and secret/configuration stores;
+- the generated `container_install.sh`, Compose files, settings templates, and `scripts/smoke_test.sh`;
+- persistence and backup plans for stateful services; see [Backups and restore](backups-and-restore.md);
+- application-specific acceptance checks and a deployment owner.
+
+Both Docker and Podman are supported. Choose the engine installed and approved on the host; do not assume Docker is rootless.
+
+## 1. Validate the scaffold
+
+From the repository root, run:
+
+```bash
+python scripts/scaffold.py check --manifest scaffold.yml --output .
+```
+
+Resolve generated-file drift before deployment. This validates the scaffold contract, not runtime health.
+
+If generated shell scripts were changed locally, perform the syntax checks used by the test suite:
+
+```bash
+bash -n container_install.sh
+bash -n scripts/smoke_test.sh
+```
+
+Review the [application profiles](../scaffold/templates/profiles/README.md) and [add-on profiles](../scaffold/templates/addons/README.md) selected by the manifest.
+
+## 2. Prepare configuration
+
+Start with test. Complete its generated settings, including ports, credentials, service URLs, and application values. Follow [Configuration](configuration.md) and [Docker Compose](docker-compose.md).
+
+For production:
+
+1. Copy each production settings template to a protected operational location, normally under `deployment/settings/`.
+2. Replace every required placeholder, especially `CHANGE_ME`.
+3. Restrict access to secrets and production settings.
+4. Use `--install_conf` for the first application service, or repeat `--install_conf_map component,path` for explicit per-component mappings.
+
+The installer rejects an active production configuration containing `CHANGE_ME`. Do not commit production secrets or place them in generated templates.
+
+Use the [container installer reference](../reference/scripts/container-install.md) for authoritative mappings and CLI details. Follow [Container install customization](container-install-customization.md) for deliberate extensions.
+
+## 3. Deploy to test
+
+Use the engine available on the test host:
+
+```bash
+bash container_install.sh \
+  --test \
+  --action install \
+  --engine docker
+```
+
+For Podman, replace `docker` with `podman`.
+
+Install validates configuration and Compose input, prepares host paths and permissions, builds images, recreates services, waits for profile readiness, runs profile bootstrap, optionally loads profile-owned test/demo data, and runs the generated smoke test. Test/demo data is not loaded implicitly in production.
+
+## 4. Review test
+
+Do not promote solely because containers are running. Confirm:
+
+- expected application and add-on services are present;
+- the installer and smoke test pass;
+- each application responds at `/health/`;
+- application checks such as login, a representative read/write flow, and integrations pass;
+- logs have no unresolved startup, migration, or permission errors;
+- persistent data survives service recreation where required;
+- mounted paths are writable by the intended container users;
+- only intended test/demo data was loaded.
+
+Fix failures and repeat until shared smoke checks and application acceptance checks pass.
+
+## 5. Prepare production
+
+| Area | Test | Production |
+| --- | --- | --- |
+| Configuration | Test settings | Protected, completed production settings |
+| Revision | Development revision may be acceptable | Reviewed tag or immutable commit |
+| Data | Profile-owned test/demo data may be enabled | No implicit test/demo data |
+| Persistence | May be disposable | Retention, ownership, and backup confirmed |
+| Acceptance | Smoke and application checks | Smoke, application, and operational checks |
+
+Before the production window:
+
+1. Choose the reviewed tag or commit and ensure the build context contains that source.
+2. Verify production mappings and remove placeholders.
+3. Confirm volumes, ownership, capacity, and backup/restore arrangements.
+4. Review [Upgrades and rollback](upgrades-and-rollback.md).
+5. Confirm monitoring, routing, certificates, acceptance checks, and the rollback decision owner.
+
+The `--git_revision` value is passed into the profile build/install flow and recorded by profiles that support it. It does not replace verifying the source/build context.
+
+## 6. Deploy to production
+
+For example:
+
+```bash
+bash container_install.sh \
+  --action install \
+  --engine podman \
+  --git_revision v1.2.3 \
+  --install_conf_map example-app,deployment/settings/example-app_production_settings.txt
+```
+
+Replace the revision, engine, component, and path. Repeat `--install_conf_map` for every component needing an explicit mapping. With one application service, `--install_conf path` is the shorter equivalent for that first service. Do not add `--test` in production.
+
+## 7. Readiness and bootstrap
+
+The generated lifecycle is:
+
+1. Validate configuration and Compose input.
+2. Build images and recreate services.
+3. Wait for each profile readiness file.
+4. Run profile bootstrap callbacks.
+5. Load optional profile-owned data.
+6. Run the shared smoke test.
+
+A readiness file means bootstrap may begin; it is not final acceptance.
+
+Bootstrap is profile-specific. Django validates database access and runtime configuration, runs deployment checks, verifies and applies migrations, optionally creates configured first tables, runs hooks, collects static files, and verifies migrations. Generated Next.js and React/Vite profiles currently have no runtime bootstrap. Consult the [profile documentation](../scaffold/templates/profiles/README.md) instead of assuming every profile performs database work.
+
+## 8. Smoke test and acceptance
+
+The generated `scripts/smoke_test.sh` selects Docker or Podman, validates resolved Compose configuration, runs generated profile checks, and checks each application at `http://127.0.0.1:<port>/health/`.
+
+A passing shared smoke test is necessary, not sufficient. Also run release-specific functional and production operational checks. See the [smoke test reference](../reference/scripts/smoke-test.md).
+
+## 9. After deployment
+
+Record the environment, date, operator, revision, image identifiers, configuration mappings (without secret values), bootstrap outcome, service status, smoke and acceptance results, backup verification, and rollback point.
+
+Verify public routing and certificates, monitoring and alerts, persistence, scheduled jobs, and downstream integrations. Put application-specific details in generated `LEAME.md` or the operational release record instead of duplicating shared standards here.
+
+## Failure paths
+
+### Configuration or Compose validation fails
+
+Correct settings or Compose input and rerun. This occurs before build and service recreation, although host paths and initial permissions may already have been prepared.
+
+### Readiness times out
+
+Inspect service status and logs with the selected engine's Compose command. Fix startup, dependency, configuration, or permission errors, then rerun. A running container alone is not ready.
+
+### Bootstrap fails
+
+Read the profile bootstrap output. Resolve migration, database, hook, static-file, or application validation errors. Before rerunning, determine whether bootstrap made a partial state change.
+
+### Smoke or acceptance fails
+
+Keep the release unapproved. Inspect service logs and the failing path. Fix and redeploy, or use the reviewed [rollback procedure](upgrades-and-rollback.md).
+
+### Mounted-file permissions are wrong
+
+Use the installer action instead of ad hoc recursive changes:
+
+```bash
+bash container_install.sh \
+  --action fix-permissions \
+  --engine docker
+```
+
+Use `podman` when appropriate and supply the same configuration mappings required by that environment. This prepares host and running-container mount permissions, then exits without builds, bootstrap, data loading, or smoke tests. See [container installer reference](../reference/scripts/container-install.md).

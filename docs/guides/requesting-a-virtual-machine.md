@@ -243,4 +243,4 @@ A later production request needs decisions that are intentionally outside the de
 
 For example, `https://iskylims.isciii.es` means that the client uses TLS. If Forti terminates TLS, the production request must identify who owns the certificate, how it is renewed, and whether Forti forwards to a private HTTP or HTTPS backend.
 
-Use the full [infrastructure requirements](../standards/infrastructure-requirements.md), [security requirements](../standards/security-requirements.md), and generated production `LEAME.md` when planning that environment.
+Follow [Preparing production infrastructure](preparing-production-infrastructure.md) for the production procedure. It uses the full [infrastructure requirements](../standards/infrastructure-requirements.md), [security requirements](../standards/security-requirements.md), and generated production `LEAME.md`.

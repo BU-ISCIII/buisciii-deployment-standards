@@ -87,22 +87,21 @@ A compliance assessment SHOULD link each finding to evidence. Depending on the r
 - output from `scripts/scaffold.py check` or `check-lib`;
 - syntax, scaffold, Compose, installation, upgrade, and smoke-test results;
 - reviewed test and production configuration;
-- the completed [installation checklist](../templates/installation-checklist.md);
 - application `README.md` and production `LEAME.md`;
 - infrastructure or operational records; and
-- an application audit in [`audits/`](../audits/).
+- an application-owned compliance assessment or release record that links findings to their evidence.
 
 `scripts/scaffold.py check` reports generated-file updates, managed drift, contract drift, missing or obsolete artifacts, and shared-library drift. A successful result is evidence that the generated baseline is synchronized; it does not prove operational, infrastructure, or security compliance.
 
 Automated checks cover only requirements they directly exercise. Requirements about ownership, external services, recovery, production access, or completed operations require manual review or execution evidence.
 
-## 6. Audits and reviews
+## 6. Compliance reviews
 
-Files in [`audits/`](../audits/) assess a real application or implementation area against the standard. An audit may record satisfied requirements, partial implementation, deviations, missing evidence, and recommendations.
+A compliance review may record satisfied requirements, partial implementation, deviations, missing evidence, and recommendations in an application-owned assessment, release record, issue, or other controlled review record.
 
-An audit describes the evidence available at the time it was performed. It does not automatically accept an exception, change an application, or modify the common standard.
+A review describes the evidence available at the time it was performed. It does not automatically accept an exception, change an application, or modify the common standard.
 
-The installation checklist is a review aid, not a replacement for the standards. A checked item SHOULD link to the file, command, test result, or operational record that supports it. Findings and intentional exceptions SHOULD be recorded in its findings table or in a linked application-owned document.
+Each finding SHOULD link to the file, command, test result, or operational record that supports it. Findings and intentional exceptions SHOULD be recorded in the application-owned review record or another linked application-owned document.
 
 ## 7. Worked assessment example
 

@@ -4,7 +4,8 @@ Guides are procedural: they explain how to perform deployment work. Normative re
 
 ## Getting started
 
-- [Requesting a virtual machine](requesting-a-virtual-machine.md) — collect host, network, storage, and access requirements.
+- [Requesting a virtual machine](requesting-a-virtual-machine.md) — collect development host, network, storage, and access requirements.
+- [Preparing production infrastructure](preparing-production-infrastructure.md) — turn production infrastructure requirements into a reviewed readiness record.
 - [Creating a project](creating-a-project.md) — create a descriptor and initialize the scaffold.
 - [Scaffold workflow](scaffold-workflow.md) — check, synchronize, and resolve generated-file ownership states.
 

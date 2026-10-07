@@ -62,7 +62,7 @@ The descriptor defines the application identity and deployment topology used to 
 }
 ```
 
-Use [Project descriptor](../reference/project-descriptor.md) for field definitions and the additional current examples under `scaffold/` for more complex topologies.
+Use [Project descriptor](../reference/project-descriptor.md) for field definitions. The repository also provides [`scaffold/project.addons.json.example`](../../scaffold/project.addons.json.example) for a deployment with selected addons.
 
 ## 4. Choose services, profiles and addons
 

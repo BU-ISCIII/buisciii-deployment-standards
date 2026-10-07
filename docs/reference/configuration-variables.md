@@ -69,7 +69,7 @@ This is the central reference for profile and addon settings. Values belong in t
 | `APACHE_UPSTREAM_PORT` | test, prod | No | No | Empty derives from selected `APP_PORT`. |
 | `APACHE_PROXY_TIMEOUT` | test, prod | No | No | Empty derives from `GUNICORN_TIMEOUT`, then `120`. |
 | `APACHE_LOG_STEM` | test, prod | No | No | Empty derives from `APACHE_SERVER_NAME`. |
-| `APACHE_SERVER_STATUS_SERVER_NAME`, `APACHE_SERVER_STATUS_SERVER_ALIASES`, `APACHE_SERVER_STATUS_ALLOW_FROM` | test, prod | Yes | No | Status host and allow list. |
+| `SERVER_STATUS_SERVER_NAME`, `SERVER_STATUS_ALIASES`, `SERVER_STATUS_ALLOW_FROM` | test, prod | Yes | No | Status host and allow list. |
 | `APACHE_FORWARDED_PROTO`, `APACHE_FORWARDED_PORT`, `APACHE_LIMIT_REQUEST_BODY` | test, prod | Yes | No | Forwarding metadata and body limit. |
 
 Commented `APACHE_SECOND_*` entries are inactive application-owned examples.

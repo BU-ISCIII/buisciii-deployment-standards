@@ -43,19 +43,19 @@ See [Creating a project](docs/guides/creating-a-project.md) for the complete wor
 
 ## Documentation
 
-See the [documentation index](docs/README.md). Useful starting points include the [application installation contract](docs/standards/application-installation-contract.md), [deployment workflow](docs/guides/deployment-workflow.md), [project descriptor reference](docs/reference/project-descriptor.md), and [installation checklist](docs/templates/installation-checklist.md).
+See the [documentation index](docs/README.md). Useful starting points include the [application installation contract](docs/standards/application-installation-contract.md), [deployment workflow](docs/guides/deployment-workflow.md), [project descriptor reference](docs/reference/project-descriptor.md), and [exceptions and compliance standard](docs/standards/exceptions-and-compliance.md).
 
 ## Repository structure
 
 ```text
-docs/       Human-facing standards, guides, reference, profiles, addons, templates, and audits
+docs/       Human-facing standards, guides, reference, profiles, and addons
 lib/        Shared application-neutral deployment libraries
 scaffold/   Descriptor examples and generated-file implementation templates
 scripts/    Scaffold initialization and synchronization tooling
 tests/      Contract and generation tests
 ```
 
-`docs/templates/` contains human-facing operational forms and checklists. `scaffold/templates/` contains implementation sources rendered into application repositories; it is not documentation storage.
+`scaffold/templates/` contains implementation sources rendered into application repositories; it is not documentation storage.
 
 ## Development and contributing
 

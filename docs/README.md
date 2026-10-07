@@ -8,7 +8,7 @@ Use this reading order when adopting the standard for an application:
 
 1. Read the [application installation contract](standards/application-installation-contract.md) to understand the deployment model, generated baseline, ownership boundaries, and compliance requirements.
 2. Read the documentation for the application [profile](profiles/README.md) and any selected [addons](addons/README.md). These pages describe behavior that applies only to those components.
-3. Review the [infrastructure requirements](standards/infrastructure-requirements.md) and, when a new host is needed, follow [Requesting a virtual machine](guides/requesting-a-virtual-machine.md).
+3. Review the [infrastructure requirements](standards/infrastructure-requirements.md). Follow [Requesting a virtual machine](guides/requesting-a-virtual-machine.md) for a development host or [Preparing production infrastructure](guides/preparing-production-infrastructure.md) for production.
 4. Follow [Creating a project](guides/creating-a-project.md) to define the project descriptor, generate the baseline, review ownership boundaries, and run the first scaffold check.
 5. Follow [Configuration](guides/configuration.md) to prepare test settings and protected production settings. Use the [project descriptor](reference/project-descriptor.md) and [configuration variable](reference/configuration-variables.md) references when exact fields or values are needed.
 6. Read the [Scaffold workflow](guides/scaffold-workflow.md) before modifying generated files or adopting a newer standard revision.
@@ -33,7 +33,7 @@ Standards are normative and answer what must be true. Guides explain how to perf
 
 ### Creating a new deployment
 
-[Installation contract](standards/application-installation-contract.md) → [selected profiles](profiles/README.md) and [addons](addons/README.md) → [infrastructure requirements](standards/infrastructure-requirements.md) → [creating a project](guides/creating-a-project.md) → [configuration](guides/configuration.md) → [deployment workflow](guides/deployment-workflow.md)
+[Installation contract](standards/application-installation-contract.md) → [selected profiles](profiles/README.md) and [addons](addons/README.md) → [infrastructure requirements](standards/infrastructure-requirements.md) → [creating a project](guides/creating-a-project.md) → [production infrastructure](guides/preparing-production-infrastructure.md) → [configuration](guides/configuration.md) → [deployment workflow](guides/deployment-workflow.md)
 
 ### Deploying or upgrading an existing application
 

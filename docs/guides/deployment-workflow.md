@@ -19,7 +19,7 @@ A successful check proves synchronization with the selected standards revision. 
 
 ## 2. Before you start
 
-Confirm that the host meets the [infrastructure requirements](../standards/infrastructure-requirements.md). For a new host, follow [Requesting a virtual machine](requesting-a-virtual-machine.md).
+Confirm that the host meets the [infrastructure requirements](../standards/infrastructure-requirements.md). For a new development host, follow [Requesting a virtual machine](requesting-a-virtual-machine.md). Before a production deployment, complete [Preparing production infrastructure](preparing-production-infrastructure.md).
 
 Have these ready:
 

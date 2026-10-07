@@ -68,15 +68,11 @@ Host permission policy remains application-owned and is expressed as an array of
 
 Writable directory mounts are declared separately inside the application wrapper as `path|owner|mode` entries and passed, with a resolved container ID, to `apply_container_directory_permission_spec`. That helper creates each directory and applies ownership/mode recursively from inside the running container. Include named-volume destinations and writable bind destinations; exclude read-only mounts and ordinary immutable application source. Mounted files such as Django settings use their file-specific profile helper instead.
 
-Compose interpolation files are generated with `write_compose_environment_file <output> <sources-array-name>
-<values-array-name>`. Source entries use `PREFIX|settings-path`; an empty prefix
-keeps standalone setting names, while orchestrators use prefixes such as `WEB` and `API`. Explicit `KEY|value` entries are reserved for values not stored in application settings, such as image tags and the requested Git revision. The writer normalizes shell-quoted settings, rejects duplicates and multiline values, and atomically installs the result with mode `0600`.
+Compose interpolation files are generated with `write_compose_environment_file <output> <sources-array-name> <values-array-name>`. Source entries use `PREFIX|settings-path`; an empty prefix keeps standalone setting names, while orchestrators use prefixes such as `WEB` and `API`. Explicit `KEY|value` entries are reserved for values not stored in application settings, such as image tags and the requested Git revision. The writer normalizes shell-quoted settings, rejects duplicates and multiline values, and atomically installs the result with mode `0600`.
 
 ## Deployment configuration check
 
-`check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir>
-<service=profile>...` runs `check_config.sh`, a Bash 4.4+ checker distributed
-beside these shell files that needs no other interpreter. The wrapper calls it after Compose validation and before any image build. It reads only the generated Compose environment file, the Compose file and the rendered Apache configuration, and cross-checks wiring that Compose cannot validate:
+`check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir> <service=profile>...` runs `check_config.sh`, a Bash 4.4+ checker distributed beside these shell files that needs no other interpreter. The wrapper calls it after Compose validation and before any image build. It reads only the generated Compose environment file, the Compose file and the rendered Apache configuration, and cross-checks wiring that Compose cannot validate:
 
 | Rule | Finding |
 |---|---|

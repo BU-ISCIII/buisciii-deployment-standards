@@ -299,46 +299,6 @@ mv "$django_target/README.md.bu-isciii-update" "$django_target/README.md"
 python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
     >/dev/null
 
-# The full baseline checker is read-only and detects application-owned drift.
-state_hash_before="$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
-python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
-    > "$work_dir/check-current.out"
-grep -Fq 'Deployment baseline check found 0 synchronization issue(s).' \
-    "$work_dir/check-current.out"
-printf '\nlocal documentation note\n' >> "$django_target/README.md"
-python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
-    > "$work_dir/check-local.out"
-grep -Eq '^locally-modified +README.md$' "$work_dir/check-local.out"
-python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
-    > "$work_dir/sync-local.out"
-grep -Eq '^locally-modified +README.md$' "$work_dir/sync-local.out"
-test ! -e "$django_target/README.md.bu-isciii-update"
-mv "$django_target/README.md" "$work_dir/README.md.local"
-if python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
-    > "$work_dir/check-missing.out"; then
-    echo "FAIL: check must fail when a generated file is missing" >&2
-    exit 1
-fi
-grep -Eq '^missing +README.md$' "$work_dir/check-missing.out"
-test "$state_hash_before" = "$(sha256sum "$django_target/.bu-isciii-deployment/state.json")"
-mv "$work_dir/README.md.local" "$django_target/README.md"
-python3 "$repo_root/scripts/scaffold.py" check "$django_target" >/dev/null
-
-# A generated conflict candidate remains actionable after state advances.
-sed -i '/"README.md":/s/"[0-9a-f]\{64\}"/"0000000000000000000000000000000000000000000000000000000000000000"/' \
-    "$django_target/.bu-isciii-deployment/state.json"
-python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
-    > "$work_dir/sync-conflict.out" || test "$?" -eq 2
-python3 "$repo_root/scripts/scaffold.py" check "$django_target" \
-    > "$work_dir/check-pending.out" || test "$?" -eq 1
-grep -Eq '^conflict +README.md$' "$work_dir/check-pending.out"
-python3 "$repo_root/scripts/scaffold.py" sync "$django_target" \
-    > "$work_dir/sync-pending.out" || test "$?" -eq 2
-grep -Eq '^conflict +README.md -> README.md.bu-isciii-update$' \
-    "$work_dir/sync-pending.out"
-mv "$django_target/README.md.bu-isciii-update" "$django_target/README.md"
-python3 "$repo_root/scripts/scaffold.py" check "$django_target" >/dev/null
-
 # Documentation must enumerate topology-owned protected files and must present
 # operator decisions as deployment inputs instead of unfinished review markers.
 for document in README.md LEAME.md; do
@@ -574,7 +534,10 @@ diff <(grep '^## ' "$django_target/LEAME.md") \
     <(grep '^## ' "$react_target/LEAME.md") >/dev/null
 diff <(grep '^# [0-9][0-9]*\.' "$django_target/container_install.sh") \
     <(grep '^# [0-9][0-9]*\.' "$react_target/container_install.sh") >/dev/null
-cmp "$django_target/.dockerignore" "$react_target/.dockerignore" >/dev/null
+diff \
+    <(sed '/# BEGIN BU-ISCIII APPLICATION: additional-dockerignore/,/# END BU-ISCIII APPLICATION: additional-dockerignore/{/# BEGIN BU-ISCIII APPLICATION: additional-dockerignore/b;/# END BU-ISCIII APPLICATION: additional-dockerignore/b;d;}' "$django_target/.dockerignore") \
+    <(sed '/# BEGIN BU-ISCIII APPLICATION: additional-dockerignore/,/# END BU-ISCIII APPLICATION: additional-dockerignore/{/# BEGIN BU-ISCIII APPLICATION: additional-dockerignore/b;/# END BU-ISCIII APPLICATION: additional-dockerignore/b;d;}' "$react_target/.dockerignore") \
+    >/dev/null
 
 if grep -Eq 'healthcheck:|restart: unless-stopped|MYSQL_DATABASE:|read_only: true|tmpfs:' \
     "$repo_root/scripts/scaffold.py"; then

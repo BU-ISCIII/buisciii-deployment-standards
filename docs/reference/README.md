@@ -6,4 +6,5 @@ Reference pages describe exact current interfaces and behavior. Use the [guides]
 - [Project descriptor](project-descriptor.md) — topology fields, supported profiles, addons, and validation.
 - [Configuration variables](configuration-variables.md) — generated test and production setting contracts.
 - [`scaffold.py`](scaffold.md) — initialization, synchronization, saved state, statuses, and exit behavior.
+- [Deployment component versioning](versioning.md) — component scopes, compatibility classification, coordinated changes, and current enforcement limits.
 - [Script reference](scripts/README.md) — generated lifecycle commands and checks.

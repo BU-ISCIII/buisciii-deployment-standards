@@ -9,6 +9,9 @@ A profile describes an application's or framework's deployment model. An addon p
 
 - [Apache](apache.md)
 - [Keycloak](keycloak.md)
+- [MySQL support](mysql.md)
+- [Nextstrain](nextstrain.md)
+- [Samba](samba.md)
 
 ## Future sections
 

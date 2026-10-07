@@ -1,7 +1,7 @@
+- Operational and security responsibilities
 # Configuration variables
 
-Before starting a deployment, confirm that the generated project is fully
-synchronized with the current deployment standards. If it is not, stop and follow the synchronization guidance for the applicable standards commit and/or version; return to the deployment only after synchronization is complete. See [Upgrades and rollback](../guides/upgrades-and-rollback.md) and [Deployment workflow](../guides/deployment-workflow.md).
+Before starting a deployment, confirm that the generated project is fully synchronized with the current deployment standards. If it is not, stop and follow the synchronization guidance for the applicable standards commit and/or version; return to the deployment only after synchronization is complete. See [Upgrades and rollback](../guides/upgrades-and-rollback.md) and [Deployment workflow](../guides/deployment-workflow.md).
 
 This is the central reference for profile and addon settings. Values belong in the test or production `INSTALL_SETTINGS` file. “Required” means required when the profile, addon, or capability is selected. Never commit sensitive values.
 
@@ -57,8 +57,7 @@ This is the central reference for profile and addon settings. Values belong in t
 | `AUTH_SECRET` | Next.js | test, prod | Yes | Yes | Server authentication/session secret. |
 | `AUTH_URL`, `AUTH_TRUST_HOST`, `NEXTAUTH_URL` | Next.js | test, prod | Yes | No | Server authentication routing. |
 
-`VITE_*` and `NEXT_PUBLIC_*` values ship to browsers; never put secrets in
-them.
+`VITE_*` and `NEXT_PUBLIC_*` values ship to browsers; never put secrets in them.
 
 ## Apache addon
 
@@ -103,26 +102,14 @@ Commented `APACHE_SECOND_*` entries are inactive application-owned examples.
 
 ## Ownership, derivation, and validation
 
-Multi-service application settings use a normalized service prefix: uppercase,
-with non-alphanumeric characters replaced by `_` (for example,
-`clinical-api` → `CLINICAL_API_APP_PORT`). Addons retain their own namespace.
-`CONFIG_SERVICE` selects the application that supplies an addon's topology
-context; it does not transfer ownership of addon settings.
+Multi-service application settings use a normalized service prefix: uppercase, with non-alphanumeric characters replaced by `_` (for example, `clinical-api` → `CLINICAL_API_APP_PORT`). Addons retain their own namespace. `CONFIG_SERVICE` selects the application that supplies an addon's topology context; it does not transfer ownership of addon settings.
 
-The installer derives `GIT_REVISION` from the source revision and
-`<PREFIX>_IMAGE` from each built image. Apache's operator-visible derivations
-are listed above. Internal temporary and Compose plumbing variables are omitted
-because operators neither set nor consume them.
+The installer derives `GIT_REVISION` from the source revision and `<PREFIX>_IMAGE` from each built image. Apache's operator-visible derivations are listed above. Internal temporary and Compose plumbing variables are omitted because operators neither set nor consume them.
 
 - Test and production use separate `INSTALL_SETTINGS` files.
-- Run the configuration check before deployment. Production rejects every
-  active uppercase assignment containing the exact `CHANGE_ME` marker. It
-  reports the key and redacts sensitive values; comments are inactive.
+- Run the configuration check before deployment. Production rejects every active uppercase assignment containing the exact `CHANGE_ME` marker. It reports the key and redacts sensitive values; comments are inactive.
 - Empty is valid only where a profile/addon permits it or defines a derivation.
-- Generated environment files are atomic, mode `0600`; invalid names,
-  duplicates, and multiline values are rejected.
+- Generated environment files are atomic, mode `0600`; invalid names, duplicates, and multiline values are rejected.
 - Public means browser-visible, not secret. Keep all secrets out of Git.
 
-See [Configuration](../guides/configuration.md),
-[Docker Compose](../guides/docker-compose.md), and
-[`container-install.sh`](scripts/container-install.md).
+See [Configuration](../guides/configuration.md), [Docker Compose](../guides/docker-compose.md), and [`container-install.sh`](scripts/container-install.md).

@@ -1,8 +1,7 @@
+- [Container installer customization](container-install-customization.md) when the deployment wrapper needs an application-specific extension.
 # Implementation guides
 
-Guides answer “how do I perform this task?” They provide procedures that help an
-implementation satisfy the [standards](../standards/README.md); exact artifact
-behavior belongs in [reference](../reference/README.md).
+Guides answer “how do I perform this task?” They provide procedures that help an implementation satisfy the [standards](../standards/README.md); exact artifact behavior belongs in [reference](../reference/README.md).
 
 > **Status:** Documentation outline. Detailed guidance will be added incrementally.
 
@@ -58,4 +57,3 @@ behavior belongs in [reference](../reference/README.md).
 - [Documentation files](documentation-files.md)
 - [Ignore files](ignore-files.md)
 - [Upgrades and rollback](upgrades-and-rollback.md)
-- [Backups and restore](backups-and-restore.md)

@@ -1,7 +1,6 @@
 # Script reference
 
-Index of exact lifecycle and interface documentation for generated deployment
-scripts and their shared implementations.
+Index of exact lifecycle and interface documentation for generated deployment scripts and their shared implementations.
 
 > **Status:** Documentation outline. Detailed reference material will be added incrementally.
 
@@ -16,4 +15,3 @@ scripts and their shared implementations.
 
 - Script ownership and stability
 - Common exit, logging, and diagnostics conventions
-- Cross-script lifecycle and call order

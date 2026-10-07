@@ -1,15 +1,10 @@
 # Compose add-on catalog
 
-Add-ons contribute marked blocks to the one generated Compose file and append
-their services to `permission_services` when they own writable mounts. They do
-not select or replace an application's framework profile.
+Add-ons contribute marked blocks to the one generated Compose file and append their services to `permission_services` when they own writable mounts. They do not select or replace an application's framework profile.
 
-The generic assembler discovers Apache, Keycloak, Nextstrain, and Samba from their catalog
-directories. Each catalog entry owns its Compose, settings, installer,
-permission, and documentation fragments.
+The generic assembler discovers Apache, Keycloak, Nextstrain, and Samba from their catalog directories. Each catalog entry owns its Compose, settings, installer, permission, and documentation fragments.
 
-`ADDONS` is an object keyed by add-on name. An empty object disables all
-add-ons:
+`ADDONS` is an object keyed by add-on name. An empty object disables all add-ons:
 
 ```json
 "ADDONS": {}
@@ -31,16 +26,9 @@ A standalone application can select both current add-ons as follows:
 }
 ```
 
-`CONFIG_SERVICE` identifies the application that owns the add-on relationship
-and derived defaults. Add-on values remain in `conf/<addon>/` and are mapped
-with the same repeatable `--install_conf_map` option as applications.
+`CONFIG_SERVICE` identifies the application that owns the add-on relationship and derived defaults. Add-on values remain in `conf/<addon>/` and are mapped with the same repeatable `--install_conf_map` option as applications.
 
-For Keycloak, `OIDC_SERVICES` selects the Django services that validate tokens
-from the shared realm. It defaults to `[CONFIG_SERVICE]` for compatibility.
-When `CONFIG_SERVICE` is not Django, the default is an empty list.
-`ADMIN_ACCESS` defaults to `false`; enable it only when `CONFIG_SERVICE` needs
-the generated `KEYCLOAK_ADMIN_API_*` client contract. The Keycloak container
-is always reachable through the stable `keycloak:8080` network address.
+For Keycloak, `OIDC_SERVICES` selects the Django services that validate tokens from the shared realm. It defaults to `[CONFIG_SERVICE]` for compatibility. When `CONFIG_SERVICE` is not Django, the default is an empty list. `ADMIN_ACCESS` defaults to `false`; enable it only when `CONFIG_SERVICE` needs the generated `KEYCLOAK_ADMIN_API_*` client contract. The Keycloak container is always reachable through the stable `keycloak:8080` network address.
 
 `MOUNTS` is optional and contains complete Compose mount strings contributed
 to an add-on that provides an `application-mount` fragment. Apache and

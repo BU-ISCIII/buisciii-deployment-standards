@@ -1,33 +1,24 @@
 # BU-ISCIII Deployment Standards
 
-This repository defines reusable deployment standards, scaffold templates and
-shared deployment utilities for BU-ISCIII applications.
+This repository defines reusable deployment standards, scaffold templates and shared deployment utilities for BU-ISCIII applications.
 
-Changes should remain generic enough to be useful across applications. This
-repository must not accumulate application-specific deployment logic that
-belongs in an individual application repository.
+Changes should remain generic enough to be useful across applications. This repository must not accumulate application-specific deployment logic that belongs in an individual application repository.
 
 ## General principles
 
 - Prefer reusable solutions over application-specific implementations.
 - Keep common behavior independent of frameworks and applications.
 - Put framework-specific behavior in the corresponding profile.
-- Put optional infrastructure or integration behavior in the corresponding
-  addon.
-- Do not add functions, paths, service names, settings or assumptions that are
-  only useful for one application.
-- When an application needs special behavior, provide a clear extension point
-  rather than adding the application logic to the standard.
-- Keep the implementation understandable to developers who did not originally
-  write it.
+- Put optional infrastructure or integration behavior in the corresponding addon.
+- Do not add functions, paths, service names, settings or assumptions that are only useful for one application.
+- When an application needs special behavior, provide a clear extension point rather than adding the application logic to the standard.
+- Keep the implementation understandable to developers who did not originally write it.
 
-Before changing an existing abstraction, inspect how it is used by the
-scaffold, profiles, addons and tests.
+Before changing an existing abstraction, inspect how it is used by the scaffold, profiles, addons and tests.
 
 ## Source of truth
 
-For implemented deployment behavior, use the code, templates and tests as the
-source of truth.
+For implemented deployment behavior, use the code, templates and tests as the source of truth.
 
 Relevant areas include:
 
@@ -41,13 +32,11 @@ Relevant areas include:
 - `guides/`: task-oriented documentation.
 - `reference/`: detailed implementation reference.
 
-Do not change code simply to make it match outdated documentation. Identify the
-difference first and decide whether the code or documentation should change.
+Do not change code simply to make it match outdated documentation. Identify the difference first and decide whether the code or documentation should change.
 
 ## Architecture boundaries
 
-Preserve the separation between common behavior, profiles, addons and
-application-specific behavior.
+Preserve the separation between common behavior, profiles, addons and application-specific behavior.
 
 ### Common code
 
@@ -62,9 +51,7 @@ Good examples include:
 - common diagnostics;
 - scaffold rendering and synchronization.
 
-Common code must not contain Django-, React-, Next.js-, Apache-, Keycloak- or
-application-specific assumptions unless those are necessary to dispatch to an
-explicit extension point.
+Common code must not contain Django-, React-, Next.js-, Apache-, Keycloak- or application-specific assumptions unless those are necessary to dispatch to an explicit extension point.
 
 ### Profiles
 
@@ -81,8 +68,7 @@ Examples include:
 - profile-specific health checks;
 - profile-specific bootstrap logic.
 
-Do not move profile behavior into `scripts/scaffold.py` or common shell
-libraries merely to reduce the number of files.
+Do not move profile behavior into `scripts/scaffold.py` or common shell libraries merely to reduce the number of files.
 
 ### Addons
 
@@ -98,16 +84,13 @@ An addon should remain independent from any one application whenever possible.
 
 Application-specific changes belong in the application repository.
 
-Use the existing application-owned blocks and extension hooks when generated
-files need customization.
+Use the existing application-owned blocks and extension hooks when generated files need customization.
 
-Do not add a function to this repository only because one application needs it,
-unless the function represents reusable deployment behavior.
+Do not add a function to this repository only because one application needs it, unless the function represents reusable deployment behavior.
 
 ## Keep the scaffold compiler generic
 
-`scripts/scaffold.py` should coordinate and assemble deployment components, not
-implement framework runtime behavior.
+`scripts/scaffold.py` should coordinate and assemble deployment components, not implement framework runtime behavior.
 
 Prefer:
 
@@ -116,9 +99,7 @@ Prefer:
 - shared libraries for reusable runtime operations;
 - small compiler functions that assemble these pieces.
 
-Avoid embedding generated Compose YAML, framework commands, runtime paths,
-framework defaults or application-specific values directly in
-`scripts/scaffold.py` when they can live in their owning template.
+Avoid embedding generated Compose YAML, framework commands, runtime paths, framework defaults or application-specific values directly in `scripts/scaffold.py` when they can live in their owning template.
 
 ## Code style
 
@@ -132,16 +113,13 @@ Optimize primarily for:
 4. maintainability;
 5. then compactness.
 
-Reducing duplicated code is desirable, but not when the abstraction becomes
-harder to understand than the duplicated code.
+Reducing duplicated code is desirable, but not when the abstraction becomes harder to understand than the duplicated code.
 
-Avoid large functions that try to handle unrelated cases through many flags or
-conditions.
+Avoid large functions that try to handle unrelated cases through many flags or conditions.
 
 Prefer small functions with one clear responsibility.
 
-Reuse an existing helper when its purpose matches the new behavior. Do not
-force unrelated behavior into a helper only to avoid adding a few lines.
+Reuse an existing helper when its purpose matches the new behavior. Do not force unrelated behavior into a helper only to avoid adding a few lines.
 
 ## Python
 
@@ -149,16 +127,13 @@ For Python code:
 
 - use type annotations for function parameters and return values;
 - add a short docstring to public or non-obvious functions;
-- prefer standard-library functionality unless an external dependency provides
-  a clear benefit;
+- prefer standard-library functionality unless an external dependency provides a clear benefit;
 - use `pathlib.Path` for filesystem paths;
 - prefer descriptive names over short names;
 - keep validation close to the input it validates;
 - raise clear errors that explain what the user needs to correct;
-- use dataclasses or small structured objects when they make related data easier
-  to understand;
-- avoid unnecessary classes when functions and simple data structures are
-  enough.
+- use dataclasses or small structured objects when they make related data easier to understand;
+- avoid unnecessary classes when functions and simple data structures are enough.
 
 Example:
 
@@ -179,8 +154,7 @@ Use comments to explain:
 
 ## Shell
 
-Shell scripts are part of the public deployment interface and should remain
-readable.
+Shell scripts are part of the public deployment interface and should remain readable.
 
 - Use descriptive function and variable names.
 - Keep functions focused on one operation.
@@ -192,8 +166,7 @@ readable.
 - Comment important lifecycle stages and non-obvious engine-specific behavior.
 - Do not hide the whole deployment workflow behind generic helper functions.
 
-A reader should be able to open `container_install.sh` and understand the main
-deployment sequence without tracing dozens of helper calls.
+A reader should be able to open `container_install.sh` and understand the main deployment sequence without tracing dozens of helper calls.
 
 ## Docker and Podman
 
@@ -201,14 +174,11 @@ The standard supports Docker and Podman.
 
 Do not assume their behavior is identical.
 
-- Do not require rootless Docker unless the implementation explicitly changes
-  to require it.
-- Rootless Podman and user namespaces must be considered where they affect
-  permissions and ownership.
+- Do not require rootless Docker unless the implementation explicitly changes to require it.
+- Rootless Podman and user namespaces must be considered where they affect permissions and ownership.
 - Keep engine-independent behavior in common helpers.
 - Isolate engine-specific handling where necessary.
-- Do not introduce Docker-only or Podman-only behavior into common workflows
-  without an explicit compatibility decision.
+- Do not introduce Docker-only or Podman-only behavior into common workflows without an explicit compatibility decision.
 
 ## Permissions and security
 
@@ -224,28 +194,21 @@ Permission logic should:
 
 Do not disable SELinux as a solution to filesystem access problems.
 
-Keep production secrets and sensitive configuration out of committed files and
-container image layers according to the existing deployment model.
+Keep production secrets and sensitive configuration out of committed files and container image layers according to the existing deployment model.
 
-Security controls should be understandable and connected to a concrete risk;
-avoid adding security options simply because they are generally considered best
-practice.
+Security controls should be understandable and connected to a concrete risk; avoid adding security options simply because they are generally considered best practice.
 
 ## Generated files and ownership
 
 Respect the generated-file ownership model.
 
-Some files are fully managed by the standard, some contain explicit
-application-owned blocks, and some are application-owned.
+Some files are fully managed by the standard, some contain explicit application-owned blocks, and some are application-owned.
 
 Do not make locally editable copies of shared libraries.
 
-Reusable common libraries under `deployment/lib/` are generated from
-`lib/` and should remain synchronized with the canonical implementation.
+Reusable common libraries under `deployment/lib/` are generated from `lib/` and should remain synchronized with the canonical implementation.
 
-When adding customization, prefer an existing application-owned block or
-explicit callback. Add a new extension point only when the behavior is likely
-to be reusable.
+When adding customization, prefer an existing application-owned block or explicit callback. Add a new extension point only when the behavior is likely to be reusable.
 
 ## Naming
 
@@ -261,8 +224,7 @@ Avoid generic names such as:
 
 when a meaningful domain-independent name is available.
 
-Service names are deployment identities and should remain stable between
-standalone and orchestrated deployments.
+Service names are deployment identities and should remain stable between standalone and orchestrated deployments.
 
 Prefer names that work naturally as Compose service/DNS names.
 
@@ -281,8 +243,7 @@ For complex or security-sensitive behavior, briefly explain:
 
 Keep documentation concise and in plain English.
 
-For documentation-specific work, use the
-`deployment-standards-documentation` skill.
+For documentation-specific work, use the `deployment-standards-documentation` skill.
 
 ## Tests
 
@@ -302,16 +263,13 @@ In particular, preserve tests that ensure:
 
 Prefer small focused tests over large duplicated test scenarios.
 
-Do not weaken an existing architectural test simply because a new
-implementation violates the boundary it protects. Reconsider the implementation
-first.
+Do not weaken an existing architectural test simply because a new implementation violates the boundary it protects. Reconsider the implementation first.
 
 ## Making changes
 
 For a change that introduces new behavior:
 
-1. identify whether it is common, profile-specific, addon-specific or
-   application-specific;
+1. identify whether it is common, profile-specific, addon-specific or application-specific;
 2. place it in the corresponding layer;
 3. reuse existing helpers where appropriate;
 4. keep the implementation as small and clear as practical;

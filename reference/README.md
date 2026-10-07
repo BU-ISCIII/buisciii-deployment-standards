@@ -1,7 +1,6 @@
 # Technical reference
 
-Reference pages describe exactly what an artifact is, contains, or does. They are
-not tutorials; task-oriented instructions belong in [guides](../guides/README.md).
+Reference pages describe exactly what an artifact is, contains, or does. They are not tutorials; task-oriented instructions belong in [guides](../guides/README.md).
 
 > **Status:** Documentation outline. Detailed reference material will be added incrementally.
 
@@ -16,4 +15,3 @@ not tutorials; task-oriented instructions belong in [guides](../guides/README.md
 
 - Reference conventions and stability
 - Generated versus application-owned artifacts
-- Links to canonical templates and implementations

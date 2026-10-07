@@ -1,7 +1,6 @@
 # Keycloak addon
 
-Describes the optional managed Keycloak deployment integration and the artifacts
-under [`scaffold/templates/addons/keycloak/`](../scaffold/templates/addons/keycloak/).
+Describes the optional managed Keycloak deployment integration and the artifacts under [`scaffold/templates/addons/keycloak/`](../scaffold/templates/addons/keycloak/).
 
 > **Status:** Documentation outline. Detailed addon documentation will be added incrementally.
 
@@ -16,4 +15,3 @@ under [`scaffold/templates/addons/keycloak/`](../scaffold/templates/addons/keycl
 - Backup and restore
 - Readiness
 - Test and production separation
-- Security rationale

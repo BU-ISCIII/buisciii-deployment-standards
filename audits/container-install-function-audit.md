@@ -1,16 +1,10 @@
 # RELECOV container installer function audit
 
-This audit covers the functions still defined by `container_install.sh` after
-extracting the synchronized `common.sh` and `django.sh` libraries.
+This audit covers the functions still defined by `container_install.sh` after extracting the synchronized `common.sh` and `django.sh` libraries.
 
 ## Ownership rule
 
-The outer `container_install.sh` owns host and Compose orchestration. The inner
-`install.sh` owns application staging and bootstrap inside the container.
-Django settings rendering therefore belongs to the outer layer: the host file
-used as a bind-mount source must exist before Compose creates the container.
-It is implemented in the shared Django profile so applications do not duplicate
-that host-side lifecycle.
+The outer `container_install.sh` owns host and Compose orchestration. The inner `install.sh` owns application staging and bootstrap inside the container. Django settings rendering therefore belongs to the outer layer: the host file used as a bind-mount source must exist before Compose creates the container. It is implemented in the shared Django profile so applications do not duplicate that host-side lifecycle.
 
 ## Functions moved now
 
@@ -63,50 +57,21 @@ that host-side lifecycle.
 
 Refactor in the following order and review each item separately:
 
-1. **Django secret generation — completed.** Move
-   `generate_django_secret_key` from `common.sh` to `django.sh`; it has one
-   framework-specific consumer and no application state.
-2. **Compose image lookup — completed.** `compose_service_image_id` now lives in
-   `common.sh` with compose file and service as explicit arguments.
-3. **iSkyLIMS resolver wrappers — completed.** The three scalar-state adapters
-   were removed; call sites now use the shared resolver directly.
-4. **Source/image diagnostics — completed.** Stateless shared functions now
-   accept repository paths, image IDs/names, container IDs, and expected
-   revisions; wrapper-specific scalar/array implementations were removed.
-5. **Array membership — completed.** Platform service-target validation now
-   uses the shared exact-match `array_contains` helper, including empty-array
-   behavior.
-6. **Configuration staging — completed.** Shared validation and temporary
-   build-context preparation now return named host, relative, and temporary
-   paths. Platform callbacks retain service context, override, and default
-   install-path policy; iSkyLIMS calls the shared operation directly.
-7. **Django mounted-file permissions — completed.** Settings ownership/mode now
-   lives in `django.sh`, parameterized by container, path, UID, and GID;
-   application writable-directory policy remains in each wrapper.
-8. **Host permission specification — completed.** Each wrapper owns a
-   declarative `path|owner|mode` list, while the tested shared helper validates
-   entries, skips absent optional paths, and applies Docker/Podman-compatible
-   ownership and modes.
-9. **Deployment verification and runtime configuration — completed.** Compose
-   path/model validation, protected runtime configuration staging/removal,
-   combined pre-build diagnostics, and standardized smoke-test invocation now
-   use stateless shared helpers. Their lifecycle call sites remain visible in
-   each application wrapper.
+1. **Django secret generation — completed.** Move `generate_django_secret_key` from `common.sh` to `django.sh`; it has one framework-specific consumer and no application state.
+2. **Compose image lookup — completed.** `compose_service_image_id` now lives in `common.sh` with compose file and service as explicit arguments.
+3. **iSkyLIMS resolver wrappers — completed.** The three scalar-state adapters were removed; call sites now use the shared resolver directly.
+4. **Source/image diagnostics — completed.** Stateless shared functions now accept repository paths, image IDs/names, container IDs, and expected revisions; wrapper-specific scalar/array implementations were removed.
+5. **Array membership — completed.** Platform service-target validation now uses the shared exact-match `array_contains` helper, including empty-array behavior.
+6. **Configuration staging — completed.** Shared validation and temporary build-context preparation now return named host, relative, and temporary paths. Platform callbacks retain service context, override, and default install-path policy; iSkyLIMS calls the shared operation directly.
+7. **Django mounted-file permissions — completed.** Settings ownership/mode now lives in `django.sh`, parameterized by container, path, UID, and GID; application writable-directory policy remains in each wrapper.
+8. **Host permission specification — completed.** Each wrapper owns a declarative `path|owner|mode` list, while the tested shared helper validates entries, skips absent optional paths, and applies Docker/Podman-compatible ownership and modes.
+9. **Deployment verification and runtime configuration — completed.** Compose path/model validation, protected runtime configuration staging/removal, combined pre-build diagnostics, and standardized smoke-test invocation now use stateless shared helpers. Their lifecycle call sites remain visible in each application wrapper.
 
-Do not move `usage`, Compose environment contents, service/path mappings,
-Apache token mappings, or application writable-directory lists. Those express
-the deployment topology rather than reusable mechanics. Permission functions
-remain last because a shared mistake could change production ownership on
-application-specific paths.
+Do not move `usage`, Compose environment contents, service/path mappings, Apache token mappings, or application writable-directory lists. Those express the deployment topology rather than reusable mechanics. Permission functions remain last because a shared mistake could change production ownership on application-specific paths.
 
 ## Regeneration target
 
-After the shared extractions above stabilize, both RELECOV wrappers can be
-regenerated from one `container_install.sh` template. The generated script
-should contain the canonical CLI and lifecycle plus a clearly marked
-**application customization section**. No separate `application.sh` is needed.
-That in-script section provides declarations and documented function
-placeholders for:
+After the shared extractions above stabilize, both RELECOV wrappers can be regenerated from one `container_install.sh` template. The generated script should contain the canonical CLI and lifecycle plus a clearly marked **application customization section**. No separate `application.sh` is needed. That in-script section provides declarations and documented function placeholders for:
 
 - service names and install order;
 - build contexts and stable image tags;
@@ -116,14 +81,6 @@ placeholders for:
 - persistent path ownership/mode specifications;
 - optional demo-data and post-bootstrap hooks.
 
-The template MUST work for one service or an ordered service array. Each custom
-function placeholder MUST have a safe no-op default, document its arguments and
-return contract, and show where developers add application code. The generic
-lifecycle calls those hooks without containing application names or paths.
+The template MUST work for one service or an ordered service array. Each custom function placeholder MUST have a safe no-op default, document its arguments and return contract, and show where developers add application code. The generic lifecycle calls those hooks without containing application names or paths.
 
-The scaffold currently assumes one service and uses different internal variable
-names from the RELECOV wrappers. Do not replace either working wrapper from that
-template yet. First convert the template to the same shared-library API and a
-multi-service data model; then generate candidates and compare their observable
-CLI, Compose commands, bootstrap order, mounts, and smoke tests before replacing
-the existing scripts.
+The scaffold currently assumes one service and uses different internal variable names from the RELECOV wrappers. Do not replace either working wrapper from that template yet. First convert the template to the same shared-library API and a multi-service data model; then generate candidates and compare their observable CLI, Compose commands, bootstrap order, mounts, and smoke tests before replacing the existing scripts.

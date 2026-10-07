@@ -3,104 +3,44 @@
 ## Unreleased
 
 - Prevent duplicate forwarded headers when Apache templates set the public forwarded-header contract explicitly.
-- Added schema-managed production and test Keycloak realm templates and a
-  JSON-safe Bash renderer, removing the need for application-side Python realm
-  generation during container installation.
-- Created helper (`lib/container/check_config.sh`) function, running after
-  Compose validation.
+- Added schema-managed production and test Keycloak realm templates and a JSON-safe Bash renderer, removing the need for application-side Python realm generation during container installation.
+- Created helper (`lib/container/check_config.sh`) function, running after Compose validation.
 - Fixed the Next.js test Keycloak URL to use the published test port 8081
 - Replaced underscore proxy-target host names in Next.js settings examples.
-- Check deployment wiring before building images: `container_install.sh` runs
-  the shared `check_deployment_configuration` helper (stdlib
-  `lib/container/check_config.py`, now vendored by `sync-lib`/`check-lib`)
-  after Compose validation. Production fails when proxy targets or Apache
-  upstreams name unknown services or wrong ports, `DB_HOST` bypasses a
-  Compose-managed database, Django would reject a forwarded host (underscores
-  or `DJANGO_ALLOWED_HOSTS`), Keycloak URLs/realms disagree, `AUTH_URL` differs
-  from `NEXTAUTH_URL`, or `CHANGE_ME` remains; test installs only warn.
-- Fixed the Next.js test Keycloak URL to use the published test port 8081 and
-  replaced underscore proxy-target host names in Next.js settings examples.
+- Check deployment wiring before building images: `container_install.sh` runs the shared `check_deployment_configuration` helper (stdlib `lib/container/check_config.py`, now vendored by `sync-lib`/`check-lib`) after Compose validation. Production fails when proxy targets or Apache upstreams name unknown services or wrong ports, `DB_HOST` bypasses a Compose-managed database, Django would reject a forwarded host (underscores or `DJANGO_ALLOWED_HOSTS`), Keycloak URLs/realms disagree, `AUTH_URL` differs from `NEXTAUTH_URL`, or `CHANGE_ME` remains; test installs only warn.
+- Fixed the Next.js test Keycloak URL to use the published test port 8081 and replaced underscore proxy-target host names in Next.js settings examples.
 
-- Define service keys as stable deployment identities so standalone application
-  settings can be reused by orchestrators without renaming application and test
-  database services; prefer hyphenated application-specific keys over `app`.
-- Derive each Django test database service from its deployment service name,
-  not `PROJECT_MODULE`, so multiple projects may safely use modules such as
-  `conf` without producing duplicate Compose keys or sharing a database.
-- Render generic and application-owned Django runtime defaults safely from the
-  selected installation settings while retaining environment overrides, and
-  standardize the optional application-side `KEYCLOAK_ADMIN_API_*` contract.
-- Document and inventory the automatically staged Keycloak realm bind whenever
-  the add-on is selected, including optional hardened-host pre-creation steps.
-- Document a complete optional second-DNS Apache virtual host and its matching
-  per-vhost settings set, with the same forwarded headers, limits, timeouts,
-  and per-host logging as the default.
-- Stage repository-owned Keycloak realm JSON into the deployment bind tree and
-  assign the staged files to Keycloak instead of modifying repository sources.
-- Print a final Compose service summary after successful container installation
-  so operators can see the running services and copy their published host ports.
-- Reduced configuration to one production/test settings pair per application:
-  internal build/bootstrap paths are no longer descriptor inputs, and Apache
-  or Keycloak reuse namespaced sections in a selected application settings
-  file instead of creating add-on-specific files.
-- Made service settings the single source for repository/install/host paths,
-  application ports and UID/GID. The generated environment now supplies these
-  values to Docker builds, Compose, Apache routing and lifecycle checks;
-  `project.json` retains only the Django `PROJECT_MODULE` structural value.
-- Consolidated `container_install.sh`, README, LEAME, the Compose document,
-  `.dockerignore`, `.gitignore` and smoke dispatch into common templates used by
-  standalone and multi-service deployments.
-- Restricted Django and React/Vite profiles to framework-owned Dockerfiles,
-  inner installers, entrypoints and configuration while selecting profiles
-  independently per normalized service.
-- Added add-on catalog documentation for Apache and Keycloak without exposing
-  separate operator-facing Compose overlays.
-- Added service-oriented project descriptors: each service independently
-  selects Django or React/Vite, while Apache and Keycloak are assembled as real
-  add-on services into one production and one test Compose document.
-- Replaced separate standalone/orchestrator examples with one canonical
-  `project.json` schema using one or many `SERVICES` entries; retained the old
-  top-level `PROFILE` shape only for synchronization of initialized projects.
-- Expanded Apache to the RELECOV/PathoCore operational pattern: UBI httpd,
-  dependency health ordering, separate proxy/log/status binds, persistent logs,
-  generated read-only Django static/document mounts with classified mount
-  comments, and per-service DNS virtual hosts for mixed applications.
-- Expanded Keycloak to the PathoCore pattern with a health-checked MySQL
-  service, persistent database volume, strict proxy/hostname settings,
-  reproducible realm-import bind, and separate Keycloak/database permissions.
-- Added a single shared Django settings renderer for `install.sh` and
-  `container_install.sh`.
+- Define service keys as stable deployment identities so standalone application settings can be reused by orchestrators without renaming application and test database services; prefer hyphenated application-specific keys over `app`.
+- Derive each Django test database service from its deployment service name, not `PROJECT_MODULE`, so multiple projects may safely use modules such as `conf` without producing duplicate Compose keys or sharing a database.
+- Render generic and application-owned Django runtime defaults safely from the selected installation settings while retaining environment overrides, and standardize the optional application-side `KEYCLOAK_ADMIN_API_*` contract.
+- Document and inventory the automatically staged Keycloak realm bind whenever the add-on is selected, including optional hardened-host pre-creation steps.
+- Document a complete optional second-DNS Apache virtual host and its matching per-vhost settings set, with the same forwarded headers, limits, timeouts, and per-host logging as the default.
+- Stage repository-owned Keycloak realm JSON into the deployment bind tree and assign the staged files to Keycloak instead of modifying repository sources.
+- Print a final Compose service summary after successful container installation so operators can see the running services and copy their published host ports.
+- Reduced configuration to one production/test settings pair per application: internal build/bootstrap paths are no longer descriptor inputs, and Apache or Keycloak reuse namespaced sections in a selected application settings file instead of creating add-on-specific files.
+- Made service settings the single source for repository/install/host paths, application ports and UID/GID. The generated environment now supplies these values to Docker builds, Compose, Apache routing and lifecycle checks; `project.json` retains only the Django `PROJECT_MODULE` structural value.
+- Consolidated `container_install.sh`, README, LEAME, the Compose document, `.dockerignore`, `.gitignore` and smoke dispatch into common templates used by standalone and multi-service deployments.
+- Restricted Django and React/Vite profiles to framework-owned Dockerfiles, inner installers, entrypoints and configuration while selecting profiles independently per normalized service.
+- Added add-on catalog documentation for Apache and Keycloak without exposing separate operator-facing Compose overlays.
+- Added service-oriented project descriptors: each service independently selects Django or React/Vite, while Apache and Keycloak are assembled as real add-on services into one production and one test Compose document.
+- Replaced separate standalone/orchestrator examples with one canonical `project.json` schema using one or many `SERVICES` entries; retained the old top-level `PROFILE` shape only for synchronization of initialized projects.
+- Expanded Apache to the RELECOV/PathoCore operational pattern: UBI httpd, dependency health ordering, separate proxy/log/status binds, persistent logs, generated read-only Django static/document mounts with classified mount comments, and per-service DNS virtual hosts for mixed applications.
+- Expanded Keycloak to the PathoCore pattern with a health-checked MySQL service, persistent database volume, strict proxy/hostname settings, reproducible realm-import bind, and separate Keycloak/database permissions.
+- Added a single shared Django settings renderer for `install.sh` and `container_install.sh`.
 - Standardized explicit test-only image settings rendering.
-- Added ephemeral production installation-config build secrets and mandatory
-  `.dockerignore` protection so operator credentials are not retained in image
-  layers.
+- Added ephemeral production installation-config build secrets and mandatory `.dockerignore` protection so operator credentials are not retained in image layers.
 
 ## 0.1.0 - 2026-08-04
 
 - Add the initial technology-neutral application installation contract.
-- Require every installation script to expose the same canonical command-line
-  options, with explicit failure for capabilities not yet implemented.
+- Require every installation script to expose the same canonical command-line options, with explicit failure for capabilities not yet implemented.
 - Add Django, React/Vite, Keycloak, and MySQL profiles.
 - Add detailed installation audit and configuration matrix templates.
-- Add a renderable Django deployment scaffold based on the RELECOV layout,
-  including README/LEAME, canonical installers, Docker assets, settings
-  documentation, and smoke tests.
-- Add safe checksum-based synchronization with conflict candidates instead of
-  overwriting application changes.
-- Align the generated container entrypoint with the RELECOV Platform/iSkyLIMS
-  runtime pattern: bounded staging checks, safe permissions, optional Django
-  cron jobs through supercronic, dynamic workers, and complete Gunicorn tuning.
-- Make stage/bootstrap separation, ordered migration hooks, fixture controls,
-  Compose overrides, and orchestrator configuration mapping part of the
-  canonical installer contract and scaffold.
-- Rewrite the application installation contract as a template-linked practical
-  guide with commands and Mermaid diagrams for structure, lifecycle, script
-  ownership, configuration, rollback, and synchronization.
-- Split the canonical CLI into separate consistent interfaces for `install.sh`
-  and `container_install.sh`; scripts no longer need to recognize options owned
-  only by the other script type.
-- Add the versioned shared container installer library, library tests, and
-  `check-lib`/`sync-lib` commands; refactor RELECOV Platform and iSkyLIMS to
-  source identical vendored copies while retaining application-specific logic.
-- Keep this release intentionally manual while it is reviewed against
-  PathoCore and RELECOV.
+- Add a renderable Django deployment scaffold based on the RELECOV layout, including README/LEAME, canonical installers, Docker assets, settings documentation, and smoke tests.
+- Add safe checksum-based synchronization with conflict candidates instead of overwriting application changes.
+- Align the generated container entrypoint with the RELECOV Platform/iSkyLIMS runtime pattern: bounded staging checks, safe permissions, optional Django cron jobs through supercronic, dynamic workers, and complete Gunicorn tuning.
+- Make stage/bootstrap separation, ordered migration hooks, fixture controls, Compose overrides, and orchestrator configuration mapping part of the canonical installer contract and scaffold.
+- Rewrite the application installation contract as a template-linked practical guide with commands and Mermaid diagrams for structure, lifecycle, script ownership, configuration, rollback, and synchronization.
+- Split the canonical CLI into separate consistent interfaces for `install.sh` and `container_install.sh`; scripts no longer need to recognize options owned only by the other script type.
+- Add the versioned shared container installer library, library tests, and `check-lib`/`sync-lib` commands; refactor RELECOV Platform and iSkyLIMS to source identical vendored copies while retaining application-specific logic.
+- Keep this release intentionally manual while it is reviewed against PathoCore and RELECOV.

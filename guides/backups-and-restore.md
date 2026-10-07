@@ -1,16 +1,156 @@
 # Backups and restore
 
-How to identify persistent state, define backup coverage, and prove that recovery
-works for an application deployment.
+A container image is replaceable. Persistent application state is not.
 
-> **Status:** Documentation outline. Detailed guidance will be added incrementally.
+The generated installer preserves declared volumes and bind mounts during normal install and upgrade operations, but it does not schedule or perform backups. Every production deployment must assign backup and restore owners and document the deployment-specific commands and locations in `LEAME.md`.
 
-## Future sections
+A VM snapshot can be a useful additional recovery layer, but it is not necessarily a complete application backup. A snapshot taken while databases or applications are writing may not provide a consistent recovery point, and it may not include external services or storage.
 
-- Persistent-state inventory
-- Backup scope, ownership, schedule, and retention
-- Database, file, and configuration backups
-- Encryption and access control
-- Restore prerequisites and procedure
-- Restore testing and acceptance criteria
-- Recovery objectives and incident records
+## 1. What needs backup
+
+Back up every authoritative asset needed to recreate the production service:
+
+- application databases;
+- user uploads, documents, datasets, and other persistent application files;
+- identity and add-on state where selected;
+- protected production settings and required environment-specific configuration;
+- application-specific persistent files declared by an extension.
+
+Containers, temporary files, and replaceable image layers are not persistent storage. Container images normally do not need a separate backup when the exact source revision and image tag or digest are recorded and the image remains obtainable. Reproducible build or static artifacts can usually be regenerated, although a deployment may retain them for an exact point-in-time restore.
+
+## 2. Identify persistent state
+
+Build the inventory from the resolved production Compose model, generated persistence table, protected settings, and any external service record. Include named volumes, bind-mounted host sources, external databases or storage, and application-owned extensions.
+
+A bind mount exposes a declared host path inside a container. A named volume stores data in engine-managed storage. Record the logical asset and its restore method; do not rely on knowledge of an engine's internal storage directory.
+
+| Asset | Example storage | Possible backup owner | Restore method |
+| --- | --- | --- | --- |
+| Application database | External database or Compose named volume | DBA, IT, or application team | Database-native logical or consistent physical restore |
+| Uploads/documents | Host bind or named volume | Application or IT team | Filesystem or documented volume restore |
+| Production settings | Protected host file | Application or operations team | Restore protected copy with required mode |
+| Keycloak identity state | `keycloak_db_data` database volume | Identity operator or DBA | Database restore |
+| Nextstrain datasets | `nextstrain_data` named volume | Application or data owner | Restore through the mounted service |
+
+For every asset, `LEAME.md` should record the owner, method, schedule, retention, storage location, access controls, recovery expectations, and restore-test evidence required by the [infrastructure standard](../standards/infrastructure-requirements.md#10-backups-and-recovery).
+
+## 3. Database backups
+
+Choose the method according to database ownership:
+
+- For an external database, use the DBA or service owner's approved backup and restore procedure.
+- For a Compose-managed database, use the database-aware procedure generated in `LEAME.md`.
+
+The current Django and Keycloak examples use MySQL/MariaDB logical dumps with `mysqldump --single-transaction --routines --triggers`. These commands apply only to those generated database topologies; they are not a universal database policy.
+
+Prefer a logical or application-consistent recovery point where the workload requires it. Copying files from a live database volume is not automatically a valid backup. Coordinate databases and dependent files when they must be restored to the same point in time.
+
+## 4. Application files and volumes
+
+For a bind mount, back up the declared host source. Preserve enough metadata and access control to restore the path safely.
+
+For a named volume, use the application- or engine-level method documented for that asset. Do not copy arbitrary Docker or Podman storage directories as a portable backup method, and do not assume both engines store volumes identically.
+
+Current profile behavior is:
+
+- Django production declares document and static named volumes, a log bind, and a rendered-settings bind. A Compose-managed database also uses its own named volume. Documents and databases are authoritative. Static files can be regenerated by the profile, but the generated runbook may preserve them for an exact restore.
+- Next.js and React/Vite production services use read-only containers and temporary filesystems; their current profile templates declare no persistent application volumes. Any authoritative state is therefore external or application-specific.
+
+Logs need backup only when the deployment's retention or evidence policy treats them as required state. Otherwise document rotation and retention rather than treating every log as application data.
+
+## 5. Configuration backups
+
+Recovery may require:
+
+- protected files under `deployment/settings/`;
+- the generated `.env.production.file`, or enough protected source settings to regenerate it;
+- rendered configuration binds that cannot safely be reconstructed without their inputs;
+- environment-owned certificates or keys when this deployment, rather than another infrastructure service, owns them.
+
+The generated runbook copies `.env.production.file` and topology-owned protected settings into the backup and restores protected settings with mode `0600`. These files may contain production secrets. Keep the backup outside Git, restrict access to the same standard appropriate for production, and do not paste credentials into documentation.
+
+See [Configuration](configuration.md) and [Security requirements](../standards/security-requirements.md) for the configuration model and controls.
+
+## 6. Add-on-specific state
+
+### Keycloak
+
+The `keycloak_db_data` MySQL volume contains authoritative identity state. The generated runbook adds logical database dump and restore commands. The staged realm-import bind should be included with protected deployment binds, but a versioned realm JSON file does not replace the database backup.
+
+### Nextstrain
+
+Reviewed datasets are stored in the persistent `nextstrain_data` volume. The generated operations documentation backs it up through the running service with `tar`. Record the matching restore procedure and verify every expected dataset or narrative afterward.
+
+### Apache
+
+The current add-on binds generated configuration read-only and uses declared log paths. Preserve source configuration or its protected inputs. Back up logs only when required by the deployment's retention or diagnostic policy; Apache itself does not add authoritative application data.
+
+### Samba
+
+The Samba add-on provides disposable test storage only. Its `samba_test_data` volume is not production state. Production storage used by an application remains an external or application-declared asset and needs its own owner and procedure.
+
+Use the generated profile and add-on sections for the exact topology-specific commands.
+
+## 7. VM and infrastructure backups
+
+Infrastructure or VM snapshots may be owned by IT and can shorten host recovery. Record that ownership and coverage, but do not assume the snapshot includes external databases, engine volumes on other storage, protected configuration, or a consistent application transaction boundary.
+
+Backup capacity must be separate from live deployment capacity. If loss of the deployment host is in scope, the only backup copy must not remain on that host. The standard does not prescribe an institutional schedule or retention period; the deployment must document them.
+
+## 8. Restore procedure
+
+Document a tested sequence in `LEAME.md` for the selected topology:
+
+1. Choose the recovery point and verify its files, checksums, revision, and configuration record.
+2. Stop or isolate services that can write to the affected state.
+3. Restore databases using their documented database-aware procedure.
+4. Restore authoritative bind-mounted files and named-volume contents.
+5. Restore protected configuration with its required ownership and mode.
+6. Check out or obtain the matching application revision and image inputs.
+7. Recreate required empty volumes and start dependencies in the order required by the generated runbook.
+8. Repair declared permissions where needed with `container_install.sh --action fix-permissions`.
+9. Start the application, run the generated smoke test, and complete application acceptance checks.
+10. Reopen public access only after recovery is accepted.
+
+The restored data, schema, configuration, and application revision must be compatible. Use [Upgrades and rollback](upgrades-and-rollback.md) for version-selection and rollback decisions rather than inventing them during recovery.
+
+## 9. Test the restore
+
+A backup is only useful if the team knows how to restore it.
+
+The infrastructure standard requires each production deployment to document how and when restore testing is recorded; it does not impose one universal schedule. Test in an isolated environment appropriate to the data classification and verify that:
+
+- each database opens and required records are available;
+- persistent files and add-on state are present;
+- the matching application revision starts;
+- generated smoke tests pass;
+- at least one important user workflow succeeds.
+
+Record the recovery point, operator, duration, results, failures, and corrective actions without exposing secrets.
+
+## 10. Before an upgrade
+
+Before a production upgrade, identify and back up state that the upgrade or bootstrap can change:
+
+- databases;
+- uploads, documents, datasets, and other authoritative files;
+- protected configuration when it changed or is needed to reproduce the release;
+- add-on state;
+- the current application revision and image identifiers.
+
+Verify the backup and restore path before continuing. Follow [Upgrades and rollback](upgrades-and-rollback.md) for upgrade gates and rollback decisions, and [Deployment workflow](deployment-workflow.md) for the complete release sequence.
+
+## 11. Backup checklist
+
+- Persistent assets are identified from Compose, external services, and application extensions.
+- Every asset has a backup and restore owner.
+- Database and file/volume methods are documented.
+- Protected production configuration is recoverable without Git.
+- Selected add-on state is covered.
+- Backup storage is separate from replaceable runtime capacity as required.
+- Schedule, retention, access, recovery expectations, and destination are recorded.
+- The restore sequence is documented and has test evidence.
+- `LEAME.md` contains the deployment-specific locations and commands.
+- Backup documentation contains no credentials or secret values.
+
+See [Generated documentation files](documentation-files.md) for what belongs in `LEAME.md`. Organization-specific retention, full database administration, and disaster-recovery planning remain with their operational owners.

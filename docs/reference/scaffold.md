@@ -13,10 +13,27 @@ The [Scaffold workflow](../guides/scaffold-workflow.md) explains the recommended
 | `init` | Create the generated baseline from an explicit descriptor | Yes | Rejects a target that already has scaffold state |
 | `check` | Compare generated files and shared shell libraries with the current standard | No | Yes; required |
 | `sync` | Apply compatible template changes and synchronize shared libraries | Yes | Yes by default; an explicit descriptor may replace the saved configuration |
+| `refresh-state` | Verify supported custom-block edits against the previous standard and refresh their hashes | State only | Yes; required |
 | `check-lib` | Compare vendored shared shell libraries with their canonical sources | No | No |
 | `sync-lib` | Replace missing or changed vendored shared shell and Python libraries | Yes | No |
 
 The CLI exposes no other public subcommands.
+
+## `refresh-state`
+
+```text
+python3 scripts/scaffold.py refresh-state TARGET [--baseline-ref COMMIT_OR_TAG]
+```
+
+Run this after every supported application-owned block edit, before `sync`, regardless of whether the current standard has changed. After successful verification, run `sync`, then `check`, review the diffs, and commit the customization with the updated state. Repeat refresh if you edit a block again. This workflow applies to recognized custom blocks; ordinary application files and schema-managed setting values do not need this hash refresh. See the [practical workflow example](../guides/scaffold-workflow.md#practical-example-repair-a-demo-data-hook).
+
+This command requires initialized state with configuration and file hashes. It resolves the saved `standard_revision` in the current standards repository's local Git history, exports that commit into a temporary directory, and runs its historical scaffold renderer with the saved configuration. It does not switch the current checkout or fetch history. Only trusted revisions should be used because their Python code is executed.
+
+For every historical artifact with recognized application-owned blocks, it preserves the current local block bodies and requires the resulting bytes to equal the local file. Missing files, untracked baseline paths, or differences outside the block bodies cause failure before any state is written. After all eligible files pass, it refreshes their whole-file hashes and records the resolved revision. Other hashes, state metadata, application files, libraries, and update candidates remain unchanged. It does not validate or refresh unrelated managed files or schema-managed settings.
+
+An older state without a revision requires `--baseline-ref` identifying its actual previous standard. If a revision is already recorded, an explicit reference must resolve to that same commit. Missing history and historical rendering errors fail with exit `1`. Success exits `0`. A previous partial sync can mix baselines from different revisions; refresh refuses custom-block files whose managed sections no longer match the recorded commit. Resolve those candidates manually rather than overriding the saved revision.
+
+Run `sync` next to apply the current standard. An accepted baseline takes precedence over a candidate left by an earlier conflict, allowing the verified update to proceed. Remove stale candidates after checking the resulting deployment baseline. See the [workflow examples](../guides/scaffold-workflow.md#understand-the-three-versions).
 
 ## `init`
 
@@ -117,15 +134,20 @@ The state file is:
 It records:
 
 - `standard_version`, currently `0.1.0`;
+- optional `standard_revision`, the exact Git commit for reproducible accepted standard sources;
 - `source`, currently `BU-ISCIII deployment standards`;
 - `config`, the descriptor object loaded for the successful `init` or latest `sync`; and
 - `files`, a mapping of generated artifact paths to SHA-256 baseline hashes.
 
 The hashes cover scaffold-generated artifacts after recognized application-owned blocks have been preserved. Shared-library hashes are not stored in state; library commands compare canonical and vendored files directly.
 
+`init` and `sync` record the current commit when there are no unresolved scaffold issues and `scripts/`, `scaffold/`, and `lib/` have no tracked or untracked Git changes. Non-Git copies and dirty source checkouts omit the revision on success. With unresolved issues, they retain the previous revision if one exists; they do not label a partial sync as fully accepted. Existing state needs no manual format migration. `standard_version` is not a substitute for the exact revision.
+
 The state enables future `check` and descriptor-free `sync` operations and distinguishes local managed edits from central template changes. It should normally remain under version control with the generated deployment baseline. Do not edit it manually. The meaning and current enforcement limit of `standard_version` are documented in [Deployment component versioning](versioning.md).
 
 ## Synchronization statuses
+
+Ordinary-file comparisons use whole-file hashes after preserving local application-owned blocks in the rendered result. A supported custom edit combined with a standard update can therefore be reported as `managed-drift-with-update`. Use `refresh-state` to verify and accept only that custom edit against the previous revision; see the [A/B/C comparisons](../guides/scaffold-workflow.md#understand-the-three-versions). A candidate matching the generated result keeps unresolved drift visible unless the local file already matches the generated result or the accepted baseline.
 
 | Status | Meaning | `sync` behavior | Human action |
 | --- | --- | --- | --- |
@@ -147,6 +169,8 @@ Application-owned block bodies are inserted into the current generated result be
 | --- | ---: |
 | Successful `init`, `sync`, or `sync-lib` with no unresolved generated-file issue | `0` |
 | Successful `check` or `check-lib` with no drift | `0` |
+| Successful `refresh-state` verification and state refresh | `0` |
+| `refresh-state` lacks a usable historical revision or cannot verify custom-block files | `1` |
 | `check` finds generated-file, obsolete-path, or checked shared-library drift | `1` |
 | `check-lib` finds a missing or modified checked library | `1` |
 | File, JSON, descriptor, rendering, topology, or operating-system error caught by the CLI | `1` |

@@ -36,6 +36,8 @@ The only application-owned section in the generated script is:
 
 Scaffold `check` and `sync` preserve content inside this block. Changes outside it are managed drift.
 
+**After every modification inside this block, run `refresh-state` before `sync`, then run `check` and commit the customization together with `state.json`.** Follow this sequence even when you do not know whether the standard changed. Whole-file checksum comparisons can otherwise report `managed-drift-with-update` for a supported custom edit combined with a standard update. See the [scaffold workflow](scaffold-workflow.md#refresh-after-editing-supported-custom-blocks) for commands, a demo-data hook example, and older state files.
+
 The block currently exposes exactly these application contracts:
 
 ```bash

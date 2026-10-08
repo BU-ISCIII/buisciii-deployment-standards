@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Install Django build dependencies with `microdnf install --nobest` so UBI images built on subscribed RHEL hosts resolve when the newest `-devel` build in the host repositories does not match the base image.
 - Prevent duplicate forwarded headers when Apache templates set the public forwarded-header contract explicitly.
 - Added schema-managed production and test Keycloak realm templates and a JSON-safe Bash renderer, removing the need for application-side Python realm generation during container installation.
 - Created helper (`lib/container/check_config.sh`) function, running after Compose validation.

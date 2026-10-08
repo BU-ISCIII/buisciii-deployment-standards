@@ -13,10 +13,14 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import io
 import json
 import re
 import shlex
+import subprocess
 import sys
+import tarfile
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -301,7 +305,26 @@ def load_state(target: Path) -> dict:
     return json.loads(state_path.read_text(encoding="utf-8"))
 
 
-def write_state(target: Path, config: dict[str, Any], files: dict[str, str]) -> None:
+def standard_revision() -> str | None:
+    """Identify reproducible scaffold sources; dirty or non-Git copies have no revision."""
+    try:
+        changed = subprocess.check_output(
+            ["git", "-C", str(ROOT), "status", "--porcelain", "--",
+             "scripts", "scaffold", "lib"], text=True,
+        )
+        if changed.strip():
+            return None
+        return subprocess.check_output(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def write_state(
+    target: Path, config: dict[str, Any], files: dict[str, str],
+    revision: str | None = None,
+) -> None:
     state_dir = target / STATE_DIR
     state_dir.mkdir(parents=True, exist_ok=True)
     state = {
@@ -310,9 +333,87 @@ def write_state(target: Path, config: dict[str, Any], files: dict[str, str]) -> 
         "config": config,
         "files": files,
     }
+    if revision is not None:
+        state["standard_revision"] = revision
     (state_dir / STATE_FILE).write_text(
         json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+
+
+def refresh_state(target: Path, baseline_ref: str | None) -> int:
+    """Verify custom-block edits against historical sources before accepting hashes."""
+    state = load_state(target)
+    if not state.get("config") or not state.get("files"):
+        raise ValueError("refresh-state requires an initialized target")
+    recorded = state.get("standard_revision")
+    reference = baseline_ref or recorded
+    if not reference:
+        raise ValueError(
+            "No saved standard_revision; supply --baseline-ref with the previous "
+            "standard commit or tag"
+        )
+    try:
+        revision = subprocess.check_output(
+            ["git", "-C", str(ROOT), "rev-parse", "--verify", "--end-of-options",
+             f"{reference}^{{commit}}"], text=True, stderr=subprocess.PIPE,
+        ).strip()
+        if recorded and revision != recorded:
+            raise ValueError("--baseline-ref must match the recorded standard_revision")
+        archive = subprocess.check_output(
+            ["git", "-C", str(ROOT), "archive", revision], stderr=subprocess.PIPE,
+        )
+        with tempfile.TemporaryDirectory(prefix="scaffold-baseline-") as temporary:
+            checkout = Path(temporary)
+            with tarfile.open(fileobj=io.BytesIO(archive)) as source:
+                source.extractall(checkout, filter="data")
+            # Run the historical compiler with its own templates, without invoking
+            # its CLI or writing any deployment artifacts into the application.
+            render_code = (
+                "import json,runpy,sys; "
+                "m=runpy.run_path(sys.argv[1]); "
+                "print(json.dumps([(str(p),b.hex()) for p,b in "
+                "m['rendered_artifacts'](json.loads(sys.stdin.read()))]))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", render_code, str(checkout / "scripts/scaffold.py")],
+                input=json.dumps(state["config"]), text=True, capture_output=True, check=True,
+            )
+            artifacts = json.loads(result.stdout)
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(f"Cannot render baseline {reference}: {exc.stderr}") from exc
+
+    hashes = dict(state["files"])
+    refreshed: list[str] = []
+    for name, encoded in artifacts:
+        expected = bytes.fromhex(encoded)
+        if not any(pattern.search(expected) for pattern in APPLICATION_BLOCKS):
+            continue
+        if name not in hashes:
+            raise ValueError(f"Baseline does not track application-block file: {name}")
+        destination = target / name
+        if not destination.is_file():
+            raise ValueError(f"Missing application-block file: {name}")
+        current = destination.read_bytes()
+        if preserve_application_blocks(expected, current) != current:
+            raise ValueError(
+                f"Managed content differs from baseline in {name}; "
+                "reconcile it before refresh-state"
+            )
+        hashes[name] = digest(current)
+        if hashes[name] != state["files"][name]:
+            refreshed.append(name)
+
+    # Commit state only after every eligible file passes. Other baselines,
+    # configuration values, candidates and application files remain untouched.
+    state["files"] = hashes
+    state["standard_revision"] = revision
+    (target / STATE_DIR / STATE_FILE).write_text(
+        json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    for name in refreshed:
+        print(f"refreshed {name}")
+    print("Refreshed application-owned block baselines; run sync next.")
+    return 0
 
 
 def executable(relative: Path) -> bool:
@@ -1612,6 +1713,10 @@ def classify_artifact(
     current_hash = digest(destination.read_bytes()) if destination.exists() else None
     candidate_hash = digest(candidate.read_bytes()) if candidate.exists() else None
 
+    # A verified refresh can accept the local custom blocks while a candidate
+    # from an earlier sync still exists. The accepted baseline takes precedence.
+    if current_hash is not None and current_hash == old_hash and current_hash != expected_hash:
+        return "update-available", current_hash, candidate
     # A candidate is the durable marker for unresolved managed drift.
     if candidate_hash == expected_hash and current_hash != expected_hash:
         status = (
@@ -2125,7 +2230,8 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
 
     # Keep the previous central baseline while a central update and local managed
     # drift remain unresolved; otherwise record the latest rendered standard.
-    write_state(target, config, new_hashes)
+    revision = state.get("standard_revision") if issues else standard_revision()
+    write_state(target, config, new_hashes, revision)
     # Shared libraries are centrally owned exact copies, so a generated
     # installer must never be left pointing at missing or stale helpers.
     synchronize_shared(target, check_only=False)
@@ -2189,12 +2295,17 @@ def main() -> int:
         sub.add_argument("--config", type=Path)
     check_parser = subparsers.add_parser("check")
     check_parser.add_argument("target", type=Path)
+    refresh_parser = subparsers.add_parser("refresh-state")
+    refresh_parser.add_argument("target", type=Path)
+    refresh_parser.add_argument("--baseline-ref")
     for command in ("check-lib", "sync-lib"):
         sub = subparsers.add_parser(command)
         sub.add_argument("target", type=Path)
     args = parser.parse_args()
 
     target = args.target.resolve()
+    if args.command == "refresh-state":
+        return refresh_state(target, args.baseline_ref)
     if args.command in {"check-lib", "sync-lib"}:
         return synchronize_shared(target, args.command == "check-lib")
 

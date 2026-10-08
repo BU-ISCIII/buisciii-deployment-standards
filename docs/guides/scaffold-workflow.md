@@ -8,6 +8,8 @@ The scaffold is both a generator and a synchronization tool. It records the gene
 
 This guide covers the normal maintenance workflow rather than every command-line option.
 
+**After every edit to a supported application-owned block, run `refresh-state` before the next `sync`, and commit the customization together with `state.json`.** Follow this order even if you do not know whether the standard has changed. The refresh verifies your edit against the previous baseline; sync then applies the current standard.
+
 ## 2. Scaffold state
 
 The scaffold stores its state in:
@@ -16,9 +18,9 @@ The scaffold stores its state in:
 .bu-isciii-deployment/state.json
 ```
 
-This file records the project descriptor and checksums for generated files. `check` and `sync` use it to distinguish a central standard update from a local change to managed content.
+This file records the project descriptor, checksums for generated files, and, when reproducible Git sources are available, `standard_revision`: the standards commit used for the accepted baseline. `check` and `sync` use the checksums to distinguish a central standard update from a local change.
 
-The state file is part of the generated deployment baseline and should normally be committed. Do not edit it manually; let `init` and `sync` maintain it.
+The state file is part of the generated deployment baseline and should normally be committed. Do not edit it manually; let `init`, `sync`, and `refresh-state` maintain it. Successful syncs add the revision to older states automatically. A sync with unresolved issues preserves the previous revision. Uncommitted changes to scaffold sources cannot be identified by a commit, so a successful sync from those sources omits the revision.
 
 ## 3. Check the current repository
 
@@ -43,7 +45,98 @@ python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
 
 The same check also reports shared library paths as `current`, `missing`, or `modified`.
 
+### Understand the three versions
+
+For ordinary generated files, think of three versions:
+
+- **A**: the last accepted file, represented by its checksum in state.
+- **B**: the file currently in the application repository.
+- **C**: the file rendered by the current standard, with B's supported custom blocks preserved.
+
+| Comparison | Result | Example |
+| --- | --- | --- |
+| A = B = C | `current` | Nothing changed. |
+| B = C, even if A differs | `current` | A custom-block edit matches the preserved render; sync records it. |
+| A = B, B ≠ C | `update-available` | Only the standard changed; sync updates the file. |
+| A = C, B ≠ C | `managed-drift-without-update` | You edited a managed command; the standard did not change. |
+| A ≠ B, A ≠ C, B ≠ C | `managed-drift-with-update` | Both the local file and the standard changed. |
+
+These checksums cover the whole file, including custom blocks. Therefore, editing a supported block and receiving a standard update before the next sync can also produce the last comparison. It does not necessarily mean your edit was outside the allowed block. Use the verified refresh below to distinguish that case. Pending `.bu-isciii-update` candidates keep unresolved drift visible; see the [reference](../reference/scaffold.md#synchronization-statuses).
+
+### Custom sections and managed sections
+
+Only bodies between recognized `BEGIN BU-ISCIII APPLICATION` and matching `END BU-ISCIII APPLICATION` markers are application-owned. Keep the markers intact. For example, demo-data loading callbacks belong inside `deployment-hooks` in `container_install.sh`. Commands outside that block remain managed, even if they look application-specific.
+
+Custom sections already recorded in A do not prevent automatic updates. A new custom edit changes B's whole-file checksum. Always refresh the accepted custom-block baseline after that edit and before syncing, whether or not C has changed. Schema-managed settings have separate rules: existing values and application-only variables are preserved according to their contract; they are not ordinary whole-file comparisons. Changing a setting value or an application-owned source file outside this block mechanism does not require `refresh-state`.
+
+### Refresh after editing supported custom blocks
+
+Run `refresh-state` after every supported custom-block modification. Do not wait for a drift report. Run the command from the current standards checkout; you do not need to switch that checkout to the previous version:
+
+```bash
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
+  refresh-state /path/to/application
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
+  sync /path/to/application
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
+  check /path/to/application
+```
+
+Run each command only after the previous one succeeds. If refresh fails, stop and resolve the reported baseline or managed-content problem before syncing.
+
+`refresh-state` reads the saved standards revision from local Git history and renders its templates with the saved descriptor and your current custom blocks. It updates only custom-block file hashes after verifying that their managed sections still match that revision. It does not update application files or accept edits outside the blocks. Other file hashes and schema-managed settings remain unchanged. Review the resulting diff and commit the customization and state together. Run refresh again if you make another custom-block edit after verification.
+
+#### Practical example: repair a demo-data hook
+
+Suppose a deployment's Samba service is named `iskylims-samba`, but the demo-data callback still looks up `samba`. Change this line inside the `deployment-hooks` block of `container_install.sh`:
+
+```bash
+samba_container="$(current_service_container iskylims-samba)" \
+    || die "The iSkyLIMS test-data workflow requires the Samba service"
+```
+
+Leave the block markers and the managed installer lifecycle intact. From the application repository, run:
+
+```bash
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py refresh-state .
+```
+
+Expect `refreshed container_install.sh`. This accepts your hook edit in A without changing B. Then run, stopping if a command fails:
+
+```bash
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py sync .
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py check .
+git diff -- container_install.sh .bu-isciii-deployment/state.json
+git status --short
+```
+
+If the standard also added a managed validation step, sync can now apply it while preserving your hook: after refresh A = B, so the standard update is A = B ≠ C. Review all synchronized files, then commit them together with the updated state. If the standard did not change, refresh still records your edit so a future sync has the right baseline. Use the same sequence for custom `install-hooks`, documentation, and route blocks.
+
+#### Older state without a recorded revision
+
+For an older state without `standard_revision`, supply the actual standards commit or tag used for its previous baseline once:
+
+```bash
+python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
+  refresh-state /path/to/application --baseline-ref <previous-standard-commit-or-tag>
+```
+
+Do not use the latest commit simply to clear a conflict. `standard_version` alone does not identify a commit. If the revision is unavailable locally, fetch the required history first. Historical scaffold code is executed during verification, so use a trusted standards revision.
+
+To locate a legacy baseline, inspect the application commit that last synchronized its state and the standards history around that time:
+
+```bash
+git -C /path/to/application log --date=iso -- .bu-isciii-deployment/state.json
+git -C /path/to/buisciii-deployment-standards log --date=iso
+```
+
+Prefer a commit recorded in deployment notes or synchronization logs. Otherwise, dates and commit messages can help select a candidate, but they do not prove which revision was used. Pass the candidate to `refresh-state --baseline-ref`: it verifies the managed sections of every historical custom-block file before changing any hashes. A successful comparison establishes compatibility for those files, not proof that this was the exact original revision or that all other files match. Review the state diff and commit it; subsequent refreshes use the recorded revision automatically.
+
+If a prior partial sync has already changed a custom-block file's managed sections, it may no longer match the saved revision; refresh refuses it. Reconcile the candidate using the managed-drift procedure below. A candidate produced before a successful refresh can remain on disk; after sync and check succeed, remove that stale candidate.
+
 ## 4. Synchronize generated files
+
+If you modified a supported custom block, complete the refresh sequence above first. For routine standard updates with no new custom-block edits, run sync directly.
 
 Apply compatible scaffold changes with:
 

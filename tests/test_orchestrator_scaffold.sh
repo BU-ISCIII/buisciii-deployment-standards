@@ -99,8 +99,10 @@ if grep -Eq 'operational values, not Django settings|Preserve the Keycloak datab
     echo "FAIL: add-on settings guidance must live in add-on templates" >&2
     exit 1
 fi
-if grep -ERq '\$\{(APACHE|SERVER_STATUS)_[A-Z0-9_]+:-' \
-    "$repo_root/scaffold/templates/addons/apache/compose"; then
+# The host-directory fallback is intentional; operational defaults stay in settings.
+if grep -ERh '\$\{(APACHE|SERVER_STATUS)_[A-Z0-9_]+:-' \
+    "$repo_root/scaffold/templates/addons/apache/compose" \
+    | grep -vF '${APACHE_CONF_PATH:-./deployment/apache}/' | grep -q .; then
     echo "FAIL: Apache Compose defaults must live in Apache settings templates" >&2
     exit 1
 fi
@@ -213,7 +215,7 @@ grep -Fq "# APACHE_SECOND_SERVER_NAME='CHANGE_ME_SECOND_DNS_NAME'" \
     "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "# APACHE_SECOND_LOG_STEM='CHANGE_ME_LOG_STEM'" \
     "$target/conf/apache/apache_production_settings.txt"
-grep -Fq "APACHE_CONF_PATH=''" "$target/conf/apache/apache_production_settings.txt"
+grep -Fq "APACHE_CONF_PATH='/srv/containers/bind/example-orchestrator/example-orchestrator_apache_conf'" "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "SERVER_STATUS_ALLOW_FROM='127.0.0.1 localhost'" \
     "$target/conf/apache/apache_production_settings.txt"
 grep -Fq "SERVER_STATUS_SERVER_NAME='localhost'" \

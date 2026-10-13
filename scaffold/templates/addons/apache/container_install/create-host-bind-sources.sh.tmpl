@@ -2,7 +2,7 @@
     # deployment value only after the protected settings environment is loaded,
     # then expose the completed files as Compose bind sources.
     local apache_source_dir="$script_dir/conf/apache"
-    local apache_output_dir="$script_dir/deployment/apache"
+    local apache_output_dir="${APACHE_CONF_PATH:-$script_dir/deployment/apache}"
     local apache_conf_name apache_config_service apache_log_path
     apache_config_service={{CONFIG_SERVICE_SHELL}}
     [ -d "$apache_source_dir" ] || {

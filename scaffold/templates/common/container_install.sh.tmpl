@@ -335,7 +335,7 @@ for service_name in "${install_services[@]}"; do
     service_profiles+=("$service_name=$(service_profile "$service_name")")
 done
 check_deployment_configuration "$mode" "$compose_env_file" "$compose_file" \
-    "$script_dir/deployment/apache" "${service_profiles[@]}" \
+    "${APACHE_CONF_PATH:-$script_dir/deployment/apache}" "${service_profiles[@]}" \
     || die "Deployment configuration check failed; correct the settings reported above"
 
 # 5. Dispatch permission-only repair without building or bootstrapping.

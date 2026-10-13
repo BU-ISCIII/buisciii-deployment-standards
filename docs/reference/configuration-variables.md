@@ -22,7 +22,6 @@ This is the central reference for profile and addon settings. Values belong in t
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` | test, prod | Yes | No | Database connection. |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | test, prod | Yes | Yes | Application and administrator DB credentials. |
 | `DJANGO_DEBUG` | test, prod | Yes | No | Debug switch; production must be false. |
-| `DJANGO_SECRET_KEY` | test, prod | Yes | Yes | Cryptographic signing secret. |
 | `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | test, prod | Yes | No | Host and CSRF-origin policy. |
 | `DB_CONN_MAX_AGE` | test, prod | Yes | No | Persistent connection lifetime. |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS` | test, prod | Yes | No | SMTP transport. |

@@ -67,6 +67,19 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+# Django manages the signing key in the rendered settings file; operators do
+# not configure or export an unused second secret.
+if grep -Rq 'DJANGO_SECRET_KEY' "$django_target/conf" \
+    "$django_target/docker-compose.prod.yml" "$django_target/docker-compose.test.yml"; then
+    echo "FAIL: Django scaffold must not require a separate signing-key variable" >&2
+    exit 1
+fi
+compose_env_from_settings "$django_target/conf/docker_test_settings.txt" \
+    EXAMPLE_APP "$work_dir/django-no-secret.env"
+if grep -q 'DJANGO_SECRET_KEY' "$work_dir/django-no-secret.env"; then
+    echo "FAIL: generated Django environment must not contain an unused signing key" >&2
+    exit 1
+fi
 python3 "$repo_root/scripts/scaffold.py" init "$mixed_target" \
     --config "$repo_root/tests/fixtures/mixed_project.json" >/dev/null
 test -f "$mixed_target/.github/DJANGO_MIGRATIONS.md"

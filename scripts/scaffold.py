@@ -1309,6 +1309,20 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         for profile in selected_profiles
         if (PROFILE_TEMPLATES / profile / "documentation" / "migrations.md.tmpl").is_file()
     ]
+    upgrade_notes = [
+        rendered_documentation_fragment(
+            "profile", profile, "upgrade.md", {}
+        )
+        for profile in selected_profiles
+        if (PROFILE_TEMPLATES / profile / "documentation" / "upgrade.md.tmpl").is_file()
+    ]
+    upgrade_runbook_notes = [
+        rendered_documentation_fragment(
+            "profile", profile, "upgrade-leame.md", {}
+        )
+        for profile in selected_profiles
+        if (PROFILE_TEMPLATES / profile / "documentation" / "upgrade-leame.md.tmpl").is_file()
+    ]
     operational_notes: list[str] = []
     runbook_operational_notes: list[str] = []
     addon_backup_commands: list[str] = []
@@ -1434,6 +1448,8 @@ def documentation_template_values(config: dict[str, Any]) -> dict[str, str]:
         "LOCAL_TEST_DOCUMENTATION": "\n\n".join(local_test_notes),
         "BARE_METAL_DOCUMENTATION": "\n\n".join(bare_metal_notes),
         "MIGRATION_DOCUMENTATION": "\n\n".join(migration_notes),
+        "UPGRADE_DOCUMENTATION": "\n\n".join(upgrade_notes),
+        "UPGRADE_RUNBOOK_DOCUMENTATION": "\n\n".join(upgrade_runbook_notes),
         "OPERATIONAL_DOCUMENTATION": "\n\n".join(operational_notes),
         "RUNBOOK_OPERATIONAL_DOCUMENTATION": "\n\n".join(
             runbook_operational_notes

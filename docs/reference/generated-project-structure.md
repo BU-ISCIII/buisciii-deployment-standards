@@ -145,4 +145,4 @@ Commit this file with the baseline. Do not edit it manually. See the [project de
 | Shared library copy | Never edit locally | `deployment/lib/**` |
 | Scaffold metadata | Commit; do not edit manually | `.bu-isciii-deployment/state.json` |
 
-Deployment-time files are outside this source-tree map: protected copies under `deployment/settings/`, `.env.test.file`, `.env.production.file`, rendered `deployment/apache/` files, containers, named volumes, bind data, logs, and other persistent state. See [Configuration](../guides/configuration.md) and the generated runbook.
+Deployment-time files are outside this source-tree map: protected copies under `deployment/settings/`, `.env.test.file`, `.env.production.file`, rendered `APACHE_CONF_PATH` (or `deployment/apache/` when empty) files, containers, named volumes, bind data, logs, and other persistent state. See [Configuration](../guides/configuration.md) and the generated runbook.

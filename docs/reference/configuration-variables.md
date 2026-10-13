@@ -64,7 +64,7 @@ For managed Keycloak OIDC consumers, Compose overrides `OIDC_ISSUER` and `OIDC_J
 
 | Variables | Modes | Required | Sensitive | Purpose / timing |
 |---|---|---:|---:|---|
-| `APACHE_CONF_PATH`, `APACHE_LOG_PATH` | test, prod | Yes | No | Compatibility config input and host logs. |
+| `APACHE_CONF_PATH`, `APACHE_LOG_PATH` | test, prod | Yes | No | Rendered configuration host directory (empty uses `deployment/apache/`) and host logs. |
 | `APACHE_BIND_HOST`, `APACHE_PORT`, `APACHE_SERVER_NAME` | test, prod | Yes | No | Published listener and virtual host. |
 | `APACHE_UPSTREAM_SERVICE` | test, prod | No | No | Empty derives from `CONFIG_SERVICE`. |
 | `APACHE_UPSTREAM_PORT` | test, prod | No | No | Empty derives from selected `APP_PORT`. |

@@ -111,11 +111,11 @@ editable installation settings
 |---|---|
 | `.env.test.file` or `.env.production.file` | Selected application and addon settings files |
 | Django file at `DJANGO_SETTINGS_PATH` in production | Selected production settings and `conf/template_settings.py` |
-| `deployment/apache/*.conf` | `conf/apache/*.conf` and Apache installation settings |
+| `${APACHE_CONF_PATH}/*.conf` (fallback: `deployment/apache/*.conf`) | `conf/apache/*.conf` and Apache installation settings |
 | Keycloak realm files at `KEYCLOAK_IMPORT_PATH` | JSON under `KEYCLOAK_REALM_SOURCE_PATH` |
 | Django `conf/.runtime_install_settings.txt` inside the container | Selected settings source |
 
-The installer regenerates the Compose environment on each invocation and rerenders production Django settings before Compose starts. Apache sources are rendered into `deployment/apache/` before Compose validation.
+The installer regenerates the Compose environment on each invocation and rerenders production Django settings before Compose starts. Apache sources are rendered into `APACHE_CONF_PATH` (or `deployment/apache/` when empty) before Compose validation.
 
 ## Profile and addon configuration
 

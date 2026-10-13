@@ -55,7 +55,7 @@ ProxyPassReverse /web/ http://web:${WEB_APP_PORT}/
 
 The `${...}` tokens above are resolved from the generated Compose environment when `container_install.sh` renders the application-owned Apache source files.
 
-`container_install.sh` loads the selected production or test settings, renders every shell-style uppercase variable in those source files, and writes the completed bind sources under `deployment/apache/`. Compose mounts only the completed files. Rerunning the installer regenerates them from the editable sources, so configuration changes are repeatable.
+`container_install.sh` loads the selected production or test settings, renders every shell-style uppercase variable in those source files, and writes the completed bind sources under `APACHE_CONF_PATH` (or `deployment/apache/` when empty). Compose mounts only the completed files. Rerunning the installer regenerates them from the editable sources, so configuration changes are repeatable.
 
 Apache owns production and test settings under `conf/apache/`. Map a protected production copy with `--install_conf_map apache,<path>`. `CONFIG_SERVICE` selects the application used for default upstream and installation-path values:
 

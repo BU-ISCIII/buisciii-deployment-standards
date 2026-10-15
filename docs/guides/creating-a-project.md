@@ -42,6 +42,7 @@ The descriptor defines the application identity and deployment topology used to 
 {
   "APP_NAME": "Example Application",
   "APP_SLUG": "example-app",
+  "APP_VERSION": "1.0.0",
   "DESCRIPTION": "Example application",
   "REPOSITORY_URL": "https://github.com/BU-ISCIII/example-app.git",
   "DEFAULT_BRANCH": "main",

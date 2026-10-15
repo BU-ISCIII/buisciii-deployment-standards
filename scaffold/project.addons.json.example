@@ -1,5 +1,6 @@
 {
   "APP_NAME": "Example Application With Add-ons",
+  "APP_VERSION": "0.0.0",
   "APP_SLUG": "example-app",
   "DESCRIPTION": "Django application deployed behind Apache with Keycloak identity.",
   "REPOSITORY_URL": "https://github.com/BU-ISCIII/example-app.git",

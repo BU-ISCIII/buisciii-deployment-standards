@@ -1,5 +1,6 @@
 {
   "APP_NAME": "Example Application",
+  "APP_VERSION": "0.0.0",
   "APP_SLUG": "example-app",
   "DESCRIPTION": "Describe what the application does and who operates it.",
   "REPOSITORY_URL": "https://github.com/BU-ISCIII/example-app.git",

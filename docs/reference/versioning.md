@@ -10,7 +10,7 @@ The repository uses `MAJOR.MINOR.PATCH` markers and applies the compatibility ca
 
 | Component | Version constant and location | Current value | Scope |
 | --- | --- | ---: | --- |
-| Generated container installer | `APP_VERSION` in `scaffold/templates/common/container_install.sh.tmpl` | `0.1.0` | Outer deployment CLI, configuration resolution, lifecycle, profile/addon dispatch, permissions, bootstrap, data loading, and smoke-test orchestration |
+| Generated container installer | `CONTAINER_INSTALL_VERSION` in `scaffold/templates/common/container_install.sh.tmpl` | `0.1.0` | Outer deployment CLI, configuration resolution, lifecycle, profile/addon dispatch, permissions, bootstrap, data loading, and smoke-test orchestration |
 | Generated Django installer | `APP_VERSION` in `scaffold/templates/profiles/django/install.sh.tmpl` | `0.2.0` | Django direct install, image staging, runtime bootstrap, migrations, fixtures, hooks, and static collection |
 | Common container library | `BU_ISCIII_CONTAINER_LIB_VERSION` in `lib/container/common.sh` | `0.1.0` | Shared Docker/Podman, Compose, configuration, permission, diagnostic, and deployment-validation helpers |
 | Django container library | `BU_ISCIII_DJANGO_CONTAINER_LIB_VERSION` in `lib/container/django.sh` | `0.2.0` | Shared Django settings rendering and Django-specific host/container configuration helpers |
@@ -57,7 +57,7 @@ Operational impact can make an otherwise small code edit a major contract change
 
 ### Generated container installer
 
-Bump the generated container installer `APP_VERSION` when its public CLI or deployment lifecycle changes. Relevant changes include options and exit behavior, action semantics, configuration resolution, significant lifecycle ordering, readiness/bootstrap dispatch, permission phases, data-loading behavior, and application-hook contracts. Do not bump it for an unrelated library or documentation change when the generated installer contract is unchanged.
+Bump the generated container installer `CONTAINER_INSTALL_VERSION` when its public CLI or deployment lifecycle changes. Relevant changes include options and exit behavior, action semantics, configuration resolution, significant lifecycle ordering, readiness/bootstrap dispatch, permission phases, data-loading behavior, and application-hook contracts. Do not bump it for an unrelated library or documentation change when the generated installer contract is unchanged.
 
 ### Common container library
 
@@ -112,7 +112,7 @@ Several versions move together only when the same change affects several contrac
 
 ## Current compatibility enforcement
 
-The current version constants are informational. `container_install.sh --version` and Django `install.sh --version` print their respective `APP_VERSION`, but neither script checks the versions exported by the sourced libraries. The library constants are not compared at runtime, and no compatibility range is declared.
+The current version constants are informational. `container_install.sh --version` prints its `CONTAINER_INSTALL_VERSION`, but neither script checks the versions exported by the sourced libraries. The library constants are not compared at runtime, and no compatibility range is declared.
 
 The scaffold synchronizes vendored libraries by exact file content rather than version negotiation. `check` and `check-lib` report missing or modified checked library copies, while `sync` and `sync-lib` replace them from the canonical `lib/container/` sources. The scaffold-state `standard_version` is written but is not currently validated when state is loaded.
 

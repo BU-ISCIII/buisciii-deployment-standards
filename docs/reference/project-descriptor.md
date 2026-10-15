@@ -11,6 +11,7 @@ This is the current single-service shape from `scaffold/project.json.example`, s
 ```json
 {
   "APP_NAME": "Example Application",
+  "APP_VERSION": "0.0.0",
   "APP_SLUG": "example-app",
   "DESCRIPTION": "Describe what the application does.",
   "REPOSITORY_URL": "https://github.com/BU-ISCIII/example-app.git",
@@ -36,6 +37,7 @@ The parser does not currently enforce a top-level key whitelist. It passes scala
 | Field | Required | Type | Purpose/default |
 | --- | ---: | --- | --- |
 | `APP_NAME` | Yes | String | Human-readable name used in generated scripts and documentation |
+| `APP_VERSION` | Yes | String | Version of the application, preferably in `major.minor.patch` format |
 | `APP_SLUG` | Yes | String | Deployment identifier used in paths and add-on service names |
 | `DESCRIPTION` | Yes | String | Initial application overview in `README.md` |
 | `REPOSITORY_URL` | No | String | Clone URL in generated documentation; defaults there to `<repository-url>` |
@@ -141,6 +143,7 @@ Unknown add-on options are rejected.
 ```json
 {
   "APP_NAME": "Sample Registry",
+  "APP_VERSION": "1.0.0",
   "APP_SLUG": "sample-registry",
   "DESCRIPTION": "Registry service.",
   "REPOSITORY_URL": "https://example.invalid/sample-registry.git",
@@ -164,6 +167,7 @@ Unknown add-on options are rejected.
 ```json
 {
   "APP_NAME": "Research Portal",
+  "APP_VERSION": "1.2.2"
   "APP_SLUG": "research-portal",
   "DESCRIPTION": "Frontend and API deployment.",
   "SERVICES": {

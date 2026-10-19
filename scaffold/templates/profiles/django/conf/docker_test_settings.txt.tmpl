@@ -1,66 +1,104 @@
 # Safe local/test values. Never use these credentials in production.
 
 ### Application layout and Django project
+# Source repository staged in the image. Example: /srv/{{APP_SLUG}}
 REPO_PATH='/srv/{{APP_SLUG}}'
+# Application runtime path. Example: /opt/{{APP_SLUG}}
 INSTALL_PATH='/opt/{{APP_SLUG}}'
+# Python package containing settings.py. Example: example_project
 PROJECT_MODULE='{{PROJECT_MODULE}}'
+# Python executable for the virtual environment. Example: python3.12
 PYTHON_BIN_PATH='python{{PYTHON_VERSION}}'
 
 ### Application-specific installation modules
 # Optional lists used only when install.sh implements these operations.
+# Example: REQUIRED_MODULES='core accounts'
 REQUIRED_MODULES=''
+# Example: MIGRATION_MODULES='core accounts'
 MIGRATION_MODULES=''
 
 ### Container runtime identity
+# Container user ID. Example: 1212
 APP_UID='1212'
+# Container group ID. Example: 1212
 APP_GID='1212'
+# Container user shell. Example: /bin/bash
 APP_SHELL='/bin/bash'
+# Internal application port. Example: 8001
 APP_PORT='8001'
 
 ### Disposable persistence paths
+# Host directory for test logs. Example: /tmp/{{APP_SLUG}}/logs
 HOST_LOG_PATH='/tmp/{{APP_SLUG}}/logs'
 # Test images render settings during build and do not mount this host path.
+# Example: /tmp/{{APP_SLUG}}/data/settings/{{PROJECT_MODULE}}/settings.py
 DJANGO_SETTINGS_PATH='/tmp/{{APP_SLUG}}/data/settings/{{PROJECT_MODULE}}/settings.py'
 
 ### Compose test database
+# Compose database service name. Example: {{SERVICE_NAME}}-db
 DB_HOST='{{SERVICE_NAME}}-db'
+# Database port inside the Compose network. Example: 3306
 DB_PORT='3306'
+# Test database name. Example: example_project
 DB_NAME='{{PROJECT_MODULE}}'
+# Test database user. Example: django
 DB_USER='django'
+# Disposable test password. Example: djangopass
 DB_PASSWORD='djangopass'
+# Disposable database root password. Example: root
 DB_ROOT_PASSWORD='root'
 
 ### Django and local email defaults
+# Boolean debug switch. Example: true for local development.
 DJANGO_DEBUG='true'
+# Comma-separated hosts without schemes. Example: localhost,127.0.0.1
 DJANGO_ALLOWED_HOSTS='*'
+# Comma-separated origins. Example: http://localhost:8001,http://127.0.0.1:8001
 DJANGO_CSRF_TRUSTED_ORIGINS='http://localhost:8001,http://127.0.0.1:8001'
+# Persistent database connection lifetime in seconds. Example: 60
 DB_CONN_MAX_AGE='60'
 
 {{TEST_OPTIONAL_APP_SETTINGS}}
 
 ### Local email defaults
+# SMTP host reachable from the container. Example: host.docker.internal
 EMAIL_HOST='host.docker.internal'
+# SMTP port. Example: 25
 EMAIL_PORT='25'
+# SMTP login, or empty when unused. Example: application@example.org
 EMAIL_HOST_USER='bioinformatica@isciii.es'
+# SMTP password, or empty when unused. Example: CHANGE_ME
 EMAIL_HOST_PASSWORD=''
+# Python boolean for STARTTLS. Example: True with SMTP port 587.
 EMAIL_USE_TLS='False'
 
 ### Initial administrator (bootstrap install only)
+# Opt in to initial administrator creation. Example: true for a fresh test database.
 CREATE_INITIAL_SUPERUSER='false'
+# Initial administrator login. Example: admin
 DJANGO_SUPERUSER_USERNAME='admin'
+# Optional administrator email. Example: application-admin@example.org
 DJANGO_SUPERUSER_EMAIL=''
+# Required when creation is enabled. Example: CHANGE_ME
 DJANGO_SUPERUSER_PASSWORD=''
 
 ### Gunicorn and startup tuning
+# Gunicorn worker processes. Example: 2
 WEB_CONCURRENCY='2'
+# Threads per worker. Example: 2
 GUNICORN_THREADS='2'
+# Maximum request duration in seconds. Example: 300
 GUNICORN_TIMEOUT='300'
+# HTTP keep-alive duration in seconds. Example: 5
 GUNICORN_KEEPALIVE='5'
+# Maximum wait for staged application files in seconds. Example: 100
 APP_START_WAIT_TIMEOUT_SECONDS='100'
 
 ### Application log policy compatibility
 # Set LOG_PATH when LOG_TYPE='symbolic_link'.
+# Example: LOG_TYPE='symbolic_link' to link application logs to LOG_PATH.
 LOG_TYPE='regular_folder'
+# Target directory for symbolic_link; otherwise empty. Example: /tmp/{{APP_SLUG}}/logs
 LOG_PATH=''
 
 ### Selected infrastructure add-ons

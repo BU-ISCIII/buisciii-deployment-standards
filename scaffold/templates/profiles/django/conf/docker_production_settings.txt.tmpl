@@ -10,6 +10,7 @@ REPO_PATH='/srv/{{APP_SLUG}}'
 INSTALL_PATH='/opt/{{APP_SLUG}}'
 # Python package containing settings.py, urls.py and wsgi.py. This is generated
 # from project.json and normally should not be changed in this file.
+# Example: example_project
 PROJECT_MODULE='{{PROJECT_MODULE}}'
 # Python executable used to create the application virtual environment.
 # Example: python3.12
@@ -58,7 +59,7 @@ DB_USER='CHANGE_ME'
 DB_PASSWORD='CHANGE_ME'
 
 ### Django security and public URLs
-# Production debug must remain disabled.
+# Production debug must remain disabled. Example: false
 DJANGO_DEBUG='false'
 # Comma-separated host names accepted by Django, without URL schemes.
 # Example: api.example.org,localhost
@@ -87,6 +88,7 @@ EMAIL_USE_TLS='False'
 ### Initial administrator (bootstrap install only)
 # Opt in only when a fresh installation should create its first Django
 # administrator. Keep the protected production settings file mode at 0600.
+# Example: true for first-time administrator creation; false for normal deployments.
 CREATE_INITIAL_SUPERUSER='false'
 # Example: admin
 DJANGO_SUPERUSER_USERNAME='admin'

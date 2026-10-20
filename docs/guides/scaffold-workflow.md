@@ -18,7 +18,7 @@ The scaffold stores its state in:
 .bu-isciii-deployment/state.json
 ```
 
-This file records the project descriptor, checksums for generated files, and, when reproducible Git sources are available, `standard_revision`: the standards commit used for the accepted baseline. `check` and `sync` use the checksums to distinguish a central standard update from a local change.
+This file records the project descriptor, checksums for generated files, and the required `standard_revision`: the standards commit used for the accepted baseline. `check` and `sync` use the checksums to distinguish a central standard update from a local change.
 
 The state file is part of the generated deployment baseline and should normally be committed. Do not edit it manually; let `init`, `sync`, and `refresh-state` maintain it. Successful syncs add the revision to older states automatically. A sync with unresolved issues preserves the previous revision. Uncommitted changes to scaffold sources cannot be identified by a commit, so a successful sync from those sources omits the revision.
 
@@ -114,7 +114,7 @@ If the standard also added a managed validation step, sync can now apply it whil
 
 #### Older state without a recorded revision
 
-For an older state without `standard_revision`, supply the actual standards commit or tag used for its previous baseline once:
+`check` and `sync` reject state without a valid `standard_revision`. For an older state, supply the actual standards commit or tag used for its previous baseline once:
 
 ```bash
 python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \
@@ -138,7 +138,7 @@ If a prior partial sync has already changed a custom-block file's managed sectio
 
 If you modified a supported custom block, complete the refresh sequence above first. For routine standard updates with no new custom-block edits, run sync directly.
 
-Apply compatible scaffold changes with:
+Use a Git checkout of the standard with committed `scripts/`, `scaffold/`, and `lib/` sources; `init` and `sync` fail before writing files if the source revision is not reproducible. Apply compatible scaffold changes with:
 
 ```bash
 python3 /path/to/buisciii-deployment-standards/scripts/scaffold.py \

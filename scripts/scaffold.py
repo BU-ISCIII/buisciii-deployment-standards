@@ -321,9 +321,20 @@ def standard_revision() -> str | None:
         return None
 
 
+def saved_standard_revision(state: dict[str, Any]) -> str:
+    """Require a full baseline commit without depending on local Git history."""
+    revision = state.get("standard_revision")
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision):
+        raise ValueError(
+            "Missing or invalid standard_revision in state.json; run refresh-state "
+            "--baseline-ref <previous-standard-commit-or-tag> before check or sync"
+        )
+    return revision
+
+
 def write_state(
     target: Path, config: dict[str, Any], files: dict[str, str],
-    revision: str | None = None,
+    revision: str,
 ) -> None:
     state_dir = target / STATE_DIR
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -333,8 +344,8 @@ def write_state(
         "config": config,
         "files": files,
     }
-    if revision is not None:
-        state["standard_revision"] = revision
+    saved_standard_revision({"standard_revision": revision})
+    state["standard_revision"] = revision
     (state_dir / STATE_FILE).write_text(
         json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -2042,6 +2053,7 @@ def print_django_settings_details(
 def check_baseline(target: Path, config: dict[str, Any]) -> int:
     """Report generated-file drift without modifying the target repository."""
     state = load_state(target)
+    saved_standard_revision(state)
     validate_deployment_shape(state, config)
     old_hashes = state.get("files", {})
     expected_paths: set[str] = set()
@@ -2127,7 +2139,14 @@ def check_baseline(target: Path, config: dict[str, Any]) -> int:
 def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
     state = load_state(target)
     if not initial:
+        saved_standard_revision(state)
         validate_deployment_shape(state, config)
+    current_revision = standard_revision()
+    if current_revision is None:
+        raise ValueError(
+            "Cannot record standard_revision: use a Git checkout of the standard "
+            "with committed scripts/, scaffold/, and lib/ sources before init or sync"
+        )
     old_hashes = state.get("files", {})
     new_hashes: dict[str, str] = {}
     issues = 0
@@ -2246,7 +2265,7 @@ def synchronize(target: Path, config: dict[str, Any], initial: bool) -> int:
 
     # Keep the previous central baseline while a central update and local managed
     # drift remain unresolved; otherwise record the latest rendered standard.
-    revision = state.get("standard_revision") if issues else standard_revision()
+    revision = saved_standard_revision(state) if issues and not initial else current_revision
     write_state(target, config, new_hashes, revision)
     # Shared libraries are centrally owned exact copies, so a generated
     # installer must never be left pointing at missing or stale helpers.

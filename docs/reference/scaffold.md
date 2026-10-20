@@ -134,14 +134,14 @@ The state file is:
 It records:
 
 - `standard_version`, currently `0.1.0`;
-- optional `standard_revision`, the exact Git commit for reproducible accepted standard sources;
+- required `standard_revision`, the exact Git commit for reproducible accepted standard sources;
 - `source`, currently `BU-ISCIII deployment standards`;
 - `config`, the descriptor object loaded for the successful `init` or latest `sync`; and
 - `files`, a mapping of generated artifact paths to SHA-256 baseline hashes.
 
 The hashes cover scaffold-generated artifacts after recognized application-owned blocks have been preserved. Shared-library hashes are not stored in state; library commands compare canonical and vendored files directly.
 
-`init` and `sync` record the current commit when there are no unresolved scaffold issues and `scripts/`, `scaffold/`, and `lib/` have no tracked or untracked Git changes. Non-Git copies and dirty source checkouts omit the revision on success. With unresolved issues, they retain the previous revision if one exists; they do not label a partial sync as fully accepted. Existing state needs no manual format migration. `standard_version` is not a substitute for the exact revision.
+`init` and `sync` record the current commit when there are no unresolved scaffold issues and `scripts/`, `scaffold/`, and `lib/` have no tracked or untracked Git changes. Non-Git copies and dirty source checkouts fail before writing deployment files or state. With unresolved issues, sync retains the required previous revision; they do not label a partial sync as fully accepted. Both `check` and `sync` reject missing or malformed revisions. Migrate older state once with `refresh-state --baseline-ref <previous-standard-commit-or-tag>` before running them. `standard_version` is not a substitute for the exact revision.
 
 The state enables future `check` and descriptor-free `sync` operations and distinguishes local managed edits from central template changes. It should normally remain under version control with the generated deployment baseline. Do not edit it manually. The meaning and current enforcement limit of `standard_version` are documented in [Deployment component versioning](versioning.md).
 

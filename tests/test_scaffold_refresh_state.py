@@ -118,16 +118,45 @@ class RefreshStateTests(unittest.TestCase):
         self.cli("refresh-state", code=1)
         self.assertEqual(self.state_path.read_bytes(), original)
 
-    def test_clean_legacy_sync_records_revision_and_dirty_sources_do_not(self):
+    def test_missing_or_invalid_revision_blocks_check_and_sync(self):
+        original = self.state()
+        for revision in (None, "", "HEAD", 123):
+            with self.subTest(revision=revision):
+                state = dict(original)
+                if revision is None:
+                    state.pop("standard_revision")
+                else:
+                    state["standard_revision"] = revision
+                self.state_path.write_text(json.dumps(state))
+                before = self.state_path.read_bytes()
+                installer = self.installer.read_bytes()
+                for command in ("check", "sync"):
+                    result = self.cli(command, code=1)
+                    self.assertIn("refresh-state", result.stderr)
+                    self.assertEqual(self.state_path.read_bytes(), before)
+                    self.assertEqual(self.installer.read_bytes(), installer)
+
+    def test_dirty_sources_refuse_sync_and_init_without_writes(self):
+        template = self.standard / "scaffold/templates/common/container_install.sh.tmpl"
+        template.write_text(template.read_text() + "\n# Uncommitted change\n")
+        before = self.state_path.read_bytes()
+        installer = self.installer.read_bytes()
+        result = self.cli("sync", code=1)
+        self.assertIn("committed", result.stderr)
+        self.assertEqual(self.state_path.read_bytes(), before)
+        self.assertEqual(self.installer.read_bytes(), installer)
+        self.target = self.directory / "new-application"
+        self.cli("init", "--config", str(self.standard / "scaffold/project.json.example"), code=1)
+        self.assertFalse((self.target / ".bu-isciii-deployment/state.json").exists())
+
+    def test_legacy_refresh_migrates_before_sync(self):
         state = self.state()
         del state["standard_revision"]
         self.state_path.write_text(json.dumps(state))
+        self.cli("refresh-state", "--baseline-ref", self.baseline)
         self.cli("sync")
+        self.cli("check")
         self.assertEqual(self.state()["standard_revision"], self.baseline)
-        template = self.standard / "scaffold/templates/common/container_install.sh.tmpl"
-        template.write_text(template.read_text() + "\n# Uncommitted change\n")
-        self.cli("sync")
-        self.assertNotIn("standard_revision", self.state())
 
 
 if __name__ == "__main__":

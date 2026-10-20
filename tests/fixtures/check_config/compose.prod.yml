@@ -42,6 +42,8 @@ services:
 
   example-web-apache:
     image: registry.access.redhat.com/ubi9/httpd-24:latest
+    ports:
+      - "${APACHE_BIND_HOST:?required}:${APACHE_PORT:?required}:8080"
     expose:
       - "8080"
     networks: [deployment_net]

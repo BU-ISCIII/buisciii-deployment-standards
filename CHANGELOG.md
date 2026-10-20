@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add the `port-in-use` configuration check: before building images, the installer fails in production when a host port published by the Compose file is already published by a running container of another deployment (test installs warn). The deployment's own running containers are ignored so redeploys still pass.
 - Install Django build dependencies with `microdnf install --nobest` so UBI images built on subscribed RHEL hosts resolve when the newest `-devel` build in the host repositories does not match the base image.
 - Prevent duplicate forwarded headers when Apache templates set the public forwarded-header contract explicitly.
 - Added schema-managed production and test Keycloak realm templates and a JSON-safe Bash renderer, removing the need for application-side Python realm generation during container installation.

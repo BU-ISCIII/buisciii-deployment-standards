@@ -74,7 +74,7 @@ Compose interpolation files are generated with `write_compose_environment_file <
 
 ## Deployment configuration check
 
-`check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir> <service=profile>...` runs `check_config.sh`, a Bash 4.4+ checker distributed beside these shell files that needs no other interpreter. The wrapper calls it after Compose validation and before any image build. It reads only the generated Compose environment file, the Compose file and the rendered Apache configuration, and cross-checks wiring that Compose cannot validate:
+`check_deployment_configuration <mode> <env-file> <compose-file> <apache-dir> <service=profile>...` runs `check_config.sh`, a Bash 4.4+ checker distributed beside these shell files that needs no other interpreter. The wrapper calls it after Compose validation and before any image build. It reads the generated Compose environment file, the Compose file, the rendered Apache configuration and the published ports of running containers that do not belong to this Compose project, and cross-checks wiring that Compose cannot validate:
 
 | Rule | Finding |
 |---|---|
@@ -89,8 +89,9 @@ Compose interpolation files are generated with `write_compose_environment_file <
 | `keycloak-origin` | Public Keycloak URLs (frontend, Keycloak, issuer, JWKS, admin API) disagree |
 | `keycloak-realm` | Frontend, issuer, JWKS and admin API realms disagree |
 | `canonical-url` | `AUTH_URL` and `NEXTAUTH_URL` differ |
+| `port-in-use` | A host port published in the Compose file is already published by a running container of another deployment |
 
-Production findings fail the installation; test findings are warnings. A single-label host without a similarly named Compose service is always a warning because it may resolve through institutional DNS. Only URL and host values are printed; URL credentials and all other setting values are never printed. Add a failing fixture under `tests/fixtures/check_config/cases/` for every new rule.
+Production findings fail the installation; test findings are warnings. A single-label host without a similarly named Compose service is always a warning because it may resolve through institutional DNS. The running containers come from the selected engine's `ps`, so rootless Podman sees only the invoking user's containers and ports held by host processes are not detected; if the engine cannot be queried, only this rule is skipped. Only URL, host and port values are printed; URL credentials and all other setting values are never printed. Add a failing fixture under `tests/fixtures/check_config/cases/` for every new rule.
 
 The Django profile adds:
 

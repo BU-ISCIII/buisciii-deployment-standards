@@ -11,6 +11,19 @@ source "$repo_root/lib/container/common.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 services=(example-web=nextjs example-api=django second-api=django)
+
+# Stand-ins for the selected engine. The first container belongs to this
+# deployment and must be ignored; the others belong to other deployments.
+fake_engine() {
+    printf '%s\t%s\t%s\n' \
+        aaaaaaaaaaaa example-web '127.0.0.1:3000->3000/tcp' \
+        bbbbbbbbbbbb other-apache '0.0.0.0:443->8080/tcp, [::]:443->8080/tcp' \
+        cccccccccccc other-web '192.0.2.10:3000->3000/tcp, 0.0.0.0:8443->8443/udp, 0.0.0.0:9000-9010->9000-9010/tcp' \
+        dddddddddddd other-db '3306/tcp'
+}
+fake_compose() { echo aaaaaaaaaaaa0123456789abcdef; }
+ENGINE_CMD=(fake_engine)
+COMPOSE_CMD=(fake_compose)
 check_output=""
 check_status=0
 
@@ -117,6 +130,25 @@ run_check production "$work/managed-keycloak.env" "$work/missing-apache" \
     || fail "Compose-managed OIDC values must override standalone defaults: $check_output"
 grep -Fq '0 error(s), 0 warning(s)' <<<"$check_output" \
     || fail "Compose-managed OIDC values must not warn: $check_output"
+
+# A published port inside another deployment's range collides even when only
+# that range overlaps; the same port on another address or protocol does not.
+printf "EXAMPLE_WEB_APP_PORT='9005'\n" > "$work/port-range.override"
+merge_environment "$work/port-range.override" "$work/port-range.env"
+run_check production "$work/port-range.env"
+grep -Fq "ERROR [port-in-use] EXAMPLE_WEB_APP_PORT='9005': example-web publishes host port 9005, which running container 'other-web' already publishes on 0.0.0.0:9000-9010" <<<"$check_output" \
+    || fail "port ranges must be checked: $check_output"
+merge_environment "$fixtures/cases/port-in-use.env" "$work/port-in-use.env"
+run_check production "$work/port-in-use.env"
+[ "$(grep -c 'port-in-use' <<<"$check_output")" -eq 1 ] \
+    || fail "a container with IPv4 and IPv6 bindings must be reported once: $check_output"
+
+# An unavailable engine skips only the port check.
+ENGINE_CMD=(false)
+run_check production "$work/port-in-use.env"
+ENGINE_CMD=(fake_engine)
+[ "$check_status" -eq 0 ] && grep -Fq 'skipping the port-in-use check' <<<"$check_output" \
+    || fail "an unavailable engine must skip the port check: $check_output"
 
 # Apache routes are optional; without them the ServerName requirement disappears.
 merge_environment "$fixtures/cases/allowed-hosts.env" "$work/no-apache.env"

@@ -67,6 +67,12 @@ fi
 
 python3 "$repo_root/scripts/scaffold.py" init "$django_target" \
     --config "$django_config" >/dev/null
+grep -Fq "DJANGO_ALLOWED_HOSTS='localhost,127.0.0.1,CHANGE_ME_DNS_NAME'" \
+    "$django_target/conf/docker_production_settings.txt"
+grep -Fq 'localhost and 127.0.0.1 because the container healthcheck' \
+    "$django_target/conf/docker_production_settings.txt"
+grep -Fq 'repetir la reparacion para aplicar propietarios y modos' \
+    "$django_target/LEAME.md"
 # Django manages the signing key in the rendered settings file; operators do
 # not configure or export an unused second secret.
 if grep -Rq 'DJANGO_SECRET_KEY' "$django_target/conf" \

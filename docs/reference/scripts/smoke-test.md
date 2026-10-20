@@ -18,7 +18,7 @@ It also supplies --test in test mode.
 |---|---:|---|---|
 | --engine docker\|podman | No | docker | Select the engine and Compose frontend. |
 | --compose_file PATH | No | docker-compose.prod.yml, or docker-compose.test.yml with --test | Select the Compose model. |
-| --env_file PATH | No | none | Source generated values and pass the file to Compose in production. |
+| --env_file PATH | No | .env.production.file, or .env.test.file with --test | Source generated values and pass the file to Compose in production. |
 | --test | No | production mode | Select test defaults and invocation mode. |
 | --help | No | — | Print brief usage and exit successfully. |
 
@@ -28,9 +28,9 @@ The script sources deployment/lib/container/common.sh and uses the same engine s
 
 ## Execution order
 
-1. Parse options and choose the default Compose file.
-2. Select and validate the requested container engine/Compose frontend.
-3. If --env_file is non-empty, source it with automatic export enabled.
+1. Parse options and choose the default Compose and generated environment files from the repository root. Explicit paths are relative to the current directory.
+2. Require the environment file and load it with automatic export enabled. If missing, report how to run the installer or supply --env_file.
+3. Select and validate the requested container engine/Compose frontend.
 4. Run Compose config for the selected model.
 5. Run generated profile checks for each application service.
 6. For each application service, resolve its normalized service prefix, require PREFIX_APP_PORT, and request its host-loopback health URL.
@@ -81,7 +81,7 @@ Apache, Keycloak, Nextstrain, and Samba currently contribute no generated smoke 
 
 ## Test and production behavior
 
-The check sequence is identical in both modes. --test changes the default Compose filename and tells the shared Compose helper not to inject the production env file automatically. The explicitly supplied generated env file is still sourced so host HTTP checks use the rendered service ports.
+The check sequence is identical in both modes. --test changes the default Compose and generated environment filenames and tells the shared Compose helper not to inject the production env file automatically. The selected generated env file is still sourced so host HTTP checks use the rendered service ports.
 
 Different Compose models may publish different host addresses or provide different topology, but all application HTTP checks still target 127.0.0.1:APP_PORT. No test credentials, fixtures, or test-only database checks are used by the smoke script.
 
@@ -141,11 +141,11 @@ Do not edit managed generated code or remove a failing contract check in one app
 
 Production rerun:
 
-    bash scripts/smoke_test.sh --engine docker --compose_file docker-compose.prod.yml --env_file .env.production.file
+    bash scripts/smoke_test.sh --engine docker
 
 Test rerun:
 
-    bash scripts/smoke_test.sh --test --engine docker --compose_file docker-compose.test.yml --env_file .env.test.file
+    bash scripts/smoke_test.sh --test --engine docker
 
 The generated env file is not cleaned up by container_install.sh, so the check can be rerun while that protected file and the selected Compose deployment remain available.
 
